@@ -114,25 +114,7 @@ impl PortAllocator {
 
 ### Instance Registry
 
-SQLite table for tracking all instances:
-
-```sql
--- In ~/.maos/instances.db
-CREATE TABLE instances (
-    id TEXT PRIMARY KEY,
-    pid INTEGER NOT NULL,
-    port INTEGER NOT NULL,
-    workspace_hash TEXT NOT NULL,
-    workspace_path TEXT NOT NULL,
-    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    last_heartbeat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    status TEXT DEFAULT 'running' -- running, stopped, crashed
-);
-
-CREATE INDEX idx_workspace_hash ON instances(workspace_hash);
-CREATE INDEX idx_port ON instances(port);
-CREATE INDEX idx_status ON instances(status);
-```
+Instance tracking is managed through the global instances database documented in the [Storage Schema Reference](../references/storage-schema.md#global-instance-database-schema). The schema includes fields for tracking instance ID, PID, port, workspace information, and health status.
 
 ### Instance Discovery
 
@@ -339,6 +321,7 @@ maos instances info <instance-id>
 7. CLI management commands
 
 ## References
+- [Storage Schema Reference](../references/storage-schema.md) - Instance database schema
 - Unix advisory file locking (flock)
 - TCP port binding and SO_REUSEADDR
 - Process supervision patterns
@@ -347,4 +330,4 @@ maos instances info <instance-id>
 ---
 *Date: 2025-07-09*  
 *Author: Marvin (Claude)*  
-*Reviewers: @clafollett (Cali LaFollettLaFollett Labs LLC)*
+*Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*

@@ -107,4 +107,4 @@ We will use Domain-Driven Design (DDD) principles adapted for our MCP server arc
 ---
 *Date: 2025-07-09*  
 *Author: Marvin (Claude)*  
-*Reviewers: @clafollett (Cali LaFollettLaFollett Labs LLC)*
+*Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*

@@ -50,257 +50,21 @@ MAOS will be implemented as an MCP server that exposes orchestration capabilitie
 └──────────────────────────────────┘
 ```
 
-### MCP Tools
+### MCP Tools and Resources
 
-#### 1. Orchestrate Tool
-```json
-{
-  "name": "maos/orchestrate",
-  "description": "Start a multi-agent orchestration session",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "objective": {
-        "type": "string",
-        "description": "High-level goal to accomplish"
-      },
-      "agents": {
-        "type": "array",
-        "items": {
-          "type": "object",
-          "properties": {
-            "role": {
-              "oneOf": [
-                {
-                  "type": "string",
-                  "enum": ["architect", "engineer", "researcher", "qa", "pm", "devops", "security", "data_scientist", "designer", "documenter", "reviewer", "analyst", "tester"],
-                  "description": "Predefined agent role"
-                },
-                {
-                  "type": "object",
-                  "properties": {
-                    "name": {
-                      "type": "string",
-                      "description": "Custom role name"
-                    },
-                    "description": {
-                      "type": "string",
-                      "description": "Brief role overview"
-                    },
-                    "responsibilities": {
-                      "type": "string",
-                      "description": "Detailed list of responsibilities"
-                    }
-                  },
-                  "required": ["name", "description"],
-                  "description": "Custom agent role definition"
-                }
-              ]
-            },
-            "task": {
-              "type": "string",
-              "description": "Specific task for this agent"
-            },
-            "instance_suffix": {
-              "type": "string",
-              "description": "Optional suffix for agent identification (e.g., 'frontend', 'backend')"
-            }
-          },
-          "required": ["role", "task"]
-        }
-      },
-      "strategy": {
-        "type": "string",
-        "enum": ["parallel", "sequential", "adaptive", "pipeline"],
-        "default": "parallel"
-      },
-      "max_agents_per_role": {
-        "type": "object",
-        "description": "Maximum number of agents per role name",
-        "additionalProperties": {
-          "type": "integer",
-          "minimum": 1
-        }
-      }
-    },
-    "required": ["objective"]
-  }
-}
-```
+MAOS exposes orchestration capabilities through five MCP tools and three resources. The complete tool definitions and schemas are documented in the [MCP Tools Reference](../references/mcp-tools.md).
 
-#### 2. Spawn Agent Tool
-```json
-{
-  "name": "maos/spawn-agent",
-  "description": "Spawn a specialized agent for a specific task",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "role": {
-        "oneOf": [
-          {
-            "type": "string",
-            "enum": ["architect", "engineer", "researcher", "qa", "pm", "devops", "security", "data_scientist", "designer", "documenter", "reviewer", "analyst", "tester"],
-            "description": "Predefined agent role"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Custom role name"
-              },
-              "description": {
-                "type": "string",
-                "description": "Brief role overview"
-              },
-              "responsibilities": {
-                "type": "string",
-                "description": "Detailed list of responsibilities"
-              }
-            },
-            "required": ["name", "description"],
-            "description": "Custom agent role definition"
-          }
-        ]
-      },
-      "task": {
-        "type": "string",
-        "description": "Task description for the agent"
-      },
-      "session_id": {
-        "type": "string",
-        "description": "Session to add agent to"
-      },
-      "instance_suffix": {
-        "type": "string",
-        "description": "Optional suffix for agent identification"
-      },
-      "dependencies": {
-        "type": "array",
-        "items": { "type": "string" },
-        "description": "Agent IDs this agent depends on"
-      },
-      "context": {
-        "type": "object",
-        "description": "Additional context for the agent"
-      },
-      "template_override": {
-        "type": "object",
-        "properties": {
-          "prompt_template": {
-            "type": "string",
-            "description": "Custom prompt template for this agent"
-          },
-          "timeout_seconds": {
-            "type": "integer",
-            "description": "Override default timeout"
-          },
-          "max_memory_mb": {
-            "type": "integer",
-            "description": "Override memory limit"
-          }
-        },
-        "description": "Override default template settings"
-      }
-    },
-    "required": ["role", "task", "session_id"]
-  }
-}
-```
+**Tools:**
+1. `maos/orchestrate` - Start multi-agent orchestration sessions
+2. `maos/spawn-agent` - Spawn individual agents with specific tasks
+3. `maos/agent-message` - Enable inter-agent communication
+4. `maos/session-status` - Query orchestration session status
+5. `maos/list-roles` - List available agent roles
 
-#### 3. Inter-Agent Messaging Tool
-```json
-{
-  "name": "maos/agent-message", 
-  "description": "Send a message between agents",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "from_agent": { "type": "string" },
-      "to_agent": { 
-        "type": "string",
-        "description": "Target agent ID or role-based selector (e.g., 'engineer_*', 'all_engineers')"
-      },
-      "message": { "type": "string" },
-      "type": {
-        "type": "string",
-        "enum": ["request", "response", "notification", "broadcast"],
-        "default": "notification"
-      }
-    },
-    "required": ["from_agent", "to_agent", "message"]
-  }
-}
-```
-
-#### 4. Session Status Tool
-```json
-{
-  "name": "maos/session-status",
-  "description": "Get the current status of an orchestration session",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "session_id": { "type": "string" },
-      "include_agents": { "type": "boolean", "default": true },
-      "include_messages": { "type": "boolean", "default": false }
-    },
-    "required": ["session_id"]
-  }
-}
-```
-
-#### 5. List Roles Tool
-```json
-{
-  "name": "maos/list-roles",
-  "description": "List available predefined roles and active custom roles",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "include_predefined": { "type": "boolean", "default": true },
-      "include_custom": { "type": "boolean", "default": true },
-      "session_id": { 
-        "type": "string", 
-        "description": "Optional: List only roles active in a specific session"
-      }
-    }
-  }
-}
-```
-
-### MCP Resources
-
-#### 1. Agent Output Streams
-```json
-{
-  "uri": "maos://sessions/{session_id}/agents/{agent_id}/output",
-  "name": "Agent Output Stream",
-  "description": "Real-time output from a specific agent",
-  "mimeType": "text/event-stream"
-}
-```
-
-#### 2. Session Status
-```json
-{
-  "uri": "maos://sessions/{session_id}/status",
-  "name": "Session Status",
-  "description": "Current status of all agents in a session",
-  "mimeType": "application/json"
-}
-```
-
-#### 3. Agent Registry
-```json
-{
-  "uri": "maos://agents/available",
-  "name": "Available Agents",
-  "description": "List of registered CLI tools and their capabilities",
-  "mimeType": "application/json"
-}
-```
+**Resources:**
+1. Agent output streams (SSE) - Real-time agent output
+2. Session status - Current state of all agents
+3. Agent registry - Available roles and capabilities
 
 ### SSE Streaming Implementation
 
@@ -336,20 +100,7 @@ impl McpServer {
 
 ### MCP Server Configuration
 
-```json
-{
-  "name": "maos",
-  "version": "1.0.0",
-  "description": "Multi-Agent Orchestration System",
-  "transport": {
-    "type": "http",
-    "port": 3000,
-    "features": ["sse"]
-  },
-  "tools": ["maos/orchestrate", "maos/spawn-agent", "maos/agent-message", "maos/session-status", "maos/list-roles"],
-  "resources": ["sessions", "agents", "templates"]
-}
-```
+The server configuration and transport details are documented in the [MCP Tools Reference](../references/mcp-tools.md#mcp-server-configuration).
 
 ## Implementation Strategy
 
@@ -391,6 +142,8 @@ impl McpServer {
 - Contribute to MCP standard for missing features
 
 ## References
+- [MCP Tools Reference](../references/mcp-tools.md) - Complete tool and resource definitions
+- [Agent Roles Reference](../references/agent-roles.md) - Agent role specifications
 - [Model Context Protocol Specification](https://modelcontextprotocol.io)
 - [Claude Code MCP Documentation](https://docs.anthropic.com/en/docs/claude-code/mcp)
 - SSE (Server-Sent Events) for real-time streaming
@@ -398,4 +151,4 @@ impl McpServer {
 ---
 *Date: 2025-07-09*  
 *Author: Marvin (Claude)*  
-*Reviewers: @clafollett (Cali LaFollettLaFollett Labs LLC)*
+*Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*

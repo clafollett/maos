@@ -39,105 +39,12 @@ We will implement comprehensive agent lifecycle management with flexible role-ba
 
 ### Agent Role Definitions
 
-```rust
-#[derive(Clone, Debug)]
-pub struct AgentRole {
-    pub name: String,              // e.g., "engineer", "architect", "custom_analyst"
-    pub description: String,       // Brief role overview
-    pub responsibilities: String,  // Detailed list of responsibilities
-    pub is_predefined: bool,       // true for built-in roles, false for custom
-    pub instance_suffix: Option<String>, // Optional descriptive suffix
-}
+Agent roles and templates are comprehensively documented in the [Agent Roles Reference](../references/agent-roles.md). This includes:
 
-// Predefined role constants
-pub mod PredefinedRoles {
-    pub const ARCHITECT: &str = "architect";
-    pub const ENGINEER: &str = "engineer";
-    pub const RESEARCHER: &str = "researcher";
-    pub const QA: &str = "qa";
-    pub const PM: &str = "pm";
-    pub const DEVOPS: &str = "devops";
-    pub const SECURITY: &str = "security";
-    pub const DATA_SCIENTIST: &str = "data_scientist";
-    pub const DESIGNER: &str = "designer";
-    pub const DOCUMENTER: &str = "documenter";
-    pub const REVIEWER: &str = "reviewer";
-    pub const ANALYST: &str = "analyst";
-    pub const TESTER: &str = "tester";
-}
-
-pub struct AgentTemplate {
-    pub role_name: String,
-    pub capabilities: Vec<String>,
-    pub default_timeout: Duration,
-    pub max_memory_mb: u32,
-    pub required_tools: Vec<String>,
-    pub prompt_template: String,
-}
-
-lazy_static! {
-    static ref PREDEFINED_TEMPLATES: HashMap<String, AgentTemplate> = {
-        let mut templates = HashMap::new();
-        
-        templates.insert(PredefinedRoles::ARCHITECT.to_string(), AgentTemplate {
-            role_name: PredefinedRoles::ARCHITECT.to_string(),
-            capabilities: vec![
-                "system-design".to_string(),
-                "technical-specifications".to_string(),
-                "architecture-diagrams".to_string(),
-            ],
-            default_timeout: Duration::from_secs(1800), // 30 minutes
-            max_memory_mb: 2048,
-            required_tools: vec!["read", "write"],
-            prompt_template: include_str!("templates/architect.txt"),
-        });
-        
-        templates.insert(PredefinedRoles::ENGINEER.to_string(), AgentTemplate {
-            role_name: PredefinedRoles::ENGINEER.to_string(),
-            capabilities: vec![
-                "code-implementation".to_string(),
-                "testing".to_string(),
-                "debugging".to_string(),
-            ],
-            default_timeout: Duration::from_secs(3600), // 60 minutes
-            max_memory_mb: 4096,
-            required_tools: vec!["read", "write", "bash"],
-            prompt_template: include_str!("templates/engineer.txt"),
-        });
-        
-        // Additional predefined roles
-        templates.insert(PredefinedRoles::DEVOPS.to_string(), AgentTemplate {
-            role_name: PredefinedRoles::DEVOPS.to_string(),
-            capabilities: vec![
-                "infrastructure".to_string(),
-                "deployment".to_string(),
-                "ci-cd".to_string(),
-            ],
-            default_timeout: Duration::from_secs(2400), // 40 minutes
-            max_memory_mb: 3072,
-            required_tools: vec!["read", "write", "bash"],
-            prompt_template: include_str!("templates/devops.txt"),
-        });
-        
-        templates.insert(PredefinedRoles::SECURITY.to_string(), AgentTemplate {
-            role_name: PredefinedRoles::SECURITY.to_string(),
-            capabilities: vec![
-                "security-analysis".to_string(),
-                "vulnerability-assessment".to_string(),
-                "compliance-checking".to_string(),
-            ],
-            default_timeout: Duration::from_secs(2400),
-            max_memory_mb: 2048,
-            required_tools: vec!["read", "write"],
-            prompt_template: include_str!("templates/security.txt"),
-        });
-        
-        // ... other predefined roles
-        
-        templates
-    };
-}
-```
+- **AgentRole structure**: Core properties for both predefined and custom roles
+- **Predefined roles**: 13 built-in roles with specific capabilities and resource limits
+- **AgentTemplate**: Runtime configuration including timeouts, memory limits, and required tools
+- **Custom role support**: Dynamic template generation for user-defined roles
 
 ### Process Management
 
@@ -341,49 +248,12 @@ impl ProcessManager {
 
 ### Template Generation for Custom Roles
 
-```rust
-pub struct TemplateGenerator {
-    base_timeout: Duration,
-    base_memory_mb: u32,
-}
+Template generation for custom roles is handled by the TemplateGenerator, which automatically:
+- Infers capabilities from the role description
+- Determines required tools based on capabilities
+- Generates appropriate prompt templates
 
-impl TemplateGenerator {
-    pub async fn generate_custom_template(&self, role: &AgentRole) -> Result<AgentTemplate> {
-        // Generate a template based on role description
-        let capabilities = self.infer_capabilities(&role.description);
-        let required_tools = self.infer_required_tools(&capabilities);
-        
-        let template = AgentTemplate {
-            role_name: role.name.clone(),
-            capabilities,
-            default_timeout: self.base_timeout,
-            max_memory_mb: self.base_memory_mb,
-            required_tools,
-            prompt_template: self.generate_prompt_template(role),
-        };
-        
-        Ok(template)
-    }
-    
-    fn generate_prompt_template(&self, role: &AgentRole) -> String {
-        format!(r#"
-You are a {} agent in the MAOS multi-agent orchestration system.
-
-Role Description: {}
-
-Your responsibilities:
-{}
-
-Work within your isolated workspace while collaborating through shared context.
-Follow the standard MAOS communication protocols for inter-agent messaging.
-"#, 
-            role.name,
-            role.description,
-            role.responsibilities
-        )
-    }
-}
-```
+The complete template generation logic and prompt format are documented in the [Agent Roles Reference](../references/agent-roles.md#custom-role-support).
 
 ### Resource Management
 
@@ -520,6 +390,8 @@ impl ProcessManager {
 - Allow users to provide custom templates for their roles
 
 ## References
+- [Agent Roles Reference](../references/agent-roles.md) - Complete role definitions and templates
+- [Environment Variables Reference](../references/environment-variables.md) - Agent configuration
 - Tokio process management documentation
 - Linux resource limits (setrlimit)
 - Process supervision patterns
@@ -527,4 +399,4 @@ impl ProcessManager {
 ---
 *Date: 2025-07-09*  
 *Author: Marvin (Claude)*  
-*Reviewers: @clafollett (Cali LaFollettLaFollett Labs LLC)*
+*Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*

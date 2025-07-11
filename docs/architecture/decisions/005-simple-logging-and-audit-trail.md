@@ -17,21 +17,11 @@ We will implement simple, file-based logging instead of complex event sourcing.
 
 ### Logging Architecture
 
-```
-~/.maos/
-├── projects/
-│   └── {workspace-hash}/
-│       └── sessions/
-│           └── {session-id}/
-│               ├── session.log         # Main session event log
-│               └── agents/
-│                   └── {agent-id}/
-│                       ├── stdout.log   # Agent output
-│                       ├── stderr.log   # Agent errors
-│                       └── events.log   # Agent lifecycle events
-└── logs/
-    └── {instance-id}.log              # MAOS server logs
-```
+Logging is integrated into the main storage structure documented in the [Storage Schema Reference](../references/storage-schema.md). Key log files include:
+
+- **Session Logs**: `{session-dir}/session.log` - Main orchestration event log
+- **Agent Logs**: `{agent-dir}/stdout.log`, `stderr.log`, `events.log` - Per-agent outputs
+- **Server Logs**: `~/.maos/logs/{instance-id}.log` - MAOS server operation logs
 
 ### Session Event Log Format
 
@@ -203,6 +193,7 @@ This replaces the original complex event sourcing approach with pragmatic loggin
 | Domain events | Log entries |
 
 ## References
+- [Storage Schema Reference](../references/storage-schema.md) - File system structure
 - The Log: What every software engineer should know about real-time data's unifying abstraction
 - JSONL (JSON Lines) format specification
 - Unix philosophy: text streams as universal interface
@@ -210,4 +201,4 @@ This replaces the original complex event sourcing approach with pragmatic loggin
 ---
 *Date: 2025-07-09*  
 *Author: Marvin (Claude)*  
-*Reviewers: @clafollett (Cali LaFollettLaFollett Labs LLC)*
+*Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*

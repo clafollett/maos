@@ -59,61 +59,11 @@ pub enum ExecutionStrategy {
 
 ### Session Persistence
 
-SQLite schema for session tracking:
+Session tracking is managed through the project database schema documented in the [Storage Schema Reference](../references/storage-schema.md#project-database-schema). Key tables include:
 
-```sql
--- In project's SQLite database
-CREATE TABLE sessions (
-    id TEXT PRIMARY KEY,
-    workspace_hash TEXT NOT NULL,
-    objective TEXT NOT NULL,
-    strategy TEXT NOT NULL,
-    state TEXT NOT NULL,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    agent_count INTEGER DEFAULT 0,
-    completed_agents INTEGER DEFAULT 0,
-    failed_agents INTEGER DEFAULT 0,
-    metadata JSON,
-    error_message TEXT,
-    
-    INDEX idx_state (state),
-    INDEX idx_workspace (workspace_hash),
-    INDEX idx_created (created_at)
-);
-
--- Agent assignments
-CREATE TABLE session_agents (
-    session_id TEXT NOT NULL,
-    agent_id TEXT NOT NULL,
-    role TEXT NOT NULL,
-    task TEXT NOT NULL,
-    state TEXT NOT NULL,
-    dependencies JSON,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    started_at TIMESTAMP,
-    completed_at TIMESTAMP,
-    exit_code INTEGER,
-    error_message TEXT,
-    
-    PRIMARY KEY (session_id, agent_id),
-    FOREIGN KEY (session_id) REFERENCES sessions(id)
-);
-
--- Session events for audit trail
-CREATE TABLE session_events (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    session_id TEXT NOT NULL,
-    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    event_type TEXT NOT NULL,
-    agent_id TEXT,
-    data JSON,
-    
-    FOREIGN KEY (session_id) REFERENCES sessions(id),
-    INDEX idx_session_time (session_id, timestamp)
-);
-```
+- **sessions**: Tracks orchestration sessions with state, strategy, and progress
+- **session_agents**: Manages agent assignments, tasks, and dependencies
+- **session_events**: Provides audit trail for session lifecycle events
 
 ### Session Lifecycle Manager
 
@@ -607,6 +557,9 @@ impl SessionCleaner {
 - Clear recovery procedures and documentation
 
 ## References
+- [Storage Schema Reference](../references/storage-schema.md) - Session database schemas
+- [Agent Roles Reference](../references/agent-roles.md) - Agent identification
+- [Environment Variables Reference](../references/environment-variables.md) - Session variables
 - Workflow orchestration patterns
 - State machine design
 - Job scheduling systems
@@ -615,4 +568,4 @@ impl SessionCleaner {
 ---
 *Date: 2025-07-09*  
 *Author: Marvin (Claude)*  
-*Reviewers: @clafollett (Cali LaFollettLaFollett Labs LLC)*
+*Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*

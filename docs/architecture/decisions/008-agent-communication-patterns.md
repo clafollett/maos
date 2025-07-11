@@ -58,53 +58,13 @@ We will implement a hybrid communication system using:
 
 Agents share artifacts through a structured directory:
 
-```
-~/.maos/projects/{workspace-hash}/sessions/{session-id}/shared/
-├── context/
-│   ├── architecture/
-│   │   ├── system-design.md
-│   │   ├── api-spec.yaml
-│   │   └── diagrams/
-│   ├── research/
-│   │   ├── tech-evaluation.md
-│   │   └── benchmarks.json
-│   ├── implementation/
-│   │   ├── modules.json
-│   │   └── interfaces.ts
-│   └── qa/
-│       ├── test-plan.md
-│       └── coverage-report.html
-└── messages/
-    ├── inbox/
-    │   └── {agent-id}/
-    │       └── {timestamp}-{from}-{msgid}.json
-    └── outbox/
-        └── {agent-id}/
-            └── {timestamp}-{to}-{msgid}.json
-```
+The shared directory structure for context and messages is documented in the [Storage Schema Reference](../references/storage-schema.md#file-system-structure). Key directories include:
+- `shared/context/` - Shared specifications, designs, and artifacts
+- `shared/messages/` - Inter-agent message queues
 
 ### 2. Message Format
 
-Inter-agent messages use a standardized JSON format:
-
-```json
-{
-  "id": "msg_abc123",
-  "timestamp": "2024-01-15T10:30:00Z",
-  "from": "agent_architect_001",
-  "to": "agent_engineer_002",
-  "type": "request",
-  "subject": "API endpoint clarification",
-  "body": "Can you clarify the authentication flow for the /api/users endpoint?",
-  "context": {
-    "file": "shared/context/architecture/api-spec.yaml",
-    "line": 145
-  },
-  "priority": "normal",
-  "requires_response": true,
-  "thread_id": "thread_xyz789"
-}
-```
+Inter-agent messages follow a standardized JSON format documented in the [Storage Schema Reference](../references/storage-schema.md#message-file-format). Messages include sender/receiver identification, type classification, content body, and metadata for routing and correlation.
 
 ### 3. Message Types and Patterns
 
@@ -281,120 +241,14 @@ impl AgentDiscovery {
 
 ### 5. Agent-Side Communication
 
-Agents include communication helpers in their environment:
+Agents access their environment configuration through MAOS environment variables documented in the [Environment Variables Reference](../references/environment-variables.md). Communication helpers are provided to simplify message sending, receiving, and shared context access.
 
-```python
-# Example helper script available to agents
-import json
-import os
-from pathlib import Path
-from datetime import datetime
-
-class MAOSCommunicator:
-    def __init__(self):
-        self.agent_id = os.environ['MAOS_AGENT_ID']
-        self.agent_role = os.environ['MAOS_AGENT_ROLE']
-        self.session_id = os.environ['MAOS_SESSION_ID']
-        self.messages_dir = Path(os.environ['MAOS_MESSAGE_DIR'])
-        self.shared_context = Path(os.environ['MAOS_SHARED_CONTEXT'])
-    
-    def send_message(self, to_agent, message_type, subject, body, **kwargs):
-        """Send a message to another agent or role group
-        
-        Args:
-            to_agent: Can be:
-                - Specific agent ID: 'agent_engineer_1_abc123'
-                - All agents: 'all'
-                - All of a role: 'all_engineers'
-                - Pattern match: 'engineer_*'
-        """
-        message = {
-            "id": f"msg_{datetime.now().timestamp()}",
-            "timestamp": datetime.utcnow().isoformat(),
-            "from": self.agent_id,
-            "to": to_agent,
-            "type": message_type,
-            "subject": subject,
-            "body": body,
-            **kwargs
-        }
-        
-        # Write to outbox (MAOS will route it)
-        outbox = self.messages_dir / "outbox" / self.agent_id
-        outbox.mkdir(parents=True, exist_ok=True)
-        
-        filename = f"{message['timestamp']}-{to_agent}-{message['id']}.json"
-        with open(outbox / filename, 'w') as f:
-            json.dump(message, f, indent=2)
-        
-        return message['id']
-    
-    def read_messages(self, message_type=None):
-        """Read messages from inbox"""
-        inbox = self.messages_dir / "inbox" / self.agent_id
-        if not inbox.exists():
-            return []
-        
-        messages = []
-        for msg_file in inbox.glob("*.json"):
-            with open(msg_file) as f:
-                msg = json.load(f)
-                if message_type is None or msg['type'] == message_type:
-                    messages.append(msg)
-        
-        return sorted(messages, key=lambda m: m['timestamp'])
-    
-    def share_artifact(self, category, filename, content):
-        """Share a file in the shared context"""
-        category_dir = self.shared_context / category
-        category_dir.mkdir(parents=True, exist_ok=True)
-        
-        filepath = category_dir / filename
-        with open(filepath, 'w') as f:
-            f.write(content)
-        
-        # Announce the artifact
-        self.send_message(
-            "all",
-            "announcement",
-            f"New {category} artifact: {filename}",
-            f"Created {filepath}",
-            context={"file": str(filepath)}
-        )
-        
-        return filepath
-    
-    def broadcast_to_role(self, role_name, message_type, subject, body, **kwargs):
-        """Send a message to all agents of a specific role"""
-        return self.send_message(f"all_{role_name}", message_type, subject, body, **kwargs)
-    
-    def request_from_role(self, role_name, subject, body, **kwargs):
-        """Request help from any agent with a specific role"""
-        return self.send_message(
-            f"all_{role_name}", 
-            "request", 
-            subject, 
-            body,
-            requires_response=True,
-            **kwargs
-        )
-    
-    def get_agents_by_role(self):
-        """Get a summary of agents by role (parsed from agent IDs in messages)"""
-        role_counts = {}
-        
-        # Parse received messages to identify active agents
-        messages = self.read_messages()
-        for msg in messages:
-            sender = msg.get('from', '')
-            # Extract role from agent ID format: agent_{role}_{instance}_{id}
-            parts = sender.split('_')
-            if len(parts) >= 3 and parts[0] == 'agent':
-                role = parts[1]
-                role_counts[role] = role_counts.get(role, 0) + 1
-        
-        return role_counts
-```
+Example helper capabilities include:
+- Sending messages to specific agents or role groups
+- Reading messages from inbox
+- Sharing artifacts in the shared context directory
+- Broadcasting announcements to all agents
+- Requesting help from specific roles
 
 ### 6. Status Updates via stdout
 
@@ -537,6 +391,9 @@ impl FileLockManager {
 - Clear documentation and examples
 
 ## References
+- [Storage Schema Reference](../references/storage-schema.md) - File structure and message format
+- [Environment Variables Reference](../references/environment-variables.md) - Agent configuration
+- [Agent Roles Reference](../references/agent-roles.md) - Agent identification patterns
 - Unix philosophy: Everything is a file
 - Actor model for message passing
 - Enterprise Integration Patterns
@@ -545,4 +402,4 @@ impl FileLockManager {
 ---
 *Date: 2025-07-09*  
 *Author: Marvin (Claude)*  
-*Reviewers: @clafollett (Cali LaFollettLaFollett Labs LLC)*
+*Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*

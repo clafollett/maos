@@ -75,147 +75,11 @@ pub async fn spawn_agent(
 
 ### Agent Prompt Template
 
-```rust
-const AGENT_PROMPT_TEMPLATE: &str = r#"
-You are a {role_name} agent in the MAOS multi-agent orchestration system.
-
-Identity:
-- Agent ID: {agent_id}
-- Session: {session_id}
-- Role: {role_name}
-- Instance: {instance_number}
-{custom_role_desc}
-
-Environment:
-- Your workspace: $MAOS_WORKSPACE
-- Shared context: $MAOS_SHARED_CONTEXT
-- Message queue: $MAOS_MESSAGE_DIR
-- Project root: $MAOS_PROJECT_ROOT
-
-Task: {task}
-
-{role_instructions}
-
-Communication Protocol:
-1. Write specifications/designs to $MAOS_SHARED_CONTEXT
-2. Send messages to other agents via $MAOS_MESSAGE_DIR
-3. Output status updates as JSON to stdout:
-   {{"type": "status", "message": "...", "progress": 0.5}}
-4. Signal completion with:
-   {{"type": "complete", "result": "...", "outputs": ["file1", "file2"]}}
-
-Work within your workspace. You can read from shared context and project root, but only write to your workspace and designated shared areas.
-"#;
-```
+The base agent prompt template and communication protocol are documented in the [Agent Roles Reference](../references/agent-roles.md#base-prompt-template).
 
 ### Role-Specific Instructions
 
-```rust
-struct RoleInstructions {
-    predefined_instructions: HashMap<String, &'static str>,
-}
-
-impl RoleInstructions {
-    fn new() -> Self {
-        let mut instructions = HashMap::new();
-        
-        instructions.insert("architect".to_string(), r#"
-As an Architect agent:
-- Design system architecture and technical specifications
-- Create diagrams and documentation in your workspace
-- Write specifications to $MAOS_SHARED_CONTEXT/architecture/
-- Consider scalability, maintainability, and best practices
-"#);
-        
-        instructions.insert("engineer".to_string(), r#"
-As an Engineer agent:
-- Implement code based on architectural specifications
-- Read specs from $MAOS_SHARED_CONTEXT/architecture/
-- Write clean, well-tested code in your workspace
-- Follow the project's coding standards
-"#);
-        
-        instructions.insert("researcher".to_string(), r#"
-As a Researcher agent:
-- Investigate technologies, libraries, and best practices
-- Document findings in $MAOS_SHARED_CONTEXT/research/
-- Provide recommendations with pros/cons analysis
-- Focus on evidence-based conclusions
-"#);
-        
-        instructions.insert("qa".to_string(), r#"
-As a QA agent:
-- Review code and specifications for quality
-- Write and execute tests in your workspace
-- Document issues in $MAOS_SHARED_CONTEXT/qa/
-- Ensure compliance with requirements
-"#);
-        
-        instructions.insert("pm".to_string(), r#"
-As a Project Manager agent:
-- Coordinate between other agents
-- Track progress and dependencies
-- Update project status in $MAOS_SHARED_CONTEXT/status/
-- Ensure deliverables meet objectives
-"#);
-        
-        // Additional predefined roles
-        instructions.insert("devops".to_string(), r#"
-As a DevOps agent:
-- Manage infrastructure and deployment pipelines
-- Create and maintain CI/CD configurations
-- Write infrastructure as code in your workspace
-- Document deployment procedures in $MAOS_SHARED_CONTEXT/devops/
-"#);
-        
-        instructions.insert("security".to_string(), r#"
-As a Security agent:
-- Analyze code and architecture for security vulnerabilities
-- Perform threat modeling and risk assessment
-- Document security findings in $MAOS_SHARED_CONTEXT/security/
-- Recommend security best practices and mitigations
-"#);
-        
-        instructions.insert("data_scientist".to_string(), r#"
-As a Data Scientist agent:
-- Analyze data requirements and design data pipelines
-- Develop machine learning models and experiments
-- Document analysis results in $MAOS_SHARED_CONTEXT/data/
-- Provide data-driven insights and recommendations
-"#);
-        
-        Self { predefined_instructions: instructions }
-    }
-    
-    fn get_instructions(&self, role: &AgentRole) -> String {
-        if role.is_predefined {
-            self.predefined_instructions
-                .get(&role.name)
-                .map(|s| s.to_string())
-                .unwrap_or_else(|| self.generate_custom_instructions(role))
-        } else {
-            self.generate_custom_instructions(role)
-        }
-    }
-    
-    fn generate_custom_instructions(&self, role: &AgentRole) -> String {
-        format!(r#"
-As a {} agent:
-{}
-
-General guidelines:
-- Work within your isolated workspace
-- Share important artifacts in $MAOS_SHARED_CONTEXT/
-- Communicate with other agents through the message system
-- Follow the project's standards and best practices
-- Document your work clearly for other agents
-"#, 
-            role.name,
-            role.description
-        )
-    }
-}
-```
+Predefined role instructions and custom role generation are documented in the [Agent Roles Reference](../references/agent-roles.md#predefined-roles). The system includes instructions for all 13 predefined roles and automatically generates appropriate instructions for custom roles.
 
 ### Output Streaming
 
@@ -392,19 +256,7 @@ pub fn parse_cli_error(cli_type: CliType, stderr: &str, exit_code: i32) -> Agent
 
 ## Environment Variables
 
-All MAOS-specific environment variables:
-
-| Variable | Purpose | Example |
-|----------|---------|---------|
-| `MAOS_AGENT_ROLE` | Agent's role name | `engineer`, `custom_analyst` |
-| `MAOS_AGENT_ROLE_DESC` | Role description (custom roles) | `Analyze API performance` |
-| `MAOS_AGENT_INSTANCE` | Instance number for this role | `1`, `2`, `3` |
-| `MAOS_SESSION_ID` | Current orchestration session | `sess_abc123` |
-| `MAOS_AGENT_ID` | Unique agent identifier | `agent_engineer_2_xyz789` |
-| `MAOS_WORKSPACE` | Agent's isolated workspace | `~/.maos/.../workspace` |
-| `MAOS_SHARED_CONTEXT` | Shared specifications directory | `~/.maos/.../shared/context` |
-| `MAOS_MESSAGE_DIR` | Inter-agent message queue | `~/.maos/.../shared/messages` |
-| `MAOS_PROJECT_ROOT` | Original project directory | `/Users/me/myproject` |
+MAOS uses environment variables to configure spawned agents. The complete list of variables and their usage is documented in the [Environment Variables Reference](../references/environment-variables.md).
 
 ## Consequences
 
@@ -429,6 +281,8 @@ All MAOS-specific environment variables:
 - Platform-specific handling where needed
 
 ## References
+- [Agent Roles Reference](../references/agent-roles.md) - Role definitions and templates
+- [Environment Variables Reference](../references/environment-variables.md) - Complete variable list
 - Claude Code CLI documentation
 - Unix process model and environment variables
 - MCP streaming specifications
@@ -436,4 +290,4 @@ All MAOS-specific environment variables:
 ---
 *Date: 2025-07-09*  
 *Author: Marvin (Claude)*  
-*Reviewers: @clafollett (Cali LaFollettLaFollett Labs LLC)*
+*Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*
