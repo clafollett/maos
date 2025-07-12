@@ -196,9 +196,9 @@ impl DynamicTemplateBuilder {
         let role_text = format!("{} {}", role.name, role.description).to_lowercase();
         
         if role_text.contains("architect") || role_text.contains("design") {
-            Duration::from_secs(1800) // 30 minutes
+            Duration::from_secs(3600) // 1 hour
         } else if role_text.contains("implement") || role_text.contains("code") {
-            Duration::from_secs(3600) // 60 minutes
+            Duration::from_secs(7200) // 2 hours
         } else {
             self.default_timeout
         }

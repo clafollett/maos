@@ -7,12 +7,12 @@ use tokio::fs;
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct ExecutionPlan {
     phases: Vec<Phase>,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 struct Phase {
     name: String,
     parallel: bool,
@@ -33,6 +33,14 @@ struct StreamEvent {
     data: Value,
 }
 
+#[derive(Debug)]
+struct ResumeInfo {
+    agent_dir: String,
+    role: String,
+    task: String,
+    session_id: String,
+}
+
 /// Simple POC to demonstrate the Orchestrator concept
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -43,13 +51,72 @@ async fn main() -> Result<()> {
     println!("MAOS POC - Orchestrator Demo");
     println!("Workspace: {}\n", workspace_root.display());
 
+    // Check if there are any agents to resume AND a saved orchestrator plan
+    let resume_info = check_for_resumptions(&workspace_root).await?;
+    let saved_plan = check_for_saved_plan(&workspace_root).await?;
+
+    match (&resume_info, &saved_plan) {
+        (Some(resume_info), Some(plan)) => {
+            println!("🔄 Found both pending agent resumption and saved orchestrator plan...");
+            println!("🔄 Resuming agent first, then continuing with orchestration...");
+            
+            let agent_workspace = workspace_root.join("agents").join(&resume_info.agent_dir);
+            let shared_context = workspace_root.join("shared_context");
+            let project_dir = workspace_root.join("project");
+            
+            // Resume the timed-out agent
+            resume_agent(
+                &resume_info.role,
+                &resume_info.task,
+                &agent_workspace,
+                &shared_context,
+                &project_dir,
+                &resume_info.session_id,
+            ).await?;
+            
+            println!("\n✅ Agent resumption complete! Continuing with orchestration...");
+            
+            // Continue with the orchestrator plan
+            execute_plan(plan.clone(), &workspace_root).await?;
+            println!("\n✅ Orchestration complete!");
+            return Ok(());
+        }
+        (None, Some(plan)) => {
+            println!("🔄 Found saved orchestrator plan, resuming execution...");
+            execute_plan(plan.clone(), &workspace_root).await?;
+            println!("\n✅ Orchestration complete!");
+            return Ok(());
+        }
+        (Some(resume_info), None) => {
+            println!("🔄 Found pending agent resumption...");
+            let agent_workspace = workspace_root.join("agents").join(&resume_info.agent_dir);
+            let shared_context = workspace_root.join("shared_context");
+            let project_dir = workspace_root.join("project");
+            
+            resume_agent(
+                &resume_info.role,
+                &resume_info.task,
+                &agent_workspace,
+                &shared_context,
+                &project_dir,
+                &resume_info.session_id,
+            ).await?;
+            
+            println!("\n✅ Agent resumption complete!");
+            return Ok(());
+        }
+        (None, None) => {
+            // No resumption needed, continue with normal flow
+        }
+    }
+
     // Example user request
     let user_request = "Research and build a secure ERP web application using Vue.js and Nuxt for Muralists and Painters to manage their projects, customers, paints, tools, supplies, and inventory.";
     println!("User request: {}\n", user_request);
 
     // Step 1: Spawn Orchestrator agent
     println!("Spawning Orchestrator agent...");
-    let plan = spawn_orchestrator(user_request).await?;
+    let plan = spawn_orchestrator(user_request, &workspace_root).await?;
 
     // Step 2: Execute the plan
     println!("\nExecuting plan...");
@@ -89,7 +156,61 @@ async fn setup_workspace() -> Result<PathBuf> {
     Ok(workspace_root)
 }
 
-async fn spawn_orchestrator(user_request: &str) -> Result<ExecutionPlan> {
+async fn check_for_resumptions(workspace_root: &PathBuf) -> Result<Option<ResumeInfo>> {
+    let agents_dir = workspace_root.join("agents");
+    
+    if !agents_dir.exists() {
+        return Ok(None);
+    }
+    
+    let mut entries = fs::read_dir(&agents_dir).await?;
+    while let Ok(Some(entry)) = entries.next_entry().await {
+        let agent_dir = entry.path();
+        let resume_file = agent_dir.join("resume_info.json");
+        
+        if resume_file.exists() {
+            let resume_content = fs::read_to_string(&resume_file).await?;
+            if let Ok(resume_data) = serde_json::from_str::<Value>(&resume_content) {
+                if let (Some(session_id), Some(role), Some(task)) = (
+                    resume_data.get("session_id").and_then(|s| s.as_str()),
+                    resume_data.get("role").and_then(|s| s.as_str()),
+                    resume_data.get("task").and_then(|s| s.as_str()),
+                ) {
+                    let agent_dir_name = agent_dir
+                        .file_name()
+                        .and_then(|n| n.to_str())
+                        .unwrap_or("unknown")
+                        .to_string();
+                    
+                    return Ok(Some(ResumeInfo {
+                        agent_dir: agent_dir_name,
+                        role: role.to_string(),
+                        task: task.to_string(),
+                        session_id: session_id.to_string(),
+                    }));
+                }
+            }
+        }
+    }
+    
+    Ok(None)
+}
+
+async fn check_for_saved_plan(workspace_root: &PathBuf) -> Result<Option<ExecutionPlan>> {
+    let orchestrator_dir = workspace_root.join("agents").join("orchestrator");
+    let plan_file = orchestrator_dir.join("execution_plan.json");
+    
+    if plan_file.exists() {
+        let plan_content = fs::read_to_string(&plan_file).await?;
+        if let Ok(plan) = serde_json::from_str::<ExecutionPlan>(&plan_content) {
+            return Ok(Some(plan));
+        }
+    }
+    
+    Ok(None)
+}
+
+async fn spawn_orchestrator(user_request: &str, workspace_root: &PathBuf) -> Result<ExecutionPlan> {
     let prompt = format!(
         r#"You are the Orchestrator agent for MAOS. Analyze this request and create an execution plan.
 
@@ -178,6 +299,31 @@ Output ONLY the JSON, no other text."#
                 "Orchestrator created plan with {} phases",
                 plan.phases.len()
             );
+            
+            // Save orchestrator output and plan to agents directory for resumption
+            let orchestrator_dir = workspace_root.join("agents").join("orchestrator");
+            if let Err(_) = fs::create_dir_all(&orchestrator_dir).await {
+                // Continue even if we can't create the directory
+            }
+            
+            // Save the full orchestrator response
+            let orchestrator_output = format!(
+                "# Orchestrator Agent Output\n\n## Original User Request\n{}\n\n## Generated Execution Plan\n```json\n{}\n```\n\n## Session Information\n- Session ID: {}\n- Phases: {}\n- Total Agents: {}",
+                user_request,
+                serde_json::to_string_pretty(&plan).unwrap_or_default(),
+                json_output["session_id"].as_str().unwrap_or("unknown"),
+                plan.phases.len(),
+                plan.phases.iter().map(|p| p.agents.len()).sum::<usize>()
+            );
+            
+            let _ = fs::write(orchestrator_dir.join("orchestrator_output.md"), &orchestrator_output).await;
+            let _ = fs::write(orchestrator_dir.join("execution_plan.json"), serde_json::to_string_pretty(&plan).unwrap_or_default()).await;
+            
+            // Save session ID for potential orchestrator resumption
+            if let Some(session_id) = json_output["session_id"].as_str() {
+                let _ = fs::write(orchestrator_dir.join("session_id.txt"), session_id).await;
+            }
+            
             return Ok(plan);
         }
         Err(_) => Err(anyhow::anyhow!("Failed to parse JSON from Claude response")),
@@ -250,6 +396,19 @@ async fn spawn_agent(
     project_dir: &PathBuf,
 ) -> Result<()> {
     let start = std::time::Instant::now();
+    
+    // Check if this agent has resumption info from a previous timeout
+    let resume_file = workspace.join("resume_info.json");
+    if resume_file.exists() {
+        let resume_content = fs::read_to_string(&resume_file).await?;
+        if let Ok(resume_info) = serde_json::from_str::<Value>(&resume_content) {
+            if let Some(session_id) = resume_info.get("session_id").and_then(|s| s.as_str()) {
+                println!("\n  [{:>12}] 🔄 RESUMING from previous session: {}", role, session_id);
+                return resume_agent(role, task, workspace, shared_context, project_dir, session_id).await;
+            }
+        }
+    }
+
     println!("\n  [{:>12}] Starting: {}", role, task);
 
     // Create agent workspace
@@ -456,7 +615,7 @@ async fn spawn_agent(
 
     // Set a timeout for the agent
     let timeout = tokio::time::timeout(
-        std::time::Duration::from_secs(1800), // 30 minutes max
+        std::time::Duration::from_secs(7200), // 2 hours max
         cmd.wait(),
     );
 
@@ -604,6 +763,173 @@ async fn spawn_agent(
             }
             
             Err(anyhow::anyhow!("Agent timed out after 30 minutes"))
+        }
+    }
+}
+
+async fn resume_agent(
+    role: &str,
+    task: &str,
+    workspace: &PathBuf,
+    shared_context: &PathBuf,
+    project_dir: &PathBuf,
+    session_id: &str,
+) -> Result<()> {
+    let start = std::time::Instant::now();
+    
+    println!("  [{:>12}] Resuming session to complete work...", role);
+    
+    // Create a focused prompt to complete remaining work
+    let resume_prompt = format!(
+        "You are resuming your previous session as a {} agent. Your original task was: {}
+
+Your session was interrupted but you made significant progress. Please:
+1. Check what work you've already completed in the project directory: {}
+2. Write a comprehensive summary of your work to the shared context directory: {}
+3. Focus on completing any remaining deliverables
+
+Project directory: {}
+Shared context: {}
+
+Complete your work by writing a summary of everything you accomplished to the shared_context directory.",
+        role,
+        task,
+        project_dir.display(),
+        shared_context.display(),
+        project_dir.display(),
+        shared_context.display()
+    );
+
+    // Resume the Claude session
+    let mut cmd = Command::new("claude")
+        .arg("--resume")
+        .arg(session_id)
+        .arg("-p")
+        .arg(&resume_prompt)
+        .arg("--dangerously-skip-permissions")
+        .arg("--add-dir")
+        .arg(project_dir.as_os_str())
+        .arg("--add-dir")
+        .arg(shared_context.as_os_str())
+        .arg("--verbose")
+        .arg("--output-format")
+        .arg("stream-json")
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()?;
+
+    let stdout = cmd.stdout.take().expect("Failed to capture stdout");
+    let stderr = cmd.stderr.take().expect("Failed to capture stderr");
+
+    // Read streaming JSON events (similar to spawn_agent)
+    let role_clone = role.to_string();
+    let stdout_task = tokio::spawn(async move {
+        let mut reader = BufReader::new(stdout).lines();
+        let mut full_response = String::new();
+        let mut tool_count = 0;
+
+        while let Some(line) = reader.next_line().await? {
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            if let Ok(event) = serde_json::from_str::<StreamEvent>(&line) {
+                if event.event_type == "assistant" {
+                    if let Some(message) = event.data.get("message") {
+                        if let Some(content) = message.get("content").and_then(|c| c.as_array()) {
+                            for item in content {
+                                if let Some(text) = item.get("text").and_then(|t| t.as_str()) {
+                                    full_response.push_str(text);
+                                    if !text.ends_with('\n') {
+                                        full_response.push('\n');
+                                    }
+
+                                    if text.contains("Writing") || text.contains("Summary") {
+                                        let preview = if text.len() > 60 {
+                                            format!("{}...", &text[..60])
+                                        } else {
+                                            text.to_string()
+                                        };
+                                        println!("  [{:>12}] > {}", role_clone, preview.trim());
+                                    }
+                                } else if let Some(tool_use) = item.get("name") {
+                                    let tool_name = tool_use.as_str().unwrap_or("unknown");
+                                    tool_count += 1;
+                                    println!(
+                                        "  [{:>12}] Using tool: {} (#{} tools used, resumed work)",
+                                        role_clone, tool_name, tool_count
+                                    );
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok::<String, anyhow::Error>(full_response)
+    });
+
+    let stderr_task = tokio::spawn(async move {
+        let mut reader = BufReader::new(stderr).lines();
+        let mut errors = Vec::new();
+        while let Some(line) = reader.next_line().await? {
+            errors.push(line);
+        }
+        Ok::<Vec<String>, anyhow::Error>(errors)
+    });
+
+    // Set timeout for resumed session (shorter since it should just complete)
+    let timeout = tokio::time::timeout(
+        std::time::Duration::from_secs(600), // 10 minutes for completion
+        cmd.wait(),
+    );
+
+    match timeout.await {
+        Ok(Ok(status)) => {
+            let full_response = stdout_task.await??;
+            let errors = stderr_task.await??;
+
+            if status.success() {
+                // Save resumed work output
+                let output_file = workspace.join("resumed_output.md");
+                fs::write(&output_file, &full_response).await?;
+
+                // Save to shared context
+                let agent_id = workspace
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .and_then(|n| n.split('_').last())
+                    .unwrap_or("0");
+
+                let session_id_short = &session_id[..8];
+                let shared_file = shared_context.join(format!(
+                    "{}_{}_{}_resumed.md", 
+                    role, agent_id, session_id_short
+                ));
+                fs::write(&shared_file, &full_response).await?;
+
+                // Delete resume info since we completed successfully
+                let resume_file = workspace.join("resume_info.json");
+                let _ = fs::remove_file(&resume_file).await;
+
+                let elapsed = start.elapsed();
+                println!(
+                    "  [{:>12}] ✓ Resumed and completed in {:.1}s",
+                    role,
+                    elapsed.as_secs_f32()
+                );
+                
+                Ok(())
+            } else {
+                let error_msg = errors.join("\n");
+                Err(anyhow::anyhow!("Resumed agent failed: {}", error_msg))
+            }
+        }
+        Ok(Err(e)) => Err(anyhow::anyhow!("Resumed agent process error: {}", e)),
+        Err(_) => {
+            let _ = cmd.kill().await;
+            Err(anyhow::anyhow!("Resumed agent timed out"))
         }
     }
 }
