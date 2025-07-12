@@ -41,6 +41,13 @@ struct ResumeInfo {
     session_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ExecutionState {
+    current_phase: usize,
+    current_agent_in_phase: usize,
+    completed_agents: Vec<String>, // agent_dir names that have completed
+}
+
 /// Simple POC to demonstrate the Orchestrator concept
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -331,31 +338,84 @@ Output ONLY the JSON, no other text."#
 }
 
 async fn execute_plan(plan: ExecutionPlan, workspace_root: &PathBuf) -> Result<()> {
-    for (idx, phase) in plan.phases.iter().enumerate() {
+    // Load existing execution state or create new one
+    let state_file = workspace_root.join("agents").join("orchestrator").join("execution_state.json");
+    let mut state = if state_file.exists() {
+        let state_content = fs::read_to_string(&state_file).await?;
+        serde_json::from_str::<ExecutionState>(&state_content).unwrap_or_else(|_| ExecutionState {
+            current_phase: 0,
+            current_agent_in_phase: 0,
+            completed_agents: Vec::new(),
+        })
+    } else {
+        ExecutionState {
+            current_phase: 0,
+            current_agent_in_phase: 0,
+            completed_agents: Vec::new(),
+        }
+    };
+    
+    execute_plan_with_state(plan, workspace_root, &mut state).await
+}
+
+async fn execute_plan_with_state(plan: ExecutionPlan, workspace_root: &PathBuf, state: &mut ExecutionState) -> Result<()> {
+    let state_file = workspace_root.join("agents").join("orchestrator").join("execution_state.json");
+    
+    // Resume from where we left off
+    for (idx, phase) in plan.phases.iter().enumerate().skip(state.current_phase) {
         println!("\n=== Phase {}: {} ===", idx + 1, phase.name);
 
-        if phase.parallel {
-            println!("Executing {} agents in parallel...", phase.agents.len());
+        // Update current phase
+        state.current_phase = idx;
+        state.current_agent_in_phase = 0; // Reset agent counter for new phase
+        let _ = fs::write(&state_file, serde_json::to_string_pretty(state)?).await;
 
-            // Spawn all agents in parallel
-            let mut handles = vec![];
+        if phase.parallel {
+            // For parallel phases, check which agents are already completed
+            let mut pending_agents = Vec::new();
             for (i, agent) in phase.agents.iter().enumerate() {
-                let agent = agent.clone();
+                let agent_dir_name = format!("{}_{}", agent.role, i);
+                if !state.completed_agents.contains(&agent_dir_name) {
+                    pending_agents.push((i, agent.clone()));
+                }
+            }
+            
+            if pending_agents.is_empty() {
+                println!("All agents in this phase already completed, skipping...");
+                continue;
+            }
+            
+            println!("Executing {} pending agents in parallel...", pending_agents.len());
+
+            // Spawn pending agents in parallel
+            let mut handles = vec![];
+            for (i, agent) in pending_agents {
                 let agent_workspace = workspace_root
                     .join("agents")
                     .join(format!("{}_{}", agent.role, i));
                 let shared_context = workspace_root.join("shared_context");
                 let project_dir = workspace_root.join("project");
+                let state_file_clone = state_file.clone();
+                let mut state_clone = state.clone();
 
                 let handle = tokio::spawn(async move {
-                    spawn_agent(
+                    let result = spawn_agent(
                         &agent.role,
                         &agent.task,
                         &agent_workspace,
                         &shared_context,
                         &project_dir,
                     )
-                    .await
+                    .await;
+                    
+                    // Mark agent as completed on success
+                    if result.is_ok() {
+                        let agent_dir_name = format!("{}_{}", agent.role, i);
+                        state_clone.completed_agents.push(agent_dir_name);
+                        let _ = fs::write(&state_file_clone, serde_json::to_string_pretty(&state_clone).unwrap_or_default()).await;
+                    }
+                    
+                    result
                 });
                 handles.push(handle);
             }
@@ -365,26 +425,64 @@ async fn execute_plan(plan: ExecutionPlan, workspace_root: &PathBuf) -> Result<(
                 handle.await??;
             }
         } else {
-            println!("Executing {} agents sequentially...", phase.agents.len());
+            // For sequential phases, continue from where we left off
+            let start_agent = if idx == state.current_phase { state.current_agent_in_phase } else { 0 };
+            
+            let pending_agents: Vec<_> = phase.agents.iter().enumerate()
+                .skip(start_agent)
+                .filter(|(i, _)| {
+                    let agent_dir_name = format!("{}_{}", phase.agents[*i].role, i);
+                    !state.completed_agents.contains(&agent_dir_name)
+                })
+                .collect();
+                
+            if pending_agents.is_empty() {
+                println!("All agents in this phase already completed, skipping...");
+                continue;
+            }
+            
+            println!("Executing {} pending agents sequentially...", pending_agents.len());
 
-            for (i, agent) in phase.agents.iter().enumerate() {
+            for (i, agent) in pending_agents {
                 let agent_workspace = workspace_root
                     .join("agents")
                     .join(format!("{}_{}", agent.role, i));
                 let shared_context = workspace_root.join("shared_context");
                 let project_dir = workspace_root.join("project");
-                spawn_agent(
+                
+                // Update current agent in phase
+                state.current_agent_in_phase = i;
+                let _ = fs::write(&state_file, serde_json::to_string_pretty(state)?).await;
+                
+                let result = spawn_agent(
                     &agent.role,
                     &agent.task,
                     &agent_workspace,
                     &shared_context,
                     &project_dir,
                 )
-                .await?;
+                .await;
+                
+                // Mark agent as completed on success
+                if result.is_ok() {
+                    let agent_dir_name = format!("{}_{}", agent.role, i);
+                    state.completed_agents.push(agent_dir_name);
+                    let _ = fs::write(&state_file, serde_json::to_string_pretty(state)?).await;
+                } else {
+                    return result;
+                }
             }
         }
+        
+        // Move to next phase
+        state.current_phase = idx + 1;
+        state.current_agent_in_phase = 0;
+        let _ = fs::write(&state_file, serde_json::to_string_pretty(state)?).await;
     }
 
+    // Clean up state file when orchestration is complete
+    let _ = fs::remove_file(&state_file).await;
+    
     Ok(())
 }
 
