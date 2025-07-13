@@ -347,8 +347,11 @@ claude --mcp-server http://localhost:3000
 
 ## References
 
-- [ADR-003: MCP Server Architecture](./architecture/decisions/003-mcp-server-architecture.md)
-- [ADR-004: CLI Integration and Process Spawning](./architecture/decisions/004-cli-integration-and-process-spawning.md)
-- [ADR-006: Agent Lifecycle and Management](./architecture/decisions/006-agent-lifecycle-and-management.md)
-- [ADR-008: Agent Communication Patterns](./architecture/decisions/008-agent-communication-patterns.md)
+- [ADR-10: MCP Server Architecture](./architecture/decisions/10-mcp-server-architecture.md)
+- [ADR-05: CLI Integration and Process Spawning](./architecture/decisions/05-cli-integration-and-process-spawning.md)
+- [ADR-08: Agent Lifecycle and Management](./architecture/decisions/08-agent-lifecycle-and-management.md)
+- [ADR-04: Agent Communication Patterns](./architecture/decisions/04-agent-communication-patterns.md)
+- [ADR-07: Orchestration Guardrails and Coordination Protocols](./architecture/decisions/07-orchestration-guardrails.md)
+- [ADR-11: Adaptive Phase-Based Orchestration](./architecture/decisions/11-adaptive-phase-based-orchestration.md)
+- [POC Learnings and Findings](./architecture/references/poc-learnings.md)
 - [Model Context Protocol Specification](https://modelcontextprotocol.io)
