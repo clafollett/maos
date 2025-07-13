@@ -112,159 +112,28 @@ pub struct ProcessManager {
     template_generator: TemplateGenerator,
 }
 
-impl ProcessManager {
-    pub async fn spawn_agent(
-        &self,
-        session_id: &str,
-        role: AgentRole,
-        task: &str,
-        dependencies: Vec<String>,
-    ) -> Result<String> {
-        // Get or generate template for role
-        let template = if role.is_predefined {
-            PREDEFINED_TEMPLATES.get(&role.name)
-                .ok_or_else(|| anyhow!("Unknown predefined role: {}", role.name))?
-                .clone()
-        } else {
-            // Generate template for custom role
-            self.template_generator.generate_custom_template(&role).await?
-        };
-        
-        // Check resource limits
-        self.resource_limiter.check_can_spawn(&role.name, &template).await?;
-        
-        // Get instance number for this role
-        let instance_num = self.instance_tracker.get_next_instance_number(&role.name).await;
-        
-        // Generate agent ID with role and instance info
-        let agent_id = generate_agent_id_with_role(&role, instance_num);
-        let workspace = self.prepare_workspace(session_id, &agent_id)?;
-        
-        // Build environment
-        let env = self.build_agent_env(session_id, &agent_id, &role, instance_num, &workspace)?;
-        
-        // Build prompt from template
-        let prompt = self.build_prompt(&template, &role, task, dependencies)?;
-        
-        // Spawn process
-        let mut cmd = Command::new("claude");
-        cmd.current_dir(&workspace)
-            .arg("-p")
-            .arg(&prompt)
-            .arg("--output-format").arg("json")
-            .arg("--max-turns").arg(template.default_timeout.as_secs().to_string())
-            .envs(&env)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-            
-        // Apply resource limits
-        #[cfg(target_os = "linux")]
-        {
-            cmd.pre_exec(move || {
-                // Set memory limit
-                let rlimit = libc::rlimit {
-                    rlim_cur: (template.max_memory_mb * 1024 * 1024) as u64,
-                    rlim_max: (template.max_memory_mb * 1024 * 1024) as u64,
-                };
-                unsafe {
-                    libc::setrlimit(libc::RLIMIT_AS, &rlimit);
-                }
-                Ok(())
-            });
-        }
-        
-        let mut child = cmd.spawn()?;
-        
-        // Start output streaming
-        let stdout_handle = self.start_stdout_streaming(&agent_id, child.stdout.take().unwrap());
-        let stderr_handle = self.start_stderr_streaming(&agent_id, child.stderr.take().unwrap());
-        
-        // Start health monitoring
-        let health_handle = self.start_health_monitoring(&agent_id, child.id());
-        
-        // Register agent
-        let agent = AgentProcess {
-            agent_id: agent_id.clone(),
-            role,
-            instance_number: instance_num,
-            child,
-            spawned_at: Instant::now(),
-            workspace,
-            stdout_handle,
-            stderr_handle,
-            health_check_handle: health_handle,
-        };
-        
-        self.agents.write().await.insert(agent_id.clone(), agent);
-        
-        // Log spawn event
-        self.logger.log_event("agent_spawned", json!({
-            "agent_id": agent_id,
-            "role_name": role.name,
-            "role_type": if role.is_predefined { "predefined" } else { "custom" },
-            "instance_number": instance_num,
-            "task": task,
-            "pid": child.id(),
-        }))?;
-        
-        Ok(agent_id)
-    }
-}
+### Process Spawning Architecture
 
-// Helper function to generate agent IDs with role and instance info
-fn generate_agent_id_with_role(role: &AgentRole, instance_num: usize) -> String {
-    let base_id = Uuid::new_v4().simple().to_string();
-    let short_id = &base_id[..8];
-    
-    if let Some(suffix) = &role.instance_suffix {
-        format!("agent_{}_{}_{}_{}", role.name, suffix, instance_num, short_id)
-    } else {
-        format!("agent_{}_{}_{}", role.name, instance_num, short_id)
-    }
-}
+The ProcessManager coordinates agent spawning through these key responsibilities:
+
+1. **Template Resolution**: Determine agent configuration from predefined roles or generate custom templates
+2. **Resource Validation**: Check system capacity before spawning (memory, instance limits)
+3. **Instance Management**: Track multiple instances of the same role with unique identifiers
+4. **Environment Setup**: Configure agent workspace and environment variables
+5. **Process Lifecycle**: Spawn CLI process with appropriate arguments and resource limits
+6. **Monitoring Integration**: Set up health checks, output streaming, and logging
+
+**Agent ID Structure**: `agent_{role}_{instance}_{unique_id}` (e.g., `agent_engineer_1_abc123`)
+
 ```
 
 ### Health Monitoring
 
-```rust
-impl ProcessManager {
-    async fn start_health_monitoring(&self, agent_id: &str, pid: u32) -> JoinHandle<()> {
-        let agent_id = agent_id.to_string();
-        let agents = self.agents.clone();
-        
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(Duration::from_secs(5));
-            
-            loop {
-                interval.tick().await;
-                
-                // Check if process still exists
-                match System::new_with_specifics(RefreshKind::new().with_processes()) {
-                    sys if sys.process(Pid::from(pid as usize)).is_some() => {
-                        // Process healthy
-                        continue;
-                    }
-                    _ => {
-                        // Process died unexpectedly
-                        if let Some(mut agent) = agents.write().await.remove(&agent_id) {
-                            logger.log_event("agent_died", json!({
-                                "agent_id": agent_id,
-                                "pid": pid,
-                                "uptime_seconds": agent.spawned_at.elapsed().as_secs(),
-                            }));
-                            
-                            // Cancel streaming handles
-                            agent.stdout_handle.abort();
-                            agent.stderr_handle.abort();
-                        }
-                        break;
-                    }
-                }
-            }
-        })
-    }
-}
-```
+Health monitoring tracks agent process status through:
+- **Periodic Health Checks**: Regular verification that agent processes are responsive
+- **Process Death Detection**: Automatic cleanup when agents terminate unexpectedly  
+- **Resource Monitoring**: Track memory and CPU usage per agent
+- **Lifecycle Events**: Log significant agent state changes for debugging and audit
 
 ### Template Generation for Custom Roles
 
@@ -277,111 +146,30 @@ The complete template generation logic and prompt format are documented in the [
 
 ### Resource Management
 
-```rust
-pub struct ResourceLimiter {
-    max_total_agents: usize,
-    max_agents_per_role: HashMap<String, usize>,  // role_name -> limit
-    default_max_per_role: usize,  // For undefined roles
-    max_total_memory_mb: u32,
-    current_usage: Arc<RwLock<ResourceUsage>>,
-}
+Resource management enforces system limits through configurable constraints:
 
-struct ResourceUsage {
-    agent_count: usize,
-    role_counts: HashMap<String, usize>,  // role_name -> count
-    total_memory_mb: u32,
-}
+**Resource Types**:
+- **Total Agent Limit**: Maximum concurrent agents across all roles
+- **Per-Role Limits**: Maximum agents per role type (with defaults for custom roles)
+- **Memory Limits**: Total memory allocation across all agent processes
+- **Process Limits**: OS-level constraints on agent processes
 
-impl ResourceLimiter {
-    pub async fn check_can_spawn(&self, role_name: &str, template: &AgentTemplate) -> Result<()> {
-        let mut usage = self.current_usage.write().await;
-        
-        // Check total agent limit
-        if usage.agent_count >= self.max_total_agents {
-            return Err(anyhow!("Maximum agent limit reached"));
-        }
-        
-        // Check role-specific limit
-        let limit = self.max_agents_per_role.get(role_name)
-            .copied()
-            .unwrap_or(self.default_max_per_role);
-            
-        let current_count = usage.role_counts.get(role_name).copied().unwrap_or(0);
-        if current_count >= limit {
-            return Err(anyhow!("Maximum {} agents reached ({}/{})", role_name, current_count, limit));
-        }
-        
-        // Check memory limit
-        if usage.total_memory_mb + template.max_memory_mb > self.max_total_memory_mb {
-            return Err(anyhow!("Insufficient memory for new agent"));
-        }
-        
-        // Update usage
-        usage.agent_count += 1;
-        *usage.role_counts.entry(role_name.to_string()).or_insert(0) += 1;
-        usage.total_memory_mb += template.max_memory_mb;
-        
-        Ok(())
-    }
-}
-```
+**Resource Validation**: Before spawning agents, validate available capacity and reject requests that would exceed limits.
 
 ### Graceful Shutdown
 
-```rust
-impl ProcessManager {
-    pub async fn shutdown_all(&self, timeout: Duration) -> Result<()> {
-        let agents = self.agents.read().await;
-        let shutdown_futures: Vec<_> = agents.values()
-            .map(|agent| self.shutdown_agent(&agent.agent_id, timeout))
-            .collect();
-            
-        // Shutdown all agents in parallel
-        let results = future::join_all(shutdown_futures).await;
-        
-        // Check for failures
-        for (i, result) in results.into_iter().enumerate() {
-            if let Err(e) = result {
-                error!("Failed to shutdown agent: {}", e);
-            }
-        }
-        
-        Ok(())
-    }
-    
-    async fn shutdown_agent(&self, agent_id: &str, timeout: Duration) -> Result<()> {
-        if let Some(mut agent) = self.agents.write().await.remove(agent_id) {
-            // Send graceful shutdown signal
-            if let Some(stdin) = agent.child.stdin.take() {
-                // Send shutdown command if CLI supports it
-                writeln!(stdin, "{{\"command\": \"shutdown\"}}")?;
-            }
-            
-            // Wait for graceful exit
-            match tokio::time::timeout(timeout, agent.child.wait()).await {
-                Ok(Ok(status)) => {
-                    info!("Agent {} exited with status: {}", agent_id, status);
-                }
-                Ok(Err(e)) => {
-                    error!("Error waiting for agent {}: {}", agent_id, e);
-                }
-                Err(_) => {
-                    // Timeout - force kill
-                    warn!("Agent {} didn't exit gracefully, forcing kill", agent_id);
-                    agent.child.kill().await?;
-                }
-            }
-            
-            // Cleanup handles
-            agent.stdout_handle.abort();
-            agent.stderr_handle.abort();
-            agent.health_check_handle.abort();
-        }
-        
-        Ok(())
-    }
-}
-```
+Agent shutdown follows a tiered approach:
+
+1. **Graceful Termination**: Send shutdown signal to agent process
+2. **Timeout Waiting**: Allow reasonable time for agent to finish current work
+3. **Force Termination**: Kill unresponsive processes after timeout
+4. **Resource Cleanup**: Clean up monitoring handles, file descriptors, and workspace
+
+**Shutdown Modes**:
+- **Individual Agent**: Shut down specific agent by ID
+- **Role-based**: Shut down all agents of a specific role
+- **Session-based**: Shut down all agents in a session  
+- **System-wide**: Emergency shutdown of all agents
 
 ## Consequences
 

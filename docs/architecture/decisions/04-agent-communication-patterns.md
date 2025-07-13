@@ -90,105 +90,21 @@ pub enum MessageType {
     Alert,        // Important notification
 }
 
-pub struct MessageRouter {
-    session_dir: PathBuf,
-    agents: Arc<RwLock<HashMap<String, AgentInfo>>>,
-}
+### Message Routing Architecture
 
-impl MessageRouter {
-    pub async fn route_message(&self, message: Message) -> Result<()> {
-        // Validate sender is registered
-        if !self.agents.read().await.contains_key(&message.from) {
-            return Err(anyhow!("Unknown sender: {}", message.from));
-        }
-        
-        // Handle broadcast messages
-        if message.to == "all" {
-            return self.broadcast_message(message).await;
-        }
-        
-        // Write to recipient's inbox
-        let inbox_dir = self.session_dir
-            .join("shared/messages/inbox")
-            .join(&message.to);
-        
-        fs::create_dir_all(&inbox_dir).await?;
-        
-        let filename = format!("{}-{}-{}.json", 
-            message.timestamp.timestamp(),
-            message.from,
-            message.id
-        );
-        
-        let filepath = inbox_dir.join(filename);
-        let content = serde_json::to_string_pretty(&message)?;
-        fs::write(&filepath, content).await?;
-        
-        // Log the message
-        self.logger.log_event("message_sent", json!({
-            "from": message.from,
-            "to": message.to,
-            "type": message.message_type,
-            "id": message.id,
-        }))?;
-        
-        Ok(())
-    }
-    
-    async fn broadcast_to_role(&self, message: Message, role_name: &str) -> Result<()> {
-        let agents = self.agents.read().await;
-        
-        // Find all agents with matching role
-        let matching_agents: Vec<String> = agents
-            .iter()
-            .filter(|(_, info)| info.role_name == role_name)
-            .map(|(id, _)| id.clone())
-            .collect();
-        
-        if matching_agents.is_empty() {
-            return Err(anyhow!("No agents found with role: {}", role_name));
-        }
-        
-        // Send to each matching agent
-        for agent_id in matching_agents {
-            if agent_id != message.from {
-                let mut routed_msg = message.clone();
-                routed_msg.to = agent_id;
-                self.route_direct(routed_msg, &agent_id).await?;
-            }
-        }
-        
-        Ok(())
-    }
-    
-    async fn route_by_pattern(&self, message: Message, pattern: &str) -> Result<()> {
-        let agents = self.agents.read().await;
-        let regex_pattern = pattern.replace('*', ".*");
-        let regex = regex::Regex::new(&regex_pattern)?;
-        
-        // Find all agents matching the pattern
-        let matching_agents: Vec<String> = agents
-            .keys()
-            .filter(|id| regex.is_match(id))
-            .cloned()
-            .collect();
-        
-        if matching_agents.is_empty() {
-            return Err(anyhow!("No agents found matching pattern: {}", pattern));
-        }
-        
-        // Send to each matching agent
-        for agent_id in matching_agents {
-            if agent_id != message.from {
-                let mut routed_msg = message.clone();
-                routed_msg.to = agent_id.clone();
-                self.route_direct(routed_msg, &agent_id).await?;
-            }
-        }
-        
-        Ok(())
-    }
-}
+The MessageRouter coordinates inter-agent communication through these key capabilities:
+
+**Routing Patterns**:
+- **Direct Messaging**: Send to specific agent by ID
+- **Role-based Broadcasting**: Send to all agents of a specific role
+- **Pattern Matching**: Send to agents matching ID patterns (wildcards)
+- **System-wide Broadcasting**: Announce to all agents in session
+
+**Message Delivery**:
+- Messages written to recipient agent's inbox directory
+- Structured JSON format with timestamp, sender, type, and content
+- Automatic validation of sender registration
+- Comprehensive logging for debugging and audit
 ```
 
 ### 4. Agent Registry and Discovery
@@ -205,50 +121,27 @@ pub struct AgentInfo {
     pub capabilities: Vec<String>,
 }
 
-pub struct AgentDiscovery {
-    registry: Arc<RwLock<HashMap<String, AgentInfo>>>,
-}
+### Agent Discovery Patterns
 
-impl AgentDiscovery {
-    pub async fn find_agents_by_role(&self, role_name: &str) -> Vec<AgentInfo> {
-        self.registry
-            .read()
-            .await
-            .values()
-            .filter(|info| info.role_name == role_name)
-            .cloned()
-            .collect()
-    }
-    
-    pub async fn find_agent_by_capability(&self, capability: &str) -> Option<AgentInfo> {
-        self.registry
-            .read()
-            .await
-            .values()
-            .find(|info| info.capabilities.contains(&capability.to_string()))
-            .cloned()
-    }
-    
-    pub async fn get_role_summary(&self) -> HashMap<String, usize> {
-        let mut summary = HashMap::new();
-        for info in self.registry.read().await.values() {
-            *summary.entry(info.role_name.clone()).or_insert(0) += 1;
-        }
-        summary
-    }
-}
+Agents can discover other agents through multiple mechanisms:
+
+**Discovery Methods**:
+- **By Role**: Find all agents with specific role (e.g., "engineer", "architect")
+- **By Capability**: Locate agents with specific capabilities (e.g., "code_review", "database_design")
+- **By Pattern**: Match agent IDs using wildcards for flexible queries
+- **Session Summary**: Get overview of all active agents and their roles
+
+**Registry Information**: Each agent maintains discoverable information including role, capabilities, execution state, and instance number.
 ```
 
-### 5. Agent-Side Communication
+### 5. Agent Communication Capabilities
 
-Agents access their environment configuration through MAOS environment variables documented in the [Environment Variables Reference](../references/environment-variables.md). Communication helpers are provided to simplify message sending, receiving, and shared context access.
-
-Example helper capabilities include:
-- Sending messages to specific agents or role groups
-- Reading messages from inbox
-- Sharing artifacts in the shared context directory
-- Broadcasting announcements to all agents
-- Requesting help from specific roles
+Agents access communication through environment variables and can:
+- **Send Messages**: Direct messages to specific agents or broadcast to role groups
+- **Receive Messages**: Read from their inbox with automatic message parsing
+- **Share Artifacts**: Place specifications, code, and results in shared context directories
+- **Broadcast Announcements**: Send system-wide notifications about milestones or status
+- **Request Assistance**: Ask for help from agents with specific roles or capabilities
 
 ### 6. Status Updates via stdout
 
@@ -263,107 +156,48 @@ Agents report status through structured JSON output:
 
 ### 7. Dependency Coordination
 
-```rust
-pub struct DependencyManager {
-    dependencies: HashMap<String, Vec<String>>, // agent -> [dependencies]
-    completed: HashSet<String>,
-}
+Agents coordinate work dependencies through message-based coordination:
 
-impl DependencyManager {
-    pub async fn check_dependencies(&self, agent_id: &str) -> Result<bool> {
-        if let Some(deps) = self.dependencies.get(agent_id) {
-            for dep in deps {
-                if !self.completed.contains(dep) {
-                    return Ok(false);
-                }
-            }
-        }
-        Ok(true)
-    }
-    
-    pub async fn wait_for_dependencies(&self, agent_id: &str) -> Result<()> {
-        while !self.check_dependencies(agent_id).await? {
-            // Check for new completions
-            self.update_completed_agents().await?;
-            
-            // Check for messages about blockers
-            if let Some(blocker_msg) = self.check_for_blocker_resolution(agent_id).await? {
-                info!("Blocker resolved: {}", blocker_msg);
-                break;
-            }
-            
-            tokio::time::sleep(Duration::from_secs(5)).await;
-        }
-        Ok(())
-    }
-}
-```
+**Dependency Patterns**:
+- **Completion Notifications**: Agents announce when they finish work that others depend on
+- **Blocking Messages**: Agents can signal when they're waiting for specific dependencies
+- **Status Polling**: Dependent agents can check completion status of required work
+- **Handoff Coordination**: Explicit work transfer between agents with validation
+
+**Coordination Mechanisms**:
+- Agents declare dependencies when spawned
+- Status updates track completion of dependency requirements
+- Message-based notifications for dependency resolution
 
 ### 8. Broadcast Patterns
 
-For system-wide coordination:
+System-wide coordination uses broadcast messaging for:
 
-```rust
-impl MessageRouter {
-    pub async fn broadcast_message(&self, mut message: Message) -> Result<()> {
-        let agents = self.agents.read().await;
-        
-        for (agent_id, _) in agents.iter() {
-            if agent_id != &message.from {
-                let mut broadcast_msg = message.clone();
-                broadcast_msg.to = agent_id.clone();
-                self.route_message(broadcast_msg).await?;
-            }
-        }
-        
-        Ok(())
-    }
-    
-    pub async fn announce_milestone(&self, milestone: &str) -> Result<()> {
-        let message = Message {
-            id: generate_message_id(),
-            timestamp: Utc::now(),
-            from: "maos_orchestrator".to_string(),
-            to: "all".to_string(),
-            message_type: MessageType::Announcement,
-            subject: "Milestone Reached".to_string(),
-            body: milestone.to_string(),
-            ..Default::default()
-        };
-        
-        self.broadcast_message(message).await
-    }
-}
-```
+**Broadcast Types**:
+- **Milestone Announcements**: Notify all agents of project milestones or phase completions
+- **System Alerts**: Emergency notifications or important status changes
+- **Coordination Updates**: Session-wide updates about strategy or priority changes
+- **Resource Warnings**: Notifications about system resource limits or constraints
 
-## File Locking Strategy
+**Broadcast Mechanisms**:
+- Orchestrator can send announcements to all agents in session
+- Agents can broadcast status updates to entire team when appropriate
+- Automatic exclusion of message sender from broadcast recipients
 
-To prevent conflicts when multiple agents access shared files:
+## File Access Coordination
 
-```rust
-pub struct FileLockManager {
-    locks: Arc<RwLock<HashMap<PathBuf, String>>>, // path -> agent_id
-}
+Shared file access coordination prevents conflicts when multiple agents modify artifacts:
 
-impl FileLockManager {
-    pub async fn acquire_lock(&self, path: &Path, agent_id: &str) -> Result<FileLock> {
-        let mut locks = self.locks.write().await;
-        
-        if let Some(owner) = locks.get(path) {
-            if owner != agent_id {
-                return Err(anyhow!("File locked by {}", owner));
-            }
-        }
-        
-        locks.insert(path.to_path_buf(), agent_id.to_string());
-        
-        Ok(FileLock {
-            path: path.to_path_buf(),
-            manager: self.clone(),
-        })
-    }
-}
-```
+**Coordination Strategies**:
+- **File Locking**: Acquire exclusive locks for files being modified
+- **Lock Ownership**: Track which agent currently holds locks on specific files
+- **Lock Timeouts**: Automatic release of locks after timeout to prevent deadlocks
+- **Conflict Resolution**: Error handling when agents attempt to access locked files
+
+**Shared Access Patterns**:
+- Read-only access to shared specifications and documentation
+- Exclusive write access for artifact creation and modification
+- Atomic file operations to prevent partial updates
 
 ## Consequences
 

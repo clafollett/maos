@@ -112,364 +112,39 @@ pub struct SessionManager {
     logger: Arc<SessionLogger>,
 }
 
-impl SessionManager {
-    pub async fn create_session(&self, request: CreateSessionRequest) -> Result<Session> {
-        // Generate session ID
-        let session_id = format!("sess_{}", Uuid::new_v4().simple());
-        
-        // Create session directory structure (delegates to storage layer)
-        let session_dir = self.prepare_session_directory(&session_id)?;
-        
-        // Create session record
-        let session = Session {
-            id: session_id.clone(),
-            workspace_hash: self.workspace_hash.clone(),
-            objective: request.objective,
-            strategy: request.strategy,
-            state: SessionState::Created,
-            created_at: Utc::now(),
-            started_at: None,
-            completed_at: None,
-            agent_count: request.agents.len(),
-            completed_agents: 0,
-            failed_agents: 0,
-            metadata: request.metadata,
-        };
-        
-        // Save to database
-        sqlx::query!(
-            r#"
-            INSERT INTO sessions 
-            (id, workspace_hash, objective, strategy, state, agent_count, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            "#,
-            session.id,
-            session.workspace_hash,
-            session.objective,
-            session.strategy.to_string(),
-            session.state.to_string(),
-            session.agent_count as i32,
-            serde_json::to_string(&session.metadata)?
-        )
-        .execute(&self.db)
-        .await?;
-        
-        // Plan agent tasks
-        for agent_spec in request.agents {
-            self.register_agent(&session_id, agent_spec).await?;
-        }
-        
-        // Log session creation
-        self.logger.log_event("session_created", json!({
-            "session_id": session_id,
-            "objective": session.objective,
-            "strategy": session.strategy,
-            "agent_count": session.agent_count,
-        }))?;
-        
-        Ok(session)
-    }
-    
-    pub async fn start_session(&self, session_id: &str) -> Result<()> {
-        // Update session state
-        sqlx::query!(
-            "UPDATE sessions SET state = ?, started_at = ? WHERE id = ?",
-            SessionState::Running.to_string(),
-            Utc::now(),
-            session_id
-        )
-        .execute(&self.db)
-        .await?;
-        
-        // Get execution strategy
-        let strategy = self.get_session_strategy(session_id).await?;
-        
-        match strategy {
-            ExecutionStrategy::Parallel => {
-                self.start_all_agents(session_id).await?;
-            }
-            ExecutionStrategy::Sequential => {
-                self.start_next_agent(session_id).await?;
-            }
-            ExecutionStrategy::Adaptive => {
-                self.start_ready_agents(session_id).await?;
-            }
-            ExecutionStrategy::Pipeline => {
-                self.start_pipeline_stage(session_id, 0).await?;
-            }
-        }
-        
-        Ok(())
-    }
-    
-    pub async fn pause_session(&self, session_id: &str) -> Result<()> {
-        // Update state
-        sqlx::query!(
-            "UPDATE sessions SET state = ? WHERE id = ?",
-            SessionState::Paused.to_string(),
-            session_id
-        )
-        .execute(&self.db)
-        .await?;
-        
-        // Pause all running agents (delegates to ADR-08 ProcessManager)
-        let agents = self.get_running_agents(session_id).await?;
-        for agent in agents {
-            self.process_manager.pause_agent(&agent.agent_id).await?;
-        }
-        
-        self.logger.log_event("session_paused", json!({
-            "session_id": session_id,
-        }))?;
-        
-        Ok(())
-    }
-    
-    pub async fn resume_session(&self, session_id: &str) -> Result<()> {
-        // Update state
-        sqlx::query!(
-            "UPDATE sessions SET state = ? WHERE id = ?",
-            SessionState::Running.to_string(),
-            session_id
-        )
-        .execute(&self.db)
-        .await?;
-        
-        // Resume paused agents
-        let agents = self.get_paused_agents(session_id).await?;
-        for agent in agents {
-            self.process_manager.resume_agent(&agent.agent_id).await?;
-        }
-        
-        // Start any pending agents
-        self.start_ready_agents(session_id).await?;
-        
-        Ok(())
-    }
-}
+### Session Lifecycle Management
+
+The SessionManager coordinates session creation, execution, and lifecycle transitions:
+
+- **create_session()**: Initializes session with planning phase, agent registration, and database persistence
+- **start_session()**: Transitions to running state and initiates agents based on execution strategy
+- **pause_session()**: Suspends session and delegates agent pausing to ProcessManager
+- **resume_session()**: Restores session state and resumes or starts pending agents
+
+Session strategies determine agent coordination:
+- **Parallel**: All agents execute concurrently
+- **Sequential**: Agents execute in defined order
+- **Adaptive**: Dynamic scheduling based on dependency resolution
+- **Pipeline**: Staged execution with handoffs between phases
 ```
 
 ### Agent Coordination
 
-```rust
-impl SessionManager {
-    async fn start_ready_agents(&self, session_id: &str) -> Result<()> {
-        // Get all pending agents
-        let pending_agents = sqlx::query!(
-            r#"
-            SELECT agent_id, role, task, dependencies
-            FROM session_agents
-            WHERE session_id = ? AND state = 'pending'
-            "#,
-            session_id
-        )
-        .fetch_all(&self.db)
-        .await?;
-        
-        for agent in pending_agents {
-            // Check dependencies
-            let deps: Vec<String> = serde_json::from_str(&agent.dependencies)?;
-            if self.check_dependencies_met(session_id, &deps).await? {
-                self.start_agent(session_id, &agent.agent_id).await?;
-            }
-        }
-        
-        Ok(())
-    }
-    
-    async fn check_dependencies_met(&self, session_id: &str, deps: &[String]) -> Result<bool> {
-        if deps.is_empty() {
-            return Ok(true);
-        }
-        
-        let completed_count = sqlx::query_scalar!(
-            r#"
-            SELECT COUNT(*)
-            FROM session_agents
-            WHERE session_id = ? 
-            AND agent_id IN (SELECT value FROM json_each(?))
-            AND state = 'completed'
-            "#,
-            session_id,
-            serde_json::to_string(deps)?
-        )
-        .fetch_one(&self.db)
-        .await?;
-        
-        Ok(completed_count == deps.len() as i64)
-    }
-    
-    pub async fn handle_agent_completion(&self, session_id: &str, agent_id: &str, exit_code: i32) -> Result<()> {
-        // Update agent state
-        let state = if exit_code == 0 { "completed" } else { "failed" };
-        sqlx::query!(
-            r#"
-            UPDATE session_agents 
-            SET state = ?, completed_at = ?, exit_code = ?
-            WHERE session_id = ? AND agent_id = ?
-            "#,
-            state,
-            Utc::now(),
-            exit_code,
-            session_id,
-            agent_id
-        )
-        .execute(&self.db)
-        .await?;
-        
-        // Update session counters
-        if exit_code == 0 {
-            sqlx::query!(
-                "UPDATE sessions SET completed_agents = completed_agents + 1 WHERE id = ?",
-                session_id
-            )
-            .execute(&self.db)
-            .await?;
-        } else {
-            sqlx::query!(
-                "UPDATE sessions SET failed_agents = failed_agents + 1 WHERE id = ?",
-                session_id
-            )
-            .execute(&self.db)
-            .await?;
-        }
-        
-        // Check if session is complete
-        self.check_session_completion(session_id).await?;
-        
-        // Start dependent agents if using adaptive strategy
-        let strategy = self.get_session_strategy(session_id).await?;
-        if matches!(strategy, ExecutionStrategy::Adaptive) {
-            self.start_ready_agents(session_id).await?;
-        }
-        
-        Ok(())
-    }
-}
-```
+The session manager coordinates agents through dependency tracking and state management:
+
+- **Dependency Resolution**: Checks completion status of prerequisite agents before starting dependent agents
+- **Agent Lifecycle Events**: Handles completion notifications and updates session progress counters
+- **Strategy-Based Execution**: Adapts agent startup based on the session's execution strategy
+- **Progress Tracking**: Maintains session-level counters for completed and failed agents
 
 ### Session Monitoring
 
-```rust
-pub struct SessionMonitor {
-    sessions: Arc<RwLock<HashMap<String, SessionState>>>,
-    db: SqlitePool,
-}
+Real-time session monitoring provides visibility into orchestration progress:
 
-impl SessionMonitor {
-    pub async fn get_session_status(&self, session_id: &str) -> Result<SessionStatus> {
-        let session = sqlx::query!(
-            "SELECT * FROM sessions WHERE id = ?",
-            session_id
-        )
-        .fetch_one(&self.db)
-        .await?;
-        
-        let agents = sqlx::query!(
-            r#"
-            SELECT agent_id, role, state, task,
-                   started_at, completed_at, exit_code
-            FROM session_agents
-            WHERE session_id = ?
-            ORDER BY created_at
-            "#,
-            session_id
-        )
-        .fetch_all(&self.db)
-        .await?;
-        
-        // Calculate role distribution
-        let role_distribution = self.calculate_role_distribution(&agents);
-        
-        Ok(SessionStatus {
-            session: session.into(),
-            agents: agents.into_iter().map(Into::into).collect(),
-            role_distribution,
-            progress: self.calculate_progress(&agents),
-            estimated_completion: self.estimate_completion(&session, &agents),
-        })
-    }
-    
-    pub async fn stream_session_updates(&self, session_id: &str) -> impl Stream<Item = SessionUpdate> {
-        // Watch for changes in session state and agent status
-        let (tx, rx) = tokio::sync::mpsc::channel(100);
-        
-        let session_id = session_id.to_string();
-        let db = self.db.clone();
-        
-        tokio::spawn(async move {
-            let mut last_update = Utc::now();
-            loop {
-                // Query for updates since last check
-                let updates = sqlx::query!(
-                    r#"
-                    SELECT * FROM session_events
-                    WHERE session_id = ? AND timestamp > ?
-                    ORDER BY timestamp
-                    "#,
-                    session_id,
-                    last_update
-                )
-                .fetch_all(&db)
-                .await
-                .unwrap_or_default();
-                
-                for update in updates {
-                    if let Ok(data) = serde_json::from_str(&update.data) {
-                        let _ = tx.send(SessionUpdate {
-                            timestamp: update.timestamp,
-                            event_type: update.event_type,
-                            agent_id: update.agent_id,
-                            data,
-                        }).await;
-                    }
-                    last_update = update.timestamp;
-                }
-                
-                tokio::time::sleep(Duration::from_secs(1)).await;
-            }
-        });
-        
-        ReceiverStream::new(rx)
-    }
-    
-    fn calculate_role_distribution(&self, agents: &[AgentRecord]) -> HashMap<String, RoleStats> {
-        let mut distribution: HashMap<String, RoleStats> = HashMap::new();
-        
-        for agent in agents {
-            // Parse role from agent_id format: agent_{role}_{instance}_{id}
-            let parts: Vec<&str> = agent.agent_id.split('_').collect();
-            if parts.len() >= 3 && parts[0] == "agent" {
-                let role_name = parts[1].to_string();
-                let stats = distribution.entry(role_name).or_insert(RoleStats {
-                    total: 0,
-                    running: 0,
-                    completed: 0,
-                    failed: 0,
-                });
-                
-                stats.total += 1;
-                match agent.state.as_str() {
-                    "running" => stats.running += 1,
-                    "completed" => stats.completed += 1,
-                    "failed" => stats.failed += 1,
-                    _ => {}
-                }
-            }
-        }
-        
-        distribution
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct RoleStats {
-    pub total: usize,
-    pub running: usize,
-    pub completed: usize,
-    pub failed: usize,
-}
-```
+- **Session Status**: Current state, agent distribution, and progress metrics
+- **Role Distribution**: Statistics on agent roles and their execution states
+- **Progress Estimation**: Calculated completion estimates based on agent states
+- **Event Streaming**: Real-time updates on session and agent state changes
 
 ### Comprehensive State Management and Recovery
 
@@ -524,95 +199,24 @@ struct AgentExecution {
     completion_time: Option<DateTime<Utc>>,
 }
 
-impl SessionManager {
-    pub async fn recover_sessions(&self) -> Result<()> {
-        // Find sessions that were running when MAOS stopped
-        let interrupted_sessions = sqlx::query!(
-            r#"
-            SELECT id FROM sessions 
-            WHERE state = 'Running' 
-            AND workspace_hash = ?
-            "#,
-            self.workspace_hash
-        )
-        .fetch_all(&self.db)
-        .await?;
-        
-        for session in interrupted_sessions {
-            info!("Recovering session: {}", session.id);
-            
-            // Load orchestration state from checkpoint
-            let state = self.load_orchestration_state(&session.id).await?;
-            
-            // Assess recovery scope based on interruption context
-            let recovery_plan = self.assess_recovery_scope(&session.id, &state).await?;
-            
-            match recovery_plan {
-                RecoveryPlan::ResumeAgent(agent_id) => {
-                    // Resume specific agent with Claude CLI --resume
-                    self.resume_agent_with_cli(&agent_id, &state).await?;
-                }
-                RecoveryPlan::RestartPhase(phase_id) => {
-                    // Restart the current phase with all context
-                    self.restart_phase_with_context(&session.id, &phase_id, &state).await?;
-                }
-                RecoveryPlan::ResumeSession => {
-                    // Resume session from last checkpoint
-                    self.resume_session_from_checkpoint(&session.id, &state).await?;
-                }
-                RecoveryPlan::MarkFailed(reason) => {
-                    // Mark session as failed if recovery isn't possible
-                    self.mark_session_failed(&session.id, &reason).await?;
-                }
-            }
-        }
-        
-        Ok(())
-    }
-    
-    async fn create_checkpoint(&self, session_id: &str) -> Result<()> {
-        let state = self.capture_orchestration_state(session_id).await?;
-        
-        // Store state in structured format for easy inspection
-        let checkpoint_path = format!("~/.maos/projects/{}/sessions/{}/checkpoint.json", 
-            self.workspace_hash, session_id);
-        
-        let checkpoint_data = serde_json::to_string_pretty(&state)?;
-        fs::write(checkpoint_path, checkpoint_data).await?;
-        
-        // Update last checkpoint timestamp
-        sqlx::query!(
-            "UPDATE sessions SET last_checkpoint = ? WHERE id = ?",
-            Utc::now(),
-            session_id
-        )
-        .execute(&self.db)
-        .await?;
-        
-        Ok(())
-    }
-    
-    async fn assess_recovery_scope(&self, session_id: &str, state: &OrchestrationState) -> Result<RecoveryPlan> {
-        // Implement intelligent recovery decisions based on interruption context
-        
-        // Check if individual agents can be resumed
-        for agent in &state.current_phase.as_ref().unwrap_or(&Phase::default()).agents {
-            if agent.state == AgentExecutionState::Resumable && agent.claude_session_id.is_some() {
-                return Ok(RecoveryPlan::ResumeAgent(agent.agent_id.clone()));
-            }
-        }
-        
-        // Check if we should restart the current phase
-        if let Some(current_phase) = &state.current_phase {
-            if current_phase.state == PhaseState::Running {
-                return Ok(RecoveryPlan::RestartPhase(current_phase.phase_id.clone()));
-            }
-        }
-        
-        // Default to session-level resume
-        Ok(RecoveryPlan::ResumeSession)
-    }
-}
+### Session Recovery Implementation
+
+**Recovery Process**: 
+- Identify interrupted sessions from database state
+- Load orchestration state from checkpoint files
+- Assess recovery scope based on interruption context
+- Execute appropriate recovery strategy
+
+**Recovery Strategies**:
+- **Agent Resume**: Use Claude CLI `--resume` for individual agents with saved session IDs
+- **Phase Restart**: Restart current phase with preserved context and dependencies
+- **Session Resume**: Full session recovery from last checkpoint
+- **Graceful Failure**: Mark session as failed when recovery isn't viable
+
+**Checkpoint Management**:
+- Structured JSON checkpoints at phase boundaries and key orchestration points
+- Automatic checkpoint creation before risky operations
+- Human-readable format for debugging and manual inspection
 
 #[derive(Debug, Clone)]
 enum RecoveryPlan {
@@ -625,49 +229,11 @@ enum RecoveryPlan {
 
 ### Session Cleanup
 
-```rust
-pub struct SessionCleaner {
-    retention_days: u32,
-    archive_completed: bool,
-}
-
-impl SessionCleaner {
-    pub async fn cleanup_old_sessions(&self) -> Result<()> {
-        let cutoff = Utc::now() - Duration::days(self.retention_days as i64);
-        
-        // Find old completed/failed sessions
-        let old_sessions = sqlx::query!(
-            r#"
-            SELECT id, workspace_hash 
-            FROM sessions 
-            WHERE state IN ('Completed', 'Failed', 'Cancelled')
-            AND completed_at < ?
-            "#,
-            cutoff
-        )
-        .fetch_all(&self.db)
-        .await?;
-        
-        for session in old_sessions {
-            if self.archive_completed {
-                self.archive_session(&session.id).await?;
-            }
-            
-            // Remove session directory
-            let session_dir = format!("~/.maos/projects/{}/sessions/{}", 
-                session.workspace_hash, session.id);
-            fs::remove_dir_all(session_dir).await?;
-            
-            // Remove from database
-            sqlx::query!("DELETE FROM sessions WHERE id = ?", session.id)
-                .execute(&self.db)
-                .await?;
-        }
-        
-        Ok(())
-    }
-}
-```
+Automated cleanup manages session lifecycle:
+- **Configurable Retention**: Cleanup sessions after specified retention period
+- **Selective Archiving**: Optional archiving of completed sessions before deletion  
+- **Directory Cleanup**: Remove session workspace directories and artifacts
+- **Database Cleanup**: Remove session records and related agent data
 
 ## Consequences
 
