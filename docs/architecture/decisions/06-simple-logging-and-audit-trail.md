@@ -1,4 +1,4 @@
-# ADR-005: Simple Logging and Audit Trail
+# ADR-06: Simple Logging and Audit Trail
 
 ## Status
 Accepted

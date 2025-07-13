@@ -1,4 +1,4 @@
-# ADR-008: Agent Communication Patterns
+# ADR-04: Agent Communication Patterns
 
 ## Status
 Accepted
@@ -201,7 +201,7 @@ pub struct AgentInfo {
     pub role_name: String,
     pub role_description: Option<String>,
     pub instance_number: usize,
-    pub status: AgentStatus,
+    pub execution_state: AgentExecutionState, // Uses unified state model
     pub capabilities: Vec<String>,
 }
 
@@ -376,6 +376,7 @@ impl FileLockManager {
 - **Role-Based Routing**: Easy to message all agents of a specific role
 - **Pattern Matching**: Flexible targeting with wildcards
 - **Agent Discovery**: Agents can find others by role or capability
+- **Foundation for Higher-Level Protocols**: Provides infrastructure for orchestration coordination (see ADR-07)
 
 ### Negative  
 - **Latency**: File system operations slower than memory
@@ -391,15 +392,15 @@ impl FileLockManager {
 - Clear documentation and examples
 
 ## References
-- [Storage Schema Reference](../references/storage-schema.md) - File structure and message format
-- [Environment Variables Reference](../references/environment-variables.md) - Agent configuration
-- [Agent Roles Reference](../references/agent-roles.md) - Agent identification patterns
+- **ADR-07: Orchestration Guardrails and Coordination Protocols** - Uses this communication infrastructure for higher-level coordination
+- ADR-02: Hybrid Storage Strategy - File system organization for communication
+- ADR-03: Session Orchestration and State Management - Session-level message coordination
 - Unix philosophy: Everything is a file
 - Actor model for message passing
 - Enterprise Integration Patterns
 - File system notification APIs (inotify, FSEvents)
 
 ---
-*Date: 2025-07-09*  
+*Date: 2025-07-13*  
 *Author: Marvin (Claude)*  
 *Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*

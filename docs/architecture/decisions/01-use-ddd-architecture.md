@@ -1,4 +1,4 @@
-# ADR-001: Use Domain-Driven Design Architecture
+# ADR-01: Use Domain-Driven Design Architecture
 
 ## Status
 Accepted
@@ -28,7 +28,7 @@ We will use Domain-Driven Design (DDD) principles adapted for our MCP server arc
    - Application Services: SessionManager, ProcessManager
 
 3. **Infrastructure Layer** (`maos-infrastructure`) - Technical implementation
-   - Storage: SQLite + File System (see ADR-002)
+   - Storage: SQLite + File System (see ADR-02)
    - Process Management: CLI spawning and monitoring
    - MCP Server: HTTP/SSE protocol implementation
    - Communication: File-based message routing
@@ -94,10 +94,10 @@ We will use Domain-Driven Design (DDD) principles adapted for our MCP server arc
    - No circular dependencies
 
 4. **Pragmatic Choices**:
-   - SQLite for state (not event sourcing) - see ADR-002
-   - Simple logging instead of complex events - see ADR-005
-   - File-based communication over IPC - see ADR-008
-   - Process spawning over embedded agents - see ADR-004
+   - SQLite for state (not event sourcing) - see ADR-02
+   - Simple logging instead of complex events - see ADR-06
+   - File-based communication over IPC - see ADR-04
+   - Process spawning over embedded agents - see ADR-05
 
 ## References
 - [Domain-Driven Design by Eric Evans](https://www.amazon.com/Domain-Driven-Design-Tackling-Complexity-Software/dp/0321125215)

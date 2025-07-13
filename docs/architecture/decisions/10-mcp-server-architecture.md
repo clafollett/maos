@@ -1,4 +1,4 @@
-# ADR-003: MCP Server Architecture
+# ADR-10: MCP Server Architecture
 
 ## Status
 Accepted

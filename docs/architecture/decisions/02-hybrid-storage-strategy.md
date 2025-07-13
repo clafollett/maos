@@ -1,4 +1,4 @@
-# ADR-002: Hybrid Storage Strategy (SQLite + File System)
+# ADR-02: Hybrid Storage Strategy (SQLite + File System)
 
 ## Status
 Accepted

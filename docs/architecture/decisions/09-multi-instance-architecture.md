@@ -1,4 +1,4 @@
-# ADR-007: Multi-Instance Architecture
+# ADR-09: Multi-Instance Architecture
 
 ## Status
 Accepted

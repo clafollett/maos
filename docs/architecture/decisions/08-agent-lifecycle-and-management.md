@@ -1,4 +1,4 @@
-# ADR-006: Agent Lifecycle and Management
+# ADR-08: Agent Lifecycle and Management
 
 ## Status
 Accepted
@@ -24,18 +24,38 @@ Key insights:
 ## Decision
 We will implement comprehensive agent lifecycle management with flexible role-based specialization supporting both predefined and custom roles, multiple instances, and robust process handling.
 
-### Agent Lifecycle States
+### Architectural Layering
+
+This ADR provides the low-level process management infrastructure that higher-level orchestration builds upon:
+
+- **ADR-08 provides**: Process spawning, resource management, health monitoring, and lifecycle state management
+- **ADR-03 uses**: This infrastructure for session-level orchestration and agent coordination
+- **ADR-05 provides**: CLI configurations and integration patterns that this ADR uses for spawning
+- **Relationship**: ADR-08 handles the "how" of agent processes, ADR-03 handles the "when/why" of orchestration, ADR-05 handles the "what CLIs are available"
+
+### Unified State Model Integration
+
+This ADR uses the unified state model for consistent agent lifecycle management across all orchestration layers. The process management layer uses `AgentExecutionState` for tracking individual agent lifecycle:
 
 ```
-┌─────────┐      ┌─────────┐      ┌─────────┐
-│ Pending │ ───► │ Running │ ───► │Complete│
-└─────────┘      └────┬────┘      └─────────┘
+┌─────────┐      ┌─────────┐      ┌───────────┐
+│ Pending │ ───► │ Running │ ───► │ Completed │
+└─────────┘      └────┬────┘      └───────────┘
                       │
-                      ▼
-                 ┌─────────┐
-                 │ Failed  │
-                 └─────────┘
+                      ├─────► ┌─────────┐
+                      │       │ Failed  │
+                      │       └─────────┘
+                      │
+                      ├─────► ┌───────────┐
+                      │       │ Resumable │ (for recovery)
+                      │       └───────────┘
+                      │
+                      └─────► ┌───────────┐
+                              │ Cancelled │
+                              └───────────┘
 ```
+
+The process manager also tracks low-level process states separately for technical monitoring.
 
 ### Agent Role Definitions
 
@@ -390,13 +410,14 @@ impl ProcessManager {
 - Allow users to provide custom templates for their roles
 
 ## References
-- [Agent Roles Reference](../references/agent-roles.md) - Complete role definitions and templates
-- [Environment Variables Reference](../references/environment-variables.md) - Agent configuration
+- **ADR-03: Session Orchestration and State Management** - Uses this process management infrastructure for session-level coordination
+- ADR-05: CLI Integration and Process Spawning - CLI-specific spawning patterns
+- Process supervision patterns and best practices
 - Tokio process management documentation
 - Linux resource limits (setrlimit)
-- Process supervision patterns
+- Container orchestration patterns
 
 ---
-*Date: 2025-07-09*  
+*Date: 2025-07-13*  
 *Author: Marvin (Claude)*  
 *Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*
