@@ -47,7 +47,7 @@ The Orchestrator (powered by Claude or another CLI) analyzes the request and out
           "task": "Research real-time messaging technologies and authentication best practices"
         },
         {
-          "role": "architect",
+          "role": "solution_architect",
           "task": "Design system architecture based on research findings"
         }
       ]
@@ -65,7 +65,7 @@ The Orchestrator (powered by Claude or another CLI) analyzes the request and out
           "task": "Build chat UI with real-time updates"
         },
         {
-          "role": "database_engineer",
+          "role": "data_architect",
           "task": "Set up message persistence and user storage"
         }
       ]
@@ -146,15 +146,12 @@ Output ONLY valid JSON.
 ```
 
 ### Supported Agent Roles
-- researcher
-- architect  
-- engineer (backend/frontend/database/etc.)
-- qa_engineer
-- security_reviewer
-- documenter
-- designer (ux)
-- devops
-- data_scientist
+- **Architecture**: solution_architect, application_architect, data_architect, api_architect, security_architect
+- **Engineering**: backend_engineer, frontend_engineer, mobile_engineer
+- **Analysis**: researcher, data_scientist, analyst
+- **Quality**: qa, reviewer, tester
+- **Coordination**: pm, documenter
+- **Specialized**: devops, security, ux_designer
 
 ### Error Handling
 If the Orchestrator fails to produce valid JSON or crashes, MAOS should:
@@ -175,7 +172,7 @@ Orchestrator Output:
       "name": "Design",
       "parallel": false,
       "agents": [
-        {"role": "architect", "task": "Design REST API structure and endpoints"}
+        {"role": "api_architect", "task": "Design REST API structure and endpoints"}
       ]
     },
     {
@@ -184,7 +181,7 @@ Orchestrator Output:
       "agents": [
         {"role": "backend_engineer", "task": "Implement user CRUD operations"},
         {"role": "backend_engineer", "task": "Implement authentication endpoints"},
-        {"role": "database_engineer", "task": "Create user database schema"}
+        {"role": "data_architect", "task": "Create user database schema"}
       ]
     }
   ]
@@ -202,10 +199,10 @@ Orchestrator Output:
       "name": "Analysis",
       "parallel": true,
       "agents": [
-        {"role": "security_reviewer", "task": "Scan for SQL injection vulnerabilities"},
-        {"role": "security_reviewer", "task": "Check authentication implementation"},
-        {"role": "security_reviewer", "task": "Review API security headers"},
-        {"role": "security_reviewer", "task": "Analyze dependency vulnerabilities"}
+        {"role": "security", "task": "Scan for SQL injection vulnerabilities"},
+        {"role": "security", "task": "Check authentication implementation"},
+        {"role": "security", "task": "Review API security headers"},
+        {"role": "security", "task": "Analyze dependency vulnerabilities"}
       ]
     },
     {

@@ -11,7 +11,7 @@ The POC revealed a critical flaw in our orchestration approach: the Orchestrator
 - Misalignment between phases
 - Wasted effort on assumptions that proved incorrect
 
-Traditional orchestration assumes the orchestrator has perfect knowledge to create a complete plan. In reality, software projects are journeys of discovery where each phase reveals information needed for the next.
+Traditional orchestration assumes the Orchestrator has perfect knowledge to create a complete plan. In reality, software projects are journeys of discovery where each phase reveals information needed for the next.
 
 ## Decision
 We will implement an adaptive, phase-based orchestration model where the Orchestrator acts as a Project Manager rather than a central planner.
@@ -67,7 +67,7 @@ The Orchestrator prompt should emphasize:
 - "Review actual outputs before planning next steps"
 
 ## References
-- POC analysis showing orchestrator planning failures
+- POC analysis showing Orchestrator planning failures
 - Agile methodologies and iterative development
 - Project management best practices
 - Feedback control systems

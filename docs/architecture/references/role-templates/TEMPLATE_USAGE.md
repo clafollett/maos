@@ -4,21 +4,41 @@ This guide explains how to use the detailed role-specific prompt templates in MA
 
 ## Overview
 
-MAOS provides 13 predefined role templates, each optimized for specific types of tasks:
+MAOS provides 20 predefined role templates, each optimized for specific types of tasks:
 
-1. **[Architect](architect.md)** - System design and technical specifications
-2. **[Engineer](engineer.md)** - Code implementation and development
-3. **[Researcher](researcher.md)** - Technology evaluation and recommendations
-4. **[QA](qa.md)** - Quality assurance and code review
-5. **[PM](pm.md)** - Project coordination and progress tracking
-6. **[DevOps](devops.md)** - Infrastructure and deployment management
-7. **[Security](security.md)** - Security analysis and compliance
-8. **[Data Scientist](data_scientist.md)** - Data analysis and ML models
-9. **[UX Designer](ux_designer.md)** - User interface/experience design (distinct from system architecture)
-10. **[Documenter](documenter.md)** - Technical and user documentation
-11. **[Reviewer](reviewer.md)** - Code and design reviews
-12. **[Analyst](analyst.md)** - Requirements and business analysis
-13. **[Tester](tester.md)** - Testing strategies and execution
+### Meta-Role
+0. **[Orchestrator](orchestrator.md)** - Multi-agent workflow coordination and adaptive planning
+
+### Architecture Roles  
+1. **[Solution Architect](solution_architect.md)** - Enterprise solution design across multiple systems
+2. **[Application Architect](application_architect.md)** - Internal application structure and patterns
+3. **[Data Architect](data_architect.md)** - Data modeling, storage systems, and data flow
+4. **[API Architect](api_architect.md)** - API design, service contracts, and integration patterns
+5. **[Security Architect](security_architect.md)** - Security controls, threat modeling, and compliance
+
+### Engineering Roles
+6. **[Backend Engineer](backend_engineer.md)** - Server-side logic, APIs, and data processing
+7. **[Frontend Engineer](frontend_engineer.md)** - UI implementation and client-side logic
+8. **[Mobile Engineer](mobile_engineer.md)** - Mobile app development for iOS/Android
+
+### Analysis & Research Roles
+9. **[Researcher](researcher.md)** - Technology evaluation and recommendations
+10. **[Data Scientist](data_scientist.md)** - Data analysis and ML models
+11. **[Analyst](analyst.md)** - Requirements and business analysis
+
+### Quality & Review Roles
+12. **[QA](qa.md)** - Quality assurance and testing coordination
+13. **[Reviewer](reviewer.md)** - Code and design reviews
+14. **[Tester](tester.md)** - Testing strategies and execution
+
+### Coordination & Support Roles
+15. **[PM](pm.md)** - Project coordination and progress tracking
+16. **[Documenter](documenter.md)** - Technical and user documentation
+17. **[UX Designer](ux_designer.md)** - User interface/experience design
+
+### Specialized Roles
+18. **[DevOps](devops.md)** - Infrastructure and deployment management
+19. **[Security](security.md)** - Security analysis and implementation
 
 ## How Templates Work
 
@@ -76,7 +96,7 @@ Each template follows this structure:
 {
   "tool": "spawn_agent",
   "task": "Design the authentication system",
-  "role": "architect"
+  "role": "solution_architect"
 }
 ```
 
@@ -194,8 +214,8 @@ All templates include structured communication:
 # Example: Building a feature
 tasks = [
     {"role": "analyst", "task": "Gather requirements"},
-    {"role": "architect", "task": "Design the system"},
-    {"role": "engineer", "task": "Implement the feature"},
+    {"role": "solution_architect", "task": "Design the system"},
+    {"role": "backend_engineer", "task": "Implement the feature"},
     {"role": "tester", "task": "Create test suite"},
     {"role": "reviewer", "task": "Review implementation"},
     {"role": "documenter", "task": "Write user guide"}

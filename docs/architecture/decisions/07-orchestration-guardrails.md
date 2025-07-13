@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-The POC revealed critical coordination failures in our multi-agent orchestration system. The orchestrator created vague task assignments that led to misalignment between architects and engineers, resulting in architectural decisions being ignored during implementation.
+The POC revealed critical coordination failures in our multi-agent orchestration system. The Orchestrator created vague task assignments that led to misalignment between architects and engineers, resulting in architectural decisions being ignored during implementation.
 
 ### Key Issues Identified
 
@@ -119,7 +119,7 @@ Before proceeding between phases:
 ## Implementation Notes
 
 ### Orchestrator Enhancements
-The orchestrator must be enhanced to:
+The Orchestrator must be enhanced to:
 - Generate specific task requirements referencing concrete documents
 - Insert coordination phases automatically based on project structure  
 - Create validation checkpoints between major phases

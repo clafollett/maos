@@ -116,11 +116,11 @@ Start a multi-agent orchestration session with multiple agents working on a comm
   "objective": "Build a REST API for user management",
   "agents": [
     {
-      "role": "architect",
+      "role": "api_architect",
       "task": "Design the API architecture and database schema"
     },
     {
-      "role": "engineer",
+      "role": "backend_engineer",
       "task": "Implement the API endpoints",
       "instance_suffix": "backend"
     },
@@ -141,12 +141,12 @@ Start a multi-agent orchestration session with multiple agents working on a comm
   "agents": [
     {
       "agent_id": "agent_architect_1_def456",
-      "role": "architect",
+      "role": "api_architect",
       "status": "pending"
     },
     {
       "agent_id": "agent_engineer_backend_1_ghi789",
-      "role": "engineer",
+      "role": "backend_engineer",
       "status": "pending"
     },
     {
@@ -348,14 +348,14 @@ Get the current status of an orchestration session and its agents.
   "agents": [
     {
       "agent_id": "agent_architect_1_def456",
-      "role": "architect",
+      "role": "api_architect",
       "state": "completed",
       "started_at": "2024-01-10T10:00:00Z",
       "completed_at": "2024-01-10T10:15:00Z"
     },
     {
       "agent_id": "agent_engineer_backend_1_ghi789",
-      "role": "engineer",
+      "role": "backend_engineer",
       "state": "running",
       "started_at": "2024-01-10T10:15:00Z"
     }
@@ -489,7 +489,7 @@ All tools follow a consistent error response format:
     "code": "RESOURCE_LIMIT_EXCEEDED",
     "message": "Maximum number of engineer agents (3) already reached",
     "details": {
-      "role": "engineer",
+      "role": "backend_engineer",
       "current_count": 3,
       "max_allowed": 3
     }

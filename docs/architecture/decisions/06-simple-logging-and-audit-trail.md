@@ -92,7 +92,7 @@ impl SessionLogger {
 // Usage
 logger.log_event("agent_spawned", json!({
     "agent_id": agent_id,
-    "role": "architect",
+    "role": "solution_architect",
     "task": "Design authentication system"
 }))?;
 ```

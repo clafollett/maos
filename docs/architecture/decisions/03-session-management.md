@@ -165,7 +165,7 @@ Support resume at multiple levels:
 Create state checkpoints at key orchestration points:
 - **Phase Boundaries**: Before starting each new phase
 - **Agent Completion**: After each agent completes successfully
-- **Plan Updates**: When orchestrator modifies or extends the plan
+- **Plan Updates**: When Orchestrator modifies or extends the plan
 - **Error Conditions**: Before attempting error recovery
 
 ```rust

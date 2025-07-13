@@ -133,18 +133,16 @@ Start a multi-agent session with specific roles and tasks:
   "objective": "Build a REST API with authentication",
   "agents": [
     {
-      "role": "architect",
+      "role": "solution_architect",
       "task": "Design the API architecture and data models"
     },
     {
-      "role": "engineer",
-      "task": "Implement the authentication endpoints",
-      "instance_suffix": "backend"
+      "role": "backend_engineer",
+      "task": "Implement the authentication endpoints"
     },
     {
-      "role": "engineer", 
-      "task": "Create the frontend authentication UI",
-      "instance_suffix": "frontend"
+      "role": "frontend_engineer",
+      "task": "Create the frontend authentication UI"
     },
     {
       "role": {
