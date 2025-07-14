@@ -25,6 +25,11 @@ Claude Code ↔ MCP Server ↔ Orchestrator (SINGLE INTERFACE)
 
 The implementation is organized into **5 major epics**, each building toward the complete ACP-based orchestration system.
 
+## Implementation Epics Overview
+
+<details>
+<summary><strong>Epic 1: ACP Foundation & Domain Core 🚀</strong> (6-8 weeks)</summary>
+
 ## Epic 1: ACP Foundation & Domain Core 🚀
 
 **Epic: ACP Integration & Domain Foundation**
@@ -58,6 +63,11 @@ Implement the **ACP-integrated domain models** and core infrastructure for the r
 
 ---
 
+</details>
+
+<details>
+<summary><strong>Epic 2: Simplified MCP Server (Orchestrator Interface) 🎯</strong> (3-4 weeks)</summary>
+
 ## Epic 2: Simplified MCP Server (Orchestrator Interface) 🎯
 
 **Epic: Revolutionary MCP Server Implementation**
@@ -90,6 +100,11 @@ Implement the **dramatically simplified MCP server** that serves as the interfac
 - Integration tests with Claude Code
 
 ---
+
+</details>
+
+<details>
+<summary><strong>Epic 3: ACP Agent Network (Dual Process Management) ⚡</strong> (4-5 weeks)</summary>
 
 ## Epic 3: ACP Agent Network (Dual Process Management) ⚡
 
@@ -126,6 +141,11 @@ Implement the revolutionary **dual process agent management** system where every
 - ACP network resilience testing
 
 ---
+
+</details>
+
+<details>
+<summary><strong>Epic 4: Orchestrator-as-Interface (Revolutionary Coordination) 👑</strong> (6-8 weeks)</summary>
 
 ## Epic 4: Orchestrator-as-Interface (Revolutionary Coordination) 👑
 
@@ -167,6 +187,11 @@ Implement the **game-changing Orchestrator-as-Interface** pattern where the Orch
 
 ---
 
+</details>
+
+<details>
+<summary><strong>Epic 5: Production-Ready ACP System 🏆</strong> (4-6 weeks)</summary>
+
 ## Epic 5: Production-Ready ACP System 🏆
 
 **Epic: ACP Network Production Features**
@@ -204,6 +229,8 @@ Implement production-ready features for the **ACP network orchestration system**
 - **COMPLETE PRODUCTION-READY MAOS SYSTEM** 🚀
 
 ---
+
+</details>
 
 ## 🚀 Revolutionary Implementation Strategy
 
