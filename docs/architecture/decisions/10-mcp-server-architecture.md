@@ -11,141 +11,164 @@ MAOS needs to provide multi-agent orchestration capabilities to AI tools like Cl
 - **Streaming Support**: Real-time updates via Server-Sent Events (SSE)
 - **Language Agnostic**: Clients don't need to know MAOS is written in Rust
 
-Key architectural insight: **MAOS becomes an MCP server that Claude Code (or any MCP client) connects to**, reversing the traditional flow where the orchestrator calls the AI.
+### Revolutionary ACP Integration Insight
+With our **Agent Communication Protocol (ACP) integration**, the MCP server role is dramatically simplified:
+- **No message routing needed**: Agents communicate directly via ACP
+- **Remove `maos/agent-message` tool**: This tool was fundamentally broken and is no longer needed
+- **Focus on orchestration lifecycle**: MCP server manages sessions and streams ACP network activity
+- **Simplified architecture**: Clean separation between MCP (external interface) and ACP (internal agent network)
+
+Key architectural insights: 
+- **MAOS MCP server spawns agents into an ACP network**
+- **Only the Orchestrator communicates with Claude Code** - all other agents are pure ACP participants
+- **Orchestrator serves as the single interface** representing the entire multi-agent system
 
 ## Decision
-MAOS will be implemented as an MCP server that exposes orchestration capabilities through tools and resources, while spawning actual agent work via CLI processes.
+MAOS will be implemented as a **simplified MCP server** that exposes orchestration lifecycle capabilities through tools and resources, while spawning agents into an **ACP network** for peer-to-peer communication. The MCP server focuses on session management and streaming ACP network activity back to clients.
 
-### Architecture Overview
+### Revolutionary ACP-Integrated Architecture
 ```
-┌──────────────────────────────────┐
-│   Claude Code (MCP Client)       │
-│   - User types natural language  │
-│   - LLM interprets into tools    │
-│   - Displays agent outputs       │
-└────────────┬─────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│   Claude Code (MCP Client)                                     │
+│   - User types natural language                                │
+│   - LLM interprets into tools                                  │
+│   - Displays ONLY Orchestrator output                          │
+└────────────┬───────────────────────────────────────────────────┘
              │ MCP Protocol (HTTP/SSE)
+             │ ONLY communicates with Orchestrator
              ▼
-┌──────────────────────────────────┐
-│   MAOS MCP Server                │
-├──────────────────────────────────┤
-│ Tools:                           │
-│ • maos/orchestrate               │
-│ • maos/spawn-agent               │
-│ • maos/agent-message             │
-│ • maos/session-status            │
-├──────────────────────────────────┤
-│ Resources:                       │
-│ • Agent outputs (streaming)      │
-│ • Session status                 │
-│ • Agent templates                │
-└────────────┬─────────────────────┘
-             │ Process Spawning
+┌────────────────────────────────────────────────────────────────┐
+│   MAOS MCP Server (SIMPLIFIED!)                               │
+├────────────────────────────────────────────────────────────────┤
+│ Tools:                                                         │
+│ • maos/orchestrate      ← Start orchestration                 │
+│ • maos/session-status   ← Monitor progress                    │
+│ • maos/list-roles       ← List available roles              │
+├────────────────────────────────────────────────────────────────┤
+│ Resources:                                                     │
+│ • Orchestrator output (streaming)                             │
+│ • Session status                                               │
+│ • Agent discovery info                                         │
+└────────────┬───────────────────────────────────────────────────┘
+             │ Spawns Orchestrator + Agents into ACP network
              ▼
-┌──────────────────────────────────┐
-│   Agent Processes                │
-│   ┌─────────┐ ┌─────────┐       │
-│   │Claude -p│ │Claude -p│ ...   │
-│   └─────────┘ └─────────┘       │
-└──────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────┐
+│   ACP Agent Network (REVOLUTIONARY!)                          │
+│                                                                │
+│  ┌─────────────────┐                                          │
+│  │  ORCHESTRATOR   │ ◄─── SINGLE INTERFACE to Claude Code    │
+│  │  (ACP Server)   │      • Only agent with MCP connection   │
+│  └─────────┬───────┘      • Represents entire system         │
+│            │ ACP REST API (Pure P2P!)                        │
+│            ▼                                                  │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     │
+│  │Solution     │◄────┤Backend      │────►│Frontend     │     │
+│  │Architect    │     │Engineer     │     │Engineer     │     │
+│  │(Claude -p + │     │(Claude -p + │     │(Claude -p + │     │
+│  │ ACP Server) │     │ ACP Server) │     │ ACP Server) │     │
+│  │  NO MCP!    │     │  NO MCP!    │     │  NO MCP!    │     │
+│  └─────────────┘     └─────────────┘     └─────────────┘     │
+│                                                               │
+│  • Orchestrator = Single point of interaction                │
+│  • All other agents = Pure ACP participants                  │
+│  • Clean separation: MCP ↔ Orchestrator ↔ ACP Network       │
+│  • Real-time coordination via ACP only                       │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-### MCP Tools and Resources
+### Simplified MCP Tools and Resources
 
-MAOS exposes orchestration capabilities through five MCP tools and three resources. The complete tool definitions and schemas are documented in the [MCP Tools Reference](../references/mcp-tools.md).
+With ACP integration, MAOS exposes a **simplified set** of orchestration capabilities through **three MCP tools** and **three resources**. The complete tool definitions and schemas are documented in the [MCP Tools Reference](../references/mcp-tools.md).
 
 **Tools:**
-1. `maos/orchestrate` - Start multi-agent orchestration sessions
-2. `maos/spawn-agent` - Spawn individual agents with specific tasks
-3. `maos/agent-message` - Enable inter-agent communication
-4. `maos/session-status` - Query orchestration session status
-5. `maos/list-roles` - List available agent roles
+1. `maos/orchestrate` - Start multi-agent orchestration sessions (spawns agents into ACP network)
+2. `maos/session-status` - Query orchestration session status and ACP network activity
+3. `maos/list-roles` - List available agent roles
 
 **Resources:**
-1. Agent output streams (SSE) - Real-time agent output
-2. Session status - Current state of all agents
-3. Agent registry - Available roles and capabilities
+1. **Orchestrator output (SSE)** - Real-time output from the Orchestrator agent only
+2. **Session status** - Current state of orchestration and ACP network
+3. **Agent discovery info** - Available agents and their ACP endpoints for debugging
 
-### SSE Streaming Implementation
+### Orchestrator-Only Streaming
 
-```rust
-// Stream agent output back to MCP client
-impl McpServer {
-    async fn stream_agent_output(&self, session_id: &str, agent_id: &str) {
-        let output_path = format!("~/.maos/projects/{}/sessions/{}/agents/{}/stdout.log",
-            workspace_hash, session_id, agent_id);
-        
-        let mut file = File::open(&output_path).await?;
-        let mut reader = BufReader::new(file);
-        let mut line = String::new();
-        
-        while reader.read_line(&mut line).await? > 0 {
-            // Send SSE event
-            self.send_event(Event {
-                id: None,
-                event: Some("agent-output".to_string()),
-                data: json!({
-                    "session_id": session_id,
-                    "agent_id": agent_id,
-                    "line": line.trim(),
-                    "timestamp": Utc::now()
-                }).to_string(),
-            }).await?;
-            
-            line.clear();
-        }
-    }
-}
-```
+**Critical Architectural Decision**: The MCP server streams **only Orchestrator output** to Claude Code:
+
+**Why Orchestrator-Only:**
+- **Single Point of Interaction**: Orchestrator represents the entire multi-agent system
+- **Clean Interface**: Claude Code users see unified output, not chaos from multiple agents
+- **Clear Delegation**: Orchestrator coordinates via ACP, reports results via MCP
+- **Simplified Architecture**: No complex multi-agent output multiplexing needed
+
+**SSE Event Types:**
+- **`orchestrator-output`** - Real-time output from Orchestrator agent
+- **`session-status`** - High-level orchestration progress updates
+- **`session-complete`** - Final orchestration results
+
+**Streaming Architecture:**
+- **Monitor Only Orchestrator**: Subscribe to Orchestrator's stdout/stderr
+- **ACP Coordination Hidden**: All inter-agent communication happens via ACP (invisible to MCP)
+- **Unified Experience**: Claude Code sees clean, coordinated output
+- **Performance**: Single agent stream vs. complex multi-agent multiplexing
 
 ### MCP Server Configuration
 
 The server configuration and transport details are documented in the [MCP Tools Reference](../references/mcp-tools.md#mcp-server-configuration).
 
-## Implementation Strategy
+## Implementation Strategy with ACP Integration
 
-### Phase 1: Basic MCP Server
-1. Implement MCP protocol handler
-2. Create tool definitions
-3. Basic process spawning
-4. Simple stdout streaming
+### Phase 1: Simplified MCP Server + ACP Network
+1. Implement simplified MCP protocol handler (fewer tools!)
+2. Create **ACP-integrated** tool definitions
+3. **ACP server spawning** with agent processes
+4. **Orchestrator-only output streaming** (clean, unified interface)
 
-### Phase 2: Advanced Features
-1. Inter-agent messaging
-2. Dependency management
-3. Session persistence
-4. Error recovery
+### Phase 2: ACP Network Features
+1. **ACP discovery and monitoring**
+2. Session persistence with ACP network state
+3. **Coordinated error recovery** (CLI + ACP server)
 
 ### Phase 3: Production Features
-1. Multi-instance support
-2. Resource limits
-3. Security sandboxing
-4. Performance monitoring
+1. Multi-instance support with **port pool management**
+2. Resource limits including **network and port allocation**
+3. Security sandboxing for both CLI and ACP processes
+4. **ACP network performance monitoring**
 
 ## Consequences
 
 ### Positive
+- **Dramatically Simplified MCP Server**: Clean, focused architecture with minimal tools
+- **Orchestrator-Only Interface**: Clean, unified user experience via single agent interface
 - **Natural Integration**: Users interact with MAOS through their preferred AI tool
 - **Language Processing**: The LLM handles natural language parsing
-- **Streaming Updates**: Real-time visibility into agent activities
+- **Hidden Complexity**: ACP coordination happens behind the scenes, invisible to users
 - **Tool Agnostic**: Works with any MCP-compatible client
-- **Clean Separation**: MAOS focuses on orchestration, not NLP
+- **Clean Separation**: MCP ↔ Orchestrator ↔ ACP Network
+- **Streamlined Tool Set**: Just 3 core tools for orchestration
+- **Performance**: Single agent output stream vs. complex multi-agent multiplexing
+- **Clear Delegation Model**: Orchestrator represents entire multi-agent system
 
 ### Negative
 - **MCP Dependency**: Requires clients to support MCP
-- **Network Overhead**: HTTP/SSE adds latency vs direct calls
+- **Network Overhead**: HTTP/SSE + ACP adds network usage
 - **Limited by MCP**: Must work within protocol constraints
+- **ACP Integration Complexity**: Requires ACP protocol implementation
 
 ### Mitigation
-- Provide standalone CLI for non-MCP users
-- Optimize SSE streaming for performance
-- Contribute to MCP standard for missing features
+- **Simplified Architecture**: ACP integration actually reduces overall complexity
+- **Efficient ACP Implementation**: Use lightweight HTTP servers for ACP
+- **Optimize SSE Streaming**: Single ACP network stream is more efficient
+- **Contribute to Standards**: Engage with both MCP and ACP communities
+- **Provide Standalone CLI**: For non-MCP users who want direct access
 
 ## References
+- **ADR-04: ACP-Based Agent Communication** - Defines the ACP integration that simplifies this MCP server
+- **ADR-08: Agent Lifecycle and Management** - Provides ACP server spawning infrastructure
 - [MCP Tools Reference](../references/mcp-tools.md) - Complete tool and resource definitions
 - [Agent Roles Reference](../references/agent-roles.md) - Agent role specifications
-- [Model Context Protocol Specification](https://modelcontextprotocol.io)
-- [Claude Code MCP Documentation](https://docs.anthropic.com/en/docs/claude-code/mcp)
+- [Agent Communication Protocol (ACP)](https://agentcommunicationprotocol.dev/) - Core agent communication protocol
+- [Model Context Protocol Specification](https://modelcontextprotocol.io) - MCP external interface protocol
+- [Claude Code MCP Documentation](https://docs.anthropic.com/en/docs/claude-code/mcp) - Client integration
 - SSE (Server-Sent Events) for real-time streaming
 
 ---
