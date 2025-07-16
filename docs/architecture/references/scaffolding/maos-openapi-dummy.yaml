@@ -1,7 +1,7 @@
 openapi: 3.0.0
 info:
   title: MAOS MCP Server API
-  description: OpenAPI spec for scaffolding MAOS MCP server with Agenterra - represents the 3 core MCP tools
+  description: OpenAPI spec for scaffolding MAOS MCP server - represents the 3 core MCP tools
   version: 1.0.0
 
 paths:
