@@ -194,8 +194,10 @@ impl ClaudeCodeAgent {
         // Send initial task to claude
         if let Some(stdin) = self.active_runs.read().await.get(&run_id)
             .and_then(|r| r.process.stdin.as_ref()) {
-            // Write task to stdin (simplified - real impl would be more robust)
-            // tokio::io::copy(&mut params.task.as_bytes(), stdin).await.ok();
+            // Write task to stdin
+            if let Err(e) = tokio::io::copy(&mut params.task.as_bytes(), stdin).await {
+                eprintln!("Failed to write task to stdin: {}", e);
+            }
         }
         
         Ok(RunInfo {
