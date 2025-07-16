@@ -618,11 +618,11 @@ async fn main() {
         .with_state(orchestrator);
     
     let addr = "0.0.0.0:8000".parse().unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     println!("Orchestrator listening on {}", addr);
     println!("Planning phases incrementally based on discoveries!");
     
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
 }

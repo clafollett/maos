@@ -145,19 +145,16 @@ The Claude Code Agent manages CLI process spawning through:
 
 The Claude Code Agent maintains a session registry for context persistence:
 
-```
-Session Registry:
-┌─────────────────────────────────────────────────────────────┐
-│ session_id       → role        → status     → phase        │
-├─────────────────────────────────────────────────────────────┤
-│ session_abc123   → researcher  → [IDLE]     → Phase 1      │
-│ session_def456   → architect   → [ACTIVE]   → Phase 2      │
-│ session_ghi789   → engineer    → [IDLE]     → Phase 2      │
-│ session_jkl012   → engineer    → [ACTIVE]   → Phase 3      │
-│ session_mno345   → engineer    → [IDLE]     → Phase 2      │
-│ session_pqr678   → qa          → [IDLE]     → Phase 3      │
-└─────────────────────────────────────────────────────────────┘
-```
+**Session Registry:**
+
+| session_id     | role       | status   | phase   |
+|----------------|------------|----------|---------|
+| session_abc123 | researcher | [IDLE]   | Phase 1 |
+| session_def456 | architect  | [ACTIVE] | Phase 2 |
+| session_ghi789 | engineer   | [IDLE]   | Phase 2 |
+| session_jkl012 | engineer   | [ACTIVE] | Phase 3 |
+| session_mno345 | engineer   | [IDLE]   | Phase 2 |
+| session_pqr678 | qa         | [IDLE]   | Phase 3 |
 
 **Session Lifecycle:**
 1. **Work Request**: Orchestrator requests work for specific role

@@ -317,10 +317,10 @@ async fn main() {
         .with_state(agent);
     
     let addr = "0.0.0.0:8001".parse().unwrap();
+    let listener = tokio::net::TcpListener::bind(addr).await.unwrap();
     println!("Claude Code Agent listening on {}", addr);
     
-    axum::Server::bind(&addr)
-        .serve(app.into_make_service())
+    axum::serve(listener, app.into_make_service())
         .await
         .unwrap();
 }

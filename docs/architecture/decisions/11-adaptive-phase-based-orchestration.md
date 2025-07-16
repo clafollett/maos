@@ -124,19 +124,16 @@ The beauty of this approach is its simplicity - everything is just a phase with 
 
 The Orchestrator maintains a **session registry** that tracks agents by role and assigns ordinal IDs when multiple agents of the same role exist:
 
-```
-Session Registry:
-┌──────────────────────────────────────────────────────────────────────┐
-│ agent_id        │ session_id      │ role          │ work_context    │
-├──────────────────────────────────────────────────────────────────────┤
-│ architect_1     │ session_abc123  │ architect     │ api_design, ... │
-│ backend_eng_1   │ session_def456  │ backend_eng   │ auth_service    │
-│ backend_eng_2   │ session_ghi789  │ backend_eng   │ user_service    │
-│ frontend_eng_1  │ session_jkl012  │ frontend_eng  │ auth_ui         │
-│ frontend_eng_2  │ session_mno345  │ frontend_eng  │ dashboard       │
-│ qa_1            │ session_pqr678  │ qa            │ api_tests       │
-└──────────────────────────────────────────────────────────────────────┘
-```
+**Session Registry:**
+
+| agent_id        | session_id      | role          | work_context    |
+|-----------------|-----------------|---------------|-----------------|
+| architect_1     | session_abc123  | architect     | api_design, ... |
+| backend_eng_1   | session_def456  | backend_eng   | auth_service    |
+| backend_eng_2   | session_ghi789  | backend_eng   | user_service    |
+| frontend_eng_1  | session_jkl012  | frontend_eng  | auth_ui         |
+| frontend_eng_2  | session_mno345  | frontend_eng  | dashboard       |
+| qa_1            | session_pqr678  | qa            | api_tests       |
 
 **Intelligent Agent Selection:**
 The Orchestrator uses its own Claude session to make intelligent agent assignment decisions. When a new task needs to be assigned, the Orchestrator:

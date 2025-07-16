@@ -167,17 +167,14 @@ Phase 3: Implementation (3 agents in parallel)
 ## Session Registry Design
 
 ### Registry Structure
-```
-┌──────────────────────────────────────────────────────────────────────┐
-│ agent_id        │ session_id      │ role          │ work_context    │
-├──────────────────────────────────────────────────────────────────────┤
-│ architect_1     │ session_abc123  │ architect     │ api_design, ... │
-│ backend_eng_1   │ session_def456  │ backend_eng   │ auth_service    │
-│ backend_eng_2   │ session_ghi789  │ backend_eng   │ user_service    │
-│ frontend_eng_1  │ session_jkl012  │ frontend_eng  │ auth_ui         │
-│ qa_1            │ session_pqr678  │ qa            │ api_tests       │
-└──────────────────────────────────────────────────────────────────────┘
-```
+
+| agent_id        | session_id      | role          | work_context    |
+|-----------------|-----------------|---------------|-----------------|
+| architect_1     | session_abc123  | architect     | api_design, ... |
+| backend_eng_1   | session_def456  | backend_eng   | auth_service    |
+| backend_eng_2   | session_ghi789  | backend_eng   | user_service    |
+| frontend_eng_1  | session_jkl012  | frontend_eng  | auth_ui         |
+| qa_1            | session_pqr678  | qa            | api_tests       |
 
 ### Intelligent Reuse
 The Claude Code Agent can intelligently reuse sessions:
