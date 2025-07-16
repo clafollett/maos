@@ -270,7 +270,7 @@ Implement production-ready features for the **PTY multiplexer orchestration syst
 - **[ADR-04: Orchestrator-as-PTY-Multiplexer Communication](./decisions/04-agent-communication-patterns.md)** - Hub-and-spoke agent control
 - **[ADR-08: Agent Lifecycle and PTY Multiplexer Management](./decisions/08-agent-lifecycle-and-management.md)** - Single process management (Claude CLI via PTY)
 - **[ADR-10: MCP Server Architecture](./decisions/10-mcp-server-architecture.md)** - Simplified MCP server with Orchestrator-only interface
-- **[ADR-11: Adaptive Phase-Based Orchestration](./decisions/11-adaptive-phase-based-orchestration.md)** - Orchestrator-as-Interface pattern
+- **[ADR-11: Adaptive Phase-Based Orchestration](./decisions/11-adaptive-phase-based-orchestration.md)** - PTY multiplexer coordination patterns
 
 ### 🌐 External Standards and Protocols
 - **[Tmux-Orchestrator](https://github.com/Jedward23/Tmux-Orchestrator)** - Inspiration for PTY multiplexer patterns

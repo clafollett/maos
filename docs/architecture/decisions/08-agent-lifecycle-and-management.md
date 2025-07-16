@@ -248,7 +248,7 @@ Agent shutdown follows a coordinated approach through PTY control:
 - **Resource Release**: Return PTY pairs and file descriptors to available pool
 - **Session Preservation**: Maintain Claude session mappings for future reactivation
 
-### Dual Process Management (Orchestrator + Agents)
+### Process Management Overview (Orchestrator & Agents)
 
 **Orchestrator Agent Process:**
 - **Role**: Acts as PTY multiplexer managing all other agents

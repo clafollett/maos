@@ -1,4 +1,4 @@
-# ADR-04: Orchestrator-as-PTY-Multiplexer Communication
+# ADR-04: Orchestrator-as-PTY-Multiplexer Communication Patterns
 
 ## Status
 Accepted
