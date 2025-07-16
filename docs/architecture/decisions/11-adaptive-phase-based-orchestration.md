@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-The POC revealed critical insights about orchestration that shaped our revolutionary ACP-based architecture:
+The POC revealed critical insights about orchestration that shaped our architecture:
 
 ### Original Issues:
 - **Central Planning Flaw**: Orchestrator attempting to plan entire project upfront
@@ -12,30 +12,30 @@ The POC revealed critical insights about orchestration that shaped our revolutio
 - **Knowledge Silos**: Engineers working without architectural context
 - **Misalignment**: Phases disconnected from each other
 
-### Revolutionary ACP Solution:
+### ACP-Based Solution:
 With our **Agent Communication Protocol (ACP) integration** and **Orchestrator-as-Interface** pattern, we now have:
-- **Real-time coordination**: Direct agent-to-agent communication via ACP
+- **Centralized coordination**: Orchestrator manages all agent interactions via Claude Code Agent
 - **Single interface**: Orchestrator as sole representative to Claude Code
-- **Adaptive planning**: Orchestrator coordinates with agents via ACP for incremental discovery
-- **Hidden complexity**: ACP network coordination invisible to users
+- **Adaptive planning**: Orchestrator plans phases based on actual agent outputs
+- **Clean abstraction**: Implementation complexity hidden from users
 
-Traditional orchestration assumes perfect upfront knowledge. Our ACP-based approach enables **adaptive discovery** where the Orchestrator coordinates real-time with specialist agents via ACP while presenting unified progress to Claude Code.
+Traditional orchestration assumes perfect upfront knowledge. Our approach enables **adaptive discovery** where the Orchestrator coordinates with specialist agents while presenting unified progress to Claude Code.
 
 ## Decision
-We will implement an **ACP-based adaptive orchestration model** where the Orchestrator operates as both:
+We will implement an **adaptive orchestration model** where the Orchestrator operates as both:
 1. **Single Interface** to Claude Code (via MCP)
-2. **ACP Network Coordinator** managing specialist agents via direct communication
+2. **Router Agent** coordinating specialist agents through Claude Code Agent
 
-The Orchestrator acts as a **Project Manager** coordinating real-time with specialist agents via ACP while presenting unified progress to users.
+The Orchestrator acts as a **Project Manager** coordinating with specialist agents while presenting unified progress to users.
 
 ### Core Principles
 
-1. **Dual Interface Role**: Orchestrator serves as single point to Claude Code REPL terminal while coordinating ACP network
-2. **Real-time ACP Coordination**: Direct communication with specialist agents via ACP REST API
-3. **Incremental Planning**: Plan phases based on real-time agent feedback and discoveries
-4. **Phase Gates**: Coordinate phase completion via ACP before planning next phase
+1. **Dual Interface Role**: Orchestrator serves as single point to Claude Code while coordinating agents
+2. **Centralized Coordination**: All agent communication flows through Claude Code Agent
+3. **Incremental Planning**: Plan phases based on actual agent outputs and discoveries
+4. **Phase Gates**: Aggregate phase results before planning next phase
 5. **Unified Progress Reporting**: Present clean, coordinated updates to Claude Code users
-6. **Hidden Complexity**: ACP network coordination invisible to users
+6. **Clean Abstraction**: Implementation complexity hidden from users
 
 ### ACP-Based Orchestration Flow
 
@@ -51,16 +51,16 @@ Claude Code ↔ MCP Server ↔ Orchestrator (ACP Agent)
 - Joins ACP network for agent coordination
 
 **2. Adaptive Phase Execution:**
-- **Agent Discovery**: Find available specialist agents via ACP
-- **Task Assignment**: Send phase tasks to agents via ACP messages
-- **Real-time Coordination**: Monitor agent progress via ACP status updates
-- **User Updates**: Report unified progress to Claude Code REPL Terminal
+- **Agent Planning**: Determine which agents needed for phase
+- **Task Assignment**: Send individual requests to Claude Code Agent per agent
+- **Progress Monitoring**: Track agent execution and collect results
+- **User Updates**: Report unified progress to Claude Code
 
 **3. Phase Gate Coordination:**
-- **Collect Results**: Gather phase outputs from agents via ACP
+- **Collect Results**: Gather outputs from all agents in phase
 - **Review and Validate**: Analyze completeness and quality
 - **Plan Next Phase**: Determine next steps based on discoveries
-- **Report to User**: Present phase completion to Claude Code REPL Terminal
+- **Report to User**: Present phase completion to Claude Code
 
 **4. Iterative Discovery:**
 - Continue phase-by-phase until objectives met
@@ -97,133 +97,90 @@ Claude Code ↔ MCP Server ↔ Orchestrator (ACP Agent)
 - Plans next phase based on discoveries
 - Reports unified progress to Claude Code
 
-### Agent Lifecycle Patterns
+### Phase-Based Execution Pattern
 
-MAOS supports **two complementary agent lifecycle patterns** for maximum efficiency:
+MAOS uses a unified phase-based execution pattern where:
 
-**Micro-Task Pattern** (High-Efficiency Focused Work):
 ```
-Orchestrator → Spawn Agent → Focused Work (Isolation) → ACP Result → Terminate
-             ↑                                        ↑
-        (single task)                            (immediate completion)
-```
-- **Best for**: Independent, atomic tasks (generate test, implement function, review code)
-- **Benefits**: Maximum focus, no interruptions, immediate resource cleanup
-- **Communication**: Minimal - only task assignment and completion status
-- **Lifecycle**: Spawn → Work → Report → Terminate
-
-**Phase-Based Pattern** (Team Coordination):
-```
-Orchestrator → Spawn Agent → Phase Work → ACP Progress → Next Phase/Terminate
-             ↑                          ↑
-        (phase assignment)        (minimal coordination)
-```
-- **Best for**: Complex, multi-step work requiring coordination
-- **Benefits**: Context retention, adaptive planning, team collaboration
-- **Communication**: Essential only - phase assignments, completions, critical handoffs
-- **Lifecycle**: Spawn → Multiple tasks → Phase complete → Next phase or terminate
-
-**Pattern Selection Criteria:**
-- **Micro-Task**: When work is independent and can be completed in isolation
-- **Phase-Based**: When work requires coordination, context, or multiple steps
-- **Hybrid**: Mix both patterns within same orchestration as needed
-
-### Agent Pool Coordination with Session Binding
-
-**Revolutionary Context-Aware Orchestration:**
-
-The Orchestrator manages a **persistent Agent Resources Registry** that enables context continuity across the entire orchestration lifecycle:
-
-**Agent Pool Management ACP Messages:**
-
-**Agent Registration (Agent → Orchestrator):**
-```json
-{
-  "type": "agent_registration",
-  "from": "frontend_engineer_1",
-  "to": "orchestrator",
-  "timestamp": "2025-07-14T10:30:00Z",
-  "content": {
-    "agent_id": "frontend_engineer_1",
-    "role": "frontend_engineer", 
-    "claude_session_id": "session_ghi789",
-    "capabilities": ["react", "typescript", "testing"],
-    "status": "ready",
-    "initial_spawn": true
-  }
-}
+Orchestrator → Plan Phase → Execute Agent(s) → Collect Results → Next Phase/Complete
+             ↑                                ↑
+        (adaptive planning)            (individual agent results)
 ```
 
-**Agent Sleep Request (Agent → Orchestrator):**
-```json
-{
-  "type": "agent_sleep_request",
-  "from": "backend_engineer_1",
-  "to": "orchestrator",
-  "timestamp": "2025-07-14T15:45:00Z",
-  "content": {
-    "agent_id": "backend_engineer_1",
-    "phase_completed": "api_implementation",
-    "deliverables": ["user_api.rs", "auth_service.rs"],
-    "ready_for_sleep": true,
-    "session_preserved": true
-  }
-}
+**Key Characteristics:**
+- **Flexible Phase Size**: A phase can have one agent (simple task) or many (complex coordination)
+- **Session Continuity**: Agents maintain context via session IDs when needed
+- **Parallel/Sequential**: Orchestrator determines execution strategy per phase
+- **Adaptive Planning**: Each phase planned based on previous results
+
+**Examples:**
+- **Single-Agent Phase**: "Generate unit tests" - one QA agent, isolated work
+- **Multi-Agent Phase**: "Implement feature" - architect, backend, frontend agents working in parallel
+- **Sequential Phase**: "Review and refactor" - reviewer agent followed by engineer agent
+
+The beauty of this approach is its simplicity - everything is just a phase with N agents, where N can be 1 for simple tasks or many for complex coordination.
+
+### Session Registry for Context Continuity
+
+The Orchestrator maintains a **session registry** that tracks agents by role and assigns ordinal IDs when multiple agents of the same role exist:
+
+```
+Session Registry:
+┌──────────────────────────────────────────────────────────────────────┐
+│ agent_id        │ session_id      │ role          │ work_context    │
+├──────────────────────────────────────────────────────────────────────┤
+│ architect_1     │ session_abc123  │ architect     │ api_design, ... │
+│ backend_eng_1   │ session_def456  │ backend_eng   │ auth_service    │
+│ backend_eng_2   │ session_ghi789  │ backend_eng   │ user_service    │
+│ frontend_eng_1  │ session_jkl012  │ frontend_eng  │ auth_ui         │
+│ frontend_eng_2  │ session_mno345  │ frontend_eng  │ dashboard       │
+│ qa_1            │ session_pqr678  │ qa            │ api_tests       │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
-**Selective Agent Reactivation (Orchestrator → Agent Pool):**
-```json
-{
-  "type": "agent_reactivation",
-  "from": "orchestrator",
-  "to": "frontend_engineer_1",
-  "timestamp": "2025-07-14T16:00:00Z",
-  "content": {
-    "agent_id": "frontend_engineer_1",
-    "claude_session_id": "session_ghi789",
-    "new_phase": "ui_integration",
-    "context_continuity": true,
-    "previous_work_reference": "phase_2_frontend_components",
-    "new_tasks": ["integrate_auth_components", "add_error_handling"]
-  }
-}
-```
+**Intelligent Agent Selection:**
+The Orchestrator uses its own Claude session to make intelligent agent assignment decisions. When a new task needs to be assigned, the Orchestrator:
 
-**Orchestrator Pool Management Patterns:**
+1. **Analyzes the Task**: Uses Claude to understand the task requirements and context
+2. **Reviews Registry**: Provides Claude with the current session registry and work history
+3. **Makes Smart Decision**: Claude recommends which existing agent to use or whether to create new
+4. **Considers Factors**:
+   - Semantic understanding of work relationships
+   - Component dependencies and interactions
+   - Agent expertise based on past work
+   - Workload distribution across agents
+   - Context continuity benefits
 
-1. **Initial Pool Creation**: Spawn agents for orchestration and build registry
-2. **Context Tracking**: Monitor which agents worked on which phases/components
-3. **Strategic Sleep**: Put agents to sleep when phase work complete
-4. **Selective Reactivation**: Choose specific agents with relevant context for new phases
-5. **Memory Continuity**: Agents resume with full knowledge of previous work
-6. **Resource Optimization**: Only active agents consume system resources
+**Implementation Examples:**
+- [session_registry_example.rs](../references/examples/session_registry_example.rs) - Basic session registry implementation
+- [intelligent_agent_selection.rs](../references/examples/intelligent_agent_selection.rs) - How Orchestrator uses Claude for smart agent assignment decisions
 
-**Pool Coordination Benefits:**
-- **Perfect Context Continuity**: frontend_engineer_1 remembers all UI work from previous phases
-- **Intelligent Agent Selection**: Reactivate the architect who designed specific components
-- **Resource Efficiency**: Sleep unused agents while preserving their context
-- **Seamless Collaboration**: Agents can reference and build upon each other's previous work
+**Benefits:**
+- **Intelligent Reuse**: Orchestrator picks the right expert for each task
+- **Component Specialization**: Different engineers can focus on different parts
+- **Context Preservation**: Each agent maintains deep knowledge of their area
+- **Flexible Scaling**: Can have multiple agents of same role working in parallel
 
 ## Consequences
 
 ### Positive
-- **Perfect Context Continuity**: Agents never lose memory between activations (revolutionary!)
-- **Intelligent Resource Management**: Agents sleep when idle, conserving system resources
-- **Selective Expert Reactivation**: Choose specific agents with relevant context for new phases
-- **Maximum Focus & Productivity**: Agents work in isolation without interruptions (proven efficient)
-- **Minimal Communication Overhead**: ACP used only when essential, not for chatter
-- **Dual Lifecycle Support**: Both micro-task (high-efficiency) and phase-based patterns
-- **Unified User Experience**: Single, clean interface via Orchestrator to Claude Code
-- **Agent Pool Coordination**: Orchestrator manages persistent specialist agent resources
-- **Essential-Only Coordination**: Communication triggers limited to critical needs
-- **Better Alignment**: Each phase builds on actual agent outputs via ACP feedback
-- **Reduced Waste**: No planning for features that research agents show aren't needed
-- **Higher Quality**: Specialist agents work from concrete specifications with full context
-- **Hidden Complexity**: ACP network coordination invisible to users
-- **Adaptive Planning**: Real-time agent feedback enables dynamic plan adjustment
-- **Seamless Collaboration**: Agents reference and build upon each other's previous work
-- **Performance**: Direct ACP communication vs. complex file-based coordination
-- **Memory Persistence**: Claude Code session binding ensures no context loss
+- **Context Continuity**: Agents maintain memory between activations via session IDs
+- **Resource Management**: Agents consume resources only when active
+- **Selective Reactivation**: Choose specific agents with relevant context for new phases
+- **Focused Execution**: Agents work without interruptions
+- **Minimal Communication**: Only essential coordination messages
+- **Flexible Phases**: Support for single-agent to multi-agent phases
+- **Unified Interface**: Single, clean interface via Orchestrator to Claude Code
+- **Session Registry**: Orchestrator maintains simple role-to-session mappings
+- **Efficient Coordination**: Communication limited to critical needs
+- **Better Alignment**: Each phase builds on actual agent outputs
+- **Reduced Waste**: No planning for features that aren't needed
+- **Higher Quality**: Specialist agents work from concrete specifications
+- **Clean Abstraction**: Implementation complexity hidden from users
+- **Adaptive Planning**: Feedback enables dynamic plan adjustment
+- **Collaborative Building**: Agents reference previous work
+- **Performance**: Streamlined communication architecture
+- **Session Persistence**: Claude's session binding preserves context
 
 ### Negative
 - **Orchestrator Complexity**: Dual role as both user interface and ACP coordinator
@@ -244,20 +201,20 @@ The Orchestrator manages a **persistent Agent Resources Registry** that enables 
 
 ## Implementation Notes
 
-### Orchestrator Dual Role Training
+### Orchestrator Training
 
-The Orchestrator prompt should emphasize the **dual interface/coordinator role**:
+The Orchestrator prompt should emphasize the **interface and coordination role**:
 
 **As Claude Code Interface:**
 - "You are the ONLY voice users hear - represent the entire team professionally"
 - "Present unified, clear progress updates to Claude Code users"
-- "Hide ACP network complexity - users don't need to see agent coordination"
+- "Hide implementation complexity - users don't need to see agent coordination"
 - "Report phase completions and discoveries in user-friendly language"
 
-**As ACP Network Coordinator:**
-- "Coordinate with specialist agents via ACP messages for real-time collaboration"
+**As Agent Coordinator:**
+- "Coordinate with specialist agents through Claude Code Agent"
 - "Assign specific, concrete tasks to agents based on their expertise"
-- "Monitor agent progress via ACP status updates"
+- "Monitor agent progress and collect results"
 - "Plan only 1-2 phases ahead based on actual agent outputs, not assumptions"
 - "Each phase should produce concrete deliverables from specialist agents"
 

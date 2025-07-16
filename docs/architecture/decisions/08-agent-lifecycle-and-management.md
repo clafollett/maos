@@ -4,40 +4,38 @@
 Accepted
 
 ## Context
-MAOS needs to manage the complete lifecycle of AI agent processes, from spawning to termination. With our revolutionary architecture where every agent runs both a CLI process AND an ACP server, we need:
+MAOS needs to manage the complete lifecycle of AI agent processes, from spawning to termination. With our streamlined architecture where a single Claude Code Agent manages multiple CLI processes, we need:
 
-- Reliable process spawning and monitoring
-- **ACP server initialization and management per agent**
-- Agent role specialization with both predefined and custom roles
-- Support for multiple instances of the same role
-- Resource management and limits (including port allocation)
+- Reliable CLI process spawning and monitoring
+- Agent role specialization via `-p` flag
+- Session continuity via `--session-id`
+- Support for multiple concurrent sessions
+- Resource management and process limits
 - Graceful shutdown and cleanup
 - Health monitoring and recovery
-- **ACP network integration and discovery**
 - Output capture and streaming
 
 Key insights:
-- Each agent is a separate CLI process (`claude -p`, etc.) WITH embedded ACP server
-- **Every agent participates in the ACP network as both client and server**
-- Agents can have predefined roles (architect, engineer, etc.) or custom roles
-- Multiple agents of the same role can work in parallel
-- Agents work in isolated workspaces with shared context
-- **ACP communication enables direct agent-to-agent coordination**
-- Output streams back to the MCP client in real-time
-- **Port management required for ACP server allocation**
+- Each agent is a Claude CLI process with role via `-p` flag
+- Claude Code Agent (single ACP server) manages all CLI processes
+- Session continuity preserved via `--session-id` flag
+- Phases planned adaptively based on actual outputs
+- Agents work independently without direct communication
+- Orchestrator coordinates through Claude Code Agent
+- Clean separation between MCP (external) and ACP (internal)
 
 ## Decision
-We will implement comprehensive agent lifecycle management with **ACP server integration**, flexible role-based specialization supporting both predefined and custom roles, multiple instances, and robust process handling. Every agent will run both a CLI process and an embedded ACP server for peer-to-peer communication.
+We will implement streamlined agent lifecycle management where the Claude Code Agent (single ACP server) manages multiple Claude CLI processes with role-based specialization and session continuity.
 
 ### Architectural Layering
 
-This ADR provides the low-level process management infrastructure that higher-level orchestration builds upon:
+This ADR provides the process management infrastructure for the Claude Code Agent:
 
-- **ADR-08 provides**: Process spawning, **ACP server management**, resource management, health monitoring, and lifecycle state management
-- **ADR-04 uses**: This infrastructure for **ACP-based agent communication**
-- **ADR-03 uses**: This infrastructure for session-level orchestration and agent coordination
-- **ADR-05 provides**: CLI configurations and integration patterns that this ADR uses for spawning
-- **Relationship**: ADR-08 handles the "how" of agent processes + ACP servers, ADR-04 handles agent communication, ADR-03 handles the "when/why" of orchestration, ADR-05 handles the "what CLIs are available"
+- **ADR-08 provides**: CLI process spawning, resource management, health monitoring, and lifecycle state management
+- **ADR-04 uses**: This infrastructure within the Claude Code Agent for managing CLI processes
+- **ADR-03 uses**: This infrastructure for session-level orchestration
+- **ADR-05 provides**: CLI configurations and integration patterns for spawning
+- **Relationship**: ADR-08 handles CLI process management, ADR-04 handles ACP communication, ADR-03 handles orchestration
 
 ### Unified State Model Integration
 
@@ -72,129 +70,122 @@ Agent roles and templates are comprehensively documented in the [Agent Roles Ref
 - **AgentTemplate**: Runtime configuration including timeouts, memory limits, and required tools
 - **Custom role support**: Dynamic template generation for user-defined roles
 
-### Process Management with ACP Integration
+### Process Management Architecture
 
-**Agent Process Components:**
-Each agent process now manages both CLI process and ACP server:
-- **CLI Process**: The actual AI agent (`claude -p`, etc.)
-- **ACP Server**: Embedded HTTP server for peer-to-peer communication
-- **Port Management**: Unique port allocation for each ACP server
-- **Health Monitoring**: Monitor both CLI process and ACP server health
-- **Workspace**: Isolated workspace with shared context access
+**Claude Code Agent Components:**
+- **ACP Server**: Single server managing all CLI processes
+- **Process Pool**: Managed Claude CLI processes with different roles
+- **Session Manager**: Tracks session-to-process mappings
+- **Health Monitor**: Monitors CLI process health
+- **Resource Manager**: Controls concurrent process limits
 
 **Key Management Areas:**
-- **Instance Tracking**: Support multiple instances of same role with unique ACP ports
-- **Resource Limits**: CPU, memory, and network port allocation
-- **Health Monitoring**: Dual monitoring of CLI process and ACP server status
-- **Template Generation**: Dynamic role template generation with ACP configuration
-- **Graceful Shutdown**: Coordinated shutdown of both CLI process and ACP server
+- **Process Spawning**: Create CLI processes with appropriate `-p` role flag
+- **Session Binding**: Assign `--session-id` for context continuity
+- **Resource Limits**: CPU, memory, and concurrent process limits
+- **Health Monitoring**: Monitor CLI process status and responsiveness
+- **Graceful Shutdown**: Clean termination of CLI processes
 
-**ACP Server Lifecycle:**
-1. **Port Allocation**: Reserve unique port for agent's ACP server
-2. **Server Initialization**: Start ACP server before CLI process
-3. **Agent Registration**: Register agent in ACP discovery network
-4. **Health Monitoring**: Monitor ACP server availability and responsiveness
-5. **Graceful Shutdown**: Unregister from ACP network and release port
+**CLI Process Lifecycle:**
+1. **Task Receipt**: Orchestrator sends work to Claude Code Agent
+2. **Process Selection**: Find or spawn CLI process for the role
+3. **Session Assignment**: Use `--session-id` for context continuity
+4. **Work Execution**: CLI process executes independently
+5. **Result Collection**: Gather outputs for Orchestrator
 
-### Process Spawning Architecture with ACP Integration
+### Process Spawning Architecture
 
-The ProcessManager coordinates agent spawning through these key responsibilities:
+The Claude Code Agent manages CLI process spawning through:
 
-1. **Template Resolution**: Determine agent configuration from predefined roles or generate custom templates
-2. **Resource Validation**: Check system capacity before spawning (memory, instance limits, **available ports**)
-3. **Instance Management**: Track multiple instances of the same role with unique identifiers **and ACP ports**
-4. **Environment Setup**: Configure agent workspace and environment variables **including ACP configuration**
-5. **ACP Server Startup**: Initialize ACP server before CLI process with unique port
-6. **Process Lifecycle**: Spawn CLI process with appropriate arguments and resource limits
-7. **ACP Registration**: Register agent in ACP discovery network
-8. **Monitoring Integration**: Set up health checks for both CLI process and ACP server, output streaming, and logging
+1. **Role Resolution**: Determine role from Orchestrator request
+2. **Resource Validation**: Check system capacity before spawning
+3. **Session Management**: Assign or reuse session ID for context
+4. **Environment Setup**: Configure workspace and environment
+5. **Process Spawning**: Start Claude CLI with `-p` role flag
+6. **Session Binding**: Pass `--session-id` for continuity
+7. **Monitoring Setup**: Track process health and output
 
-**Agent ID Structure**: `agent_{role}_{instance}_{unique_id}` (e.g., `agent_engineer_1_abc123`)
+**Process Identification**:
+- Session ID serves as primary identifier
+- Role and phase tracked for management
+- No complex agent ID structure needed
 
-**ACP Integration Points:**
-- **Port Allocation**: Each agent gets unique port for ACP server
-- **Environment Variables**: `ACP_SERVER_PORT`, `ACP_AGENT_ID`, `ACP_DISCOVERY_ENABLED`
-- **Health Monitoring**: Monitor both CLI process and ACP server endpoints
-- **Graceful Shutdown**: Coordinate shutdown of both processes
+**Key Parameters:**
+- **Role Flag**: `-p architect`, `-p engineer`, etc.
+- **Session ID**: `--session-id session_abc123`
+- **Working Directory**: Isolated workspace per session
+- **Environment Variables**: Standard Claude CLI configuration
 
-### Agent Lifecycle Patterns
+### Process Lifecycle Patterns
 
-**Micro-Task Lifecycle** (Maximum Efficiency):
-1. **Spawn**: Create agent for specific, atomic task
-2. **Isolation**: Agent works without interruptions or communication
-3. **Complete**: Report task completion via single ACP message
-4. **Terminate**: Immediate shutdown and resource cleanup
-- **Benefits**: Maximum focus, no interruptions, immediate resource reclamation
-- **Use Cases**: Generate test, implement function, review code, create documentation
+**Phase-Based Execution**:
+1. **Phase Start**: Orchestrator determines agents needed for the phase
+2. **Multiple Requests**: Orchestrator sends one request per agent to Claude Code Agent
+3. **Process Spawning**: Claude Code Agent spawns one CLI process per request
+4. **Context Loading**: Each process uses `--session-id` for continuity
+5. **Parallel/Sequential Work**: Agents execute based on Orchestrator's strategy
+6. **Individual Results**: Each agent returns results independently
+7. **Phase Aggregation**: Orchestrator collects all results before next phase
+8. **Next Phase Planning**: Orchestrator plans based on aggregated outputs
 
-**Phase-Based Lifecycle** (Team Coordination):
-1. **Spawn**: Create agent for orchestration phase
-2. **Coordinate**: Minimal ACP communication for essential coordination only
-3. **Progress**: Work with periodic essential status updates
-4. **Phase Complete**: Report phase completion and deliverables
-5. **Continue/Terminate**: Ready for next phase or graceful shutdown
-- **Benefits**: Context retention, adaptive planning, coordinated teamwork
-- **Use Cases**: Research phases, architecture design, complex implementations
+**Session Continuity Benefits**:
+- **Perfect Memory**: CLI processes retain full context via session ID
+- **Adaptive Planning**: Each phase planned based on real outputs
+- **Resource Efficiency**: Reuse processes across phases
+- **Clean Handoffs**: Work naturally flows between phases
 
-**Lifecycle Selection Criteria:**
-- **Micro-Task**: When work is independent, atomic, and requires maximum focus
-- **Phase-Based**: When work requires coordination, context, or multi-step execution
-- **Resource Considerations**: Micro-tasks conserve resources; phase-based retains context
+**Resource Management:**
+- **Process Pool**: Limit concurrent CLI processes
+- **Session Mapping**: One session ID per logical agent
+- **Graceful Scaling**: Add processes as needed within limits
 
-### Agent Pool Management with Session Binding
+### Session Management with Claude Code Agent
 
-**Revolutionary Context Persistence Pattern:**
+**Session Registry Pattern:**
 
-The Orchestrator maintains an **Agent Resources Registry** that binds agents to Claude Code session IDs for persistent context across activations:
+The Claude Code Agent maintains a session registry for context persistence:
 
 ```
-Agent Resources Registry:
+Session Registry:
 ┌─────────────────────────────────────────────────────────────┐
-│ agent_id           → session_id    → status     → context  │
+│ session_id       → role        → status     → phase        │
 ├─────────────────────────────────────────────────────────────┤
-│ researcher_1       → session_abc123 → [SLEEPING] → Phase 1 │
-│ app_architect_1    → session_def456 → [ACTIVE]   → Phase 2 │
-│ frontend_eng_1     → session_ghi789 → [SLEEPING] → Phase 2 │
-│ frontend_eng_2     → session_jkl012 → [ACTIVE]   → Phase 3 │
-│ backend_eng_1      → session_mno345 → [SLEEPING] → Phase 2 │
-│ qa_agent_1         → session_pqr678 → [SLEEPING] → Phase 3 │
+│ session_abc123   → researcher  → [IDLE]     → Phase 1      │
+│ session_def456   → architect   → [ACTIVE]   → Phase 2      │
+│ session_ghi789   → engineer    → [IDLE]     → Phase 2      │
+│ session_jkl012   → engineer    → [ACTIVE]   → Phase 3      │
+│ session_mno345   → engineer    → [IDLE]     → Phase 2      │
+│ session_pqr678   → qa          → [IDLE]     → Phase 3      │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Agent Registration Flow:**
-1. **Initial Spawn**: Orchestrator spawns agent with specific role
-2. **Session Creation**: Agent makes first `claude` CLI call → receives unique session_id
-3. **ACP Registration**: Agent reports session_id to Orchestrator via ACP message
-4. **Registry Update**: Orchestrator records agent_id → session_id mapping
+**Session Lifecycle:**
+1. **Work Request**: Orchestrator requests work for specific role
+2. **Session Selection**: Find existing session or create new one
+3. **Process Spawning**: Start CLI with `--session-id`
+4. **Work Execution**: Process works independently
+5. **Result Return**: Outputs sent back to Orchestrator
 
-**Context-Aware Reactivation:**
-1. **Selective Activation**: Orchestrator needs specific agent for new phase
-2. **Session Reuse**: Spawn new thread with existing session_id: `claude --session-id session_abc123`
-3. **Context Restoration**: Agent resumes with FULL memory of previous work
-4. **Continued Work**: Agent picks up exactly where it left off
+**Context Preservation:**
+- **Session Continuity**: `--session-id` preserves all context
+- **Phase Awareness**: Each phase builds on previous work
+- **Efficient Reuse**: Same session across multiple phases
+- **Clean Isolation**: Sessions don't interfere with each other
 
-**Agent Status Lifecycle:**
-- **[SPAWNING]**: Agent being created and registering session
-- **[ACTIVE]**: Agent thread running and working
-- **[SLEEPING]**: Agent thread terminated but session preserved
-- **[TERMINATED]**: Agent and session permanently closed
+**Process States:**
+- **[ACTIVE]**: CLI process currently running
+- **[IDLE]**: No active process, session preserved
+- **[TERMINATED]**: Session permanently closed
 
-**Resource Benefits:**
-- **Memory Persistence**: Agents never lose context between activations
-- **Resource Efficiency**: Threads sleep when not needed, conserving system resources
-- **Selective Reactivation**: Reactivate specific agents (e.g., frontend_engineer_1) with full context
-- **Scalable Pool Management**: Handle complex orchestrations with many specialist agents
+### Health Monitoring
 
-### Health Monitoring with ACP Integration
-
-Health monitoring tracks both CLI process and ACP server status through:
-- **Dual Health Checks**: Regular verification that both CLI process and ACP server are responsive
-- **Process Death Detection**: Automatic cleanup when agents terminate unexpectedly
-- **ACP Server Monitoring**: HTTP health checks on ACP server endpoints
-- **Resource Monitoring**: Track memory and CPU usage per agent (both processes)
-- **Port Monitoring**: Ensure ACP server ports remain available and responsive
-- **Lifecycle Events**: Log significant agent state changes for debugging and audit
-- **ACP Network Status**: Monitor agent registration and discovery availability
+The Claude Code Agent monitors CLI process health through:
+- **Process Status**: Regular checks that CLI processes are running
+- **Output Monitoring**: Track process output for errors or stalls
+- **Resource Usage**: Monitor memory and CPU per process
+- **Session Health**: Ensure session IDs remain valid
+- **Timeout Detection**: Identify stuck or unresponsive processes
+- **Lifecycle Events**: Log process starts, stops, and errors
 
 ### Template Generation for Custom Roles
 
@@ -205,80 +196,60 @@ Template generation for custom roles is handled by the TemplateGenerator, which 
 
 The complete template generation logic and prompt format are documented in the [Agent Roles Reference](../references/agent-roles.md#custom-role-support).
 
-### Resource Management with ACP Integration
+### Resource Management
 
-Resource management enforces system limits through configurable constraints:
+The Claude Code Agent enforces resource limits:
 
 **Resource Types**:
-- **Total Agent Limit**: Maximum concurrent agents across all roles
-- **Per-Role Limits**: Maximum agents per role type (with defaults for custom roles)
-- **Memory Limits**: Total memory allocation across all agent processes (CLI + ACP server)
-- **Process Limits**: OS-level constraints on agent processes
-- **Port Pool Management**: Available ports for ACP server allocation
-- **Network Resources**: Bandwidth and connection limits for ACP communication
+- **Process Limit**: Maximum concurrent CLI processes
+- **Memory Limits**: Total memory allocation across processes
+- **Session Limits**: Maximum active sessions
+- **CPU Limits**: Process CPU usage constraints
 
-**Resource Validation**: Before spawning agents, validate available capacity including:
-- Available memory for both CLI process and ACP server
-- Available ports in the ACP port pool
-- Network capacity for ACP communication
-- Reject requests that would exceed any resource limits
+**Resource Validation**:
+- Check available capacity before spawning
+- Queue requests when at capacity
+- Gracefully handle resource exhaustion
+- Clean up idle processes when needed
 
-### Graceful Shutdown with ACP Integration
+### Graceful Shutdown
 
-Agent shutdown follows a coordinated approach for both CLI process and ACP server:
+The Claude Code Agent handles shutdown cleanly:
 
-1. **ACP Unregistration**: Remove agent from ACP discovery network
-2. **ACP Server Shutdown**: Gracefully stop ACP server and release port
-3. **CLI Process Termination**: Send shutdown signal to CLI agent process
-4. **Timeout Waiting**: Allow reasonable time for agent to finish current work
-5. **Force Termination**: Kill unresponsive processes after timeout
-6. **Resource Cleanup**: Clean up monitoring handles, file descriptors, workspace, and port allocation
+1. **Process Termination**: Send shutdown signal to CLI process
+2. **Timeout Waiting**: Allow time to finish current work
+3. **Force Termination**: Kill unresponsive processes
+4. **Session Preservation**: Keep session IDs for resumption
+5. **Resource Cleanup**: Clean up handles and workspace
 
 **Shutdown Modes**:
-- **Individual Agent**: Shut down specific agent by ID (both CLI and ACP server)
-- **Role-based**: Shut down all agents of a specific role
-- **Session-based**: Shut down all agents in a session  
-- **System-wide**: Emergency shutdown of all agents and ACP network cleanup
-
-**ACP Coordination**:
-- **Network Cleanup**: Ensure agent is properly removed from ACP discovery
-- **Port Release**: Return allocated ports to the available pool
-- **Connection Cleanup**: Close active ACP connections gracefully
+- **Process Shutdown**: Terminate specific CLI process
+- **Session Shutdown**: Close session permanently
+- **System Shutdown**: Stop all processes and Claude Code Agent
 
 ## Consequences
 
 ### Positive
-- **Flexible Roles**: Support for both predefined and custom agent roles
-- **Multiple Instances**: Can run multiple agents of the same role concurrently with unique ACP ports
-- **Role Specialization**: Clear agent responsibilities with optimized prompts
-- **Dynamic Templates**: Custom roles get automatically generated templates
-- **Resource Control**: Per-role limits with defaults for custom roles, including port allocation
-- **Dual Health Monitoring**: Automatic detection of crashed CLI processes and ACP servers
-- **ACP Network Integration**: Seamless integration with peer-to-peer communication network
-- **Graceful Shutdown**: Coordinated termination of both CLI and ACP server processes
-- **Isolated Workspaces**: Agents can't interfere with each other
-- **Clear Identification**: Agent IDs include role and instance information
-- **Real-time Communication**: Direct agent-to-agent communication via ACP
-- **Dynamic Discovery**: Agents can discover each other through ACP network
+- **Simplified Architecture**: Single ACP server manages all processes
+- **Perfect Context**: Session IDs preserve complete context
+- **Resource Efficiency**: Reuse processes across phases
+- **Clean Abstraction**: Claude Code Agent hides complexity
+- **Easy Extension**: Simple to add other CLI tools
+- **Phase-Based Clarity**: Clean work boundaries
+- **Reduced Overhead**: One ACP server instead of many
+- **Better Debugging**: Centralized process management
 
 ### Negative
-- **Increased Process Overhead**: Each agent now runs both CLI process and ACP server
-- **Port Management Complexity**: Need to manage port allocation and deallocation
-- **Network Resource Usage**: ACP communication adds network overhead
+- **Process Management**: Must handle multiple CLI processes
+- **Session Tracking**: Need to manage session-to-process mapping
 - **Platform Differences**: Resource limits vary by OS
-- **Recovery Complexity**: Restarting failed agents needs careful state management for both processes
-- **Template Quality**: Custom role templates may be less optimized than predefined ones
-- **ACP Dependency**: Agents depend on ACP server functionality for communication
+- **Recovery Complexity**: Restarting failed processes carefully
 
 ### Mitigation
-- **Efficient ACP Implementation**: Use lightweight HTTP servers for ACP
-- **Port Pool Management**: Pre-allocate port pools for efficient allocation
-- **Process Pooling**: Reuse configurations for frequently used agent types
-- **Platform-specific Resource Management**: Adapt resource limits by OS
-- **Coordinated Recovery**: Retry policies with exponential backoff for both CLI and ACP processes
-- **Template Caching**: Cache and refine templates over time
-- **Custom Template Support**: Allow users to provide custom templates for their roles
-- **ACP Health Monitoring**: Robust health checks for ACP server availability
+- **Process Pool**: Efficient CLI process lifecycle management
+- **Session Registry**: Clean mapping of sessions to processes
+- **Platform Adaptation**: OS-specific resource handling
+- **Robust Recovery**: Leverage --session-id for resumption
 
 ## References
 - **ADR-04: ACP-Based Agent Communication** - Defines the ACP integration that this ADR implements

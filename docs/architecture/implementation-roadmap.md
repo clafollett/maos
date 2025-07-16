@@ -1,287 +1,158 @@
-# MAOS Implementation Roadmap: Revolutionary ACP Architecture
+# MAOS Implementation Roadmap
 
-*This document outlines the major implementation epics for building the world's first **Orchestrator-as-Interface + ACP Network** Multi-Agent Orchestration System (MAOS) based on our revolutionary architectural breakthroughs.*
+This document outlines the implementation plan for the Multi-Agent Orchestration System (MAOS) based on our streamlined architecture.
 
-## 🚀 Revolutionary Architecture Overview
+## Architecture Overview
 
-MAOS represents a **paradigm shift** in multi-agent systems through:
+MAOS implements a clean, efficient multi-agent orchestration system:
 
 ```
-Claude Code ↔ MCP Server ↔ Orchestrator (SINGLE INTERFACE)
-                              ↕ ACP Network  
-                          Specialist Agents (PURE ACP)
+Claude Code ↔ MCP Server ↔ Orchestrator (Router Agent)
+                              ↕ ACP Protocol  
+                          Claude Code Agent (manages CLI processes)
 ```
 
-**🎯 Key Breakthroughs:**
-- **Perfect Context Continuity**: Agents never lose memory via Claude Code session binding (revolutionary!)
-- **Intelligent Agent Pool Management**: Sleep/reactivate agents while preserving full context
-- **Maximum Focus & Productivity**: Agents work in isolation without interruptions (proven efficient)
-- **Minimal Communication**: ACP used only for essential coordination, not chatter
-- **Orchestrator-as-Interface**: Single point of interaction with Claude Code
-- **Pure ACP Network**: All agents communicate via standardized Agent Communication Protocol  
-- **Hidden Complexity**: Users see unified progress, not agent coordination chaos
-- **Dual Lifecycle Support**: Both micro-task (high-efficiency) and phase-based patterns
-- **Eliminated Bottlenecks**: No central message routing or broken tools
+## Key Design Principles
 
-The implementation is organized into **5 major epics**, each building toward the complete ACP-based orchestration system.
+- **Simplified Architecture**: Single Claude Code Agent manages all CLI processes
+- **Session Continuity**: Claude's `--session-id` preserves context across phases
+- **Intelligent Orchestration**: Orchestrator uses Claude for smart agent selection
+- **Clean Separation**: MCP for external interface, ACP for internal coordination
+- **Phase-Based Execution**: Adaptive planning based on actual outputs
 
-## Implementation Epics Overview
+## Implementation Phases
 
-<details>
-<summary><strong>Epic 1: ACP Foundation & Domain Core 🚀</strong> (6-8 weeks)</summary>
+### Phase 1: Core Infrastructure (4-6 weeks)
 
-## Epic 1: ACP Foundation & Domain Core 🚀
+**Objective**: Establish foundational components and basic orchestration
 
-**Epic: ACP Integration & Domain Foundation**
+**Key Components:**
+- **Domain Models**: Session, Agent, Orchestrator entities
+- **Value Objects**: AgentRole, SessionId, OrchestrationState
+- **Storage**: SQLite for session metadata + file system for artifacts
+- **Basic ACP**: Simple request/response protocol for Claude Code Agent
 
-*Dependencies: None (foundational layer)*
+**Deliverables:**
+- Core domain model implementation
+- SQLite schema for session tracking
+- Basic ACP protocol implementation
+- Unit tests for core components
 
-### 🎯 Scope
-Implement the **ACP-integrated domain models** and core infrastructure for the revolutionary Orchestrator-as-Interface architecture. This epic establishes the foundation for peer-to-peer agent communication.
+### Phase 2: MCP Server (3-4 weeks)
 
-### 🔧 Key Components
-- **ACP-Aware Domain Models**: Session, Agent, AcpEndpoint aggregates with communication capabilities
-- **ACP Value Objects**: AgentRole, AcpPort, AcpEndpoint, SessionId, ExecutionState
-- **Port Pool Management**: Port allocation/deallocation for ACP servers
-- **Storage Schema**: SQLite for session metadata + file system for shared artifacts
-- **ACP Message Models**: Standardized message formats for agent coordination
-- **Dual Process State**: Track both CLI process and ACP server lifecycle
+**Objective**: Implement MCP server with 3 essential tools
 
-### 🚀 Revolutionary Features
-- **Agent Process + ACP Server**: Every agent runs dual processes
-- **Port Management**: Unique port allocation for each agent's ACP server
-- **ACP Discovery Models**: Agent registration and discovery data structures
-- **Unified State Tracking**: Monitor both CLI and ACP server health
+**Key Components:**
+- **MCP Protocol**: HTTP/SSE server implementation
+- **Core Tools**: `orchestrate`, `session-status`, `list-roles`
+- **Orchestrator Spawning**: Launch Orchestrator as separate process
+- **SSE Streaming**: Real-time Orchestrator output streaming
 
-### 📦 Deliverables
-- ACP-integrated domain model implementation
-- Port pool management system
-- SQLite schema with ACP endpoint tracking
-- ACP message format definitions
-- Dual process state management
-- Comprehensive unit tests for ACP integration
+**Deliverables:**
+- MCP server with 3 tools
+- Orchestrator process management
+- SSE streaming implementation
+- MCP protocol compliance testing
 
----
+### Phase 3: Claude Code Agent (4-5 weeks)
 
-</details>
+**Objective**: Implement agent that manages Claude CLI processes
 
-<details>
-<summary><strong>Epic 2: Simplified MCP Server (Orchestrator Interface) 🎯</strong> (3-4 weeks)</summary>
+**Key Components:**
+- **ACP Server**: Single server managing multiple CLI processes
+- **Process Management**: Spawn/monitor/cleanup Claude CLI processes
+- **Session Tracking**: Map roles to session IDs
+- **Resource Limits**: Concurrent process limits and monitoring
 
-## Epic 2: Simplified MCP Server (Orchestrator Interface) 🎯
+**Deliverables:**
+- Claude Code Agent ACP server
+- CLI process lifecycle management
+- Session registry implementation
+- Resource monitoring and limits
 
-**Epic: Revolutionary MCP Server Implementation**
+### Phase 4: Intelligent Orchestrator (5-7 weeks)
 
-*Dependencies: Epic 1 (ACP Foundation)*
+**Objective**: Implement Router Agent with intelligent decision-making
 
-### 🎯 Scope
-Implement the **dramatically simplified MCP server** that serves as the interface between Claude Code and the Orchestrator. This epic eliminates broken tools and focuses on clean orchestration lifecycle management.
+**Key Components:**
+- **Orchestrator Process**: Main orchestration logic
+- **Phase Planning**: Adaptive phase-by-phase execution
+- **Agent Selection**: Claude-powered intelligent agent assignment
+- **Session Registry**: Track agent work history and context
+- **Progress Reporting**: Unified updates to Claude Code
 
-### 🔧 Key Components (SIMPLIFIED!)
-- **Streamlined MCP Server**: HTTP/SSE protocol implementation (fewer tools!)
-- **Core Tool Definitions**: `maos/orchestrate`, `maos/session-status`, `maos/list-roles` ONLY
-- **Orchestrator-Only Streaming**: SSE streaming of ONLY Orchestrator output
-- **Session Management**: Track orchestration sessions and ACP network state
-- **Clean Error Handling**: Proper MCP protocol compliance
+**Deliverables:**
+- Orchestrator Router Agent implementation
+- Intelligent agent selection system
+- Phase-based execution engine
+- Session registry with work context tracking
 
-### 🚀 Revolutionary Simplifications
-- **ELIMINATED**: `maos/agent-message` tool (broken and unnecessary!)
-- **ELIMINATED**: `maos/spawn-agent` tool (handled by orchestration!)
-- **ELIMINATED**: Complex multi-agent output multiplexing
-- **SIMPLIFIED**: Single Orchestrator output stream to Claude Code
-- **FOCUSED**: Pure orchestration lifecycle management
+### Phase 5: Production Features (3-4 weeks)
 
-### 📦 Deliverables
-- Simplified MCP server with 3 core tools
-- Orchestrator-only SSE streaming implementation
-- Session lifecycle management
-- ACP network state monitoring
-- Clean MCP protocol compliance
-- Integration tests with Claude Code
+**Objective**: Production-ready system with monitoring and resilience
 
----
+**Key Components:**
+- **Multi-Session Support**: Handle concurrent orchestration sessions
+- **Error Recovery**: Graceful handling of process failures
+- **Monitoring**: Health checks and performance metrics
+- **Security**: Process sandboxing and resource limits
 
-</details>
+**Deliverables:**
+- Multi-session orchestration support
+- Comprehensive error handling and recovery
+- Production monitoring and observability
+- Security hardening and resource controls
 
-<details>
-<summary><strong>Epic 3: ACP Agent Network (Dual Process Management) ⚡</strong> (4-5 weeks)</summary>
+## Implementation Strategy
 
-## Epic 3: ACP Agent Network (Dual Process Management) ⚡
+### Development Approach
+1. **Incremental Build**: Each phase builds on previous work
+2. **Test-Driven**: Comprehensive testing at each phase
+3. **Documentation**: Update docs as architecture evolves
+4. **Validation**: Verify simplified architecture assumptions
 
-**Epic: ACP-Integrated Agent Lifecycle & Network**
+### Success Criteria
+- **Clean Architecture**: Simple, maintainable codebase
+- **Reliable Orchestration**: Consistent multi-agent coordination
+- **Context Preservation**: Agents maintain memory across phases
+- **Performance**: Efficient resource usage and fast response times
+- **Extensibility**: Easy to add new agent types and capabilities
 
-*Dependencies: Epic 1 (ACP Foundation), Epic 2 (MCP Server)*
+### Timeline Estimate
+- **Phase 1-2**: Core + MCP (7-10 weeks)
+- **Phase 3-4**: Agents + Orchestrator (9-12 weeks)
+- **Phase 5**: Production (3-4 weeks)
+- **Total**: **19-26 weeks** for complete system
 
-### 🎯 Scope
-Implement the revolutionary **dual process agent management** system where every agent runs both a CLI process AND an ACP server. This epic creates the peer-to-peer agent communication network.
+### Key Milestones
+- **Week 6**: Basic orchestration working
+- **Week 12**: MCP server operational
+- **Week 18**: Full agent management
+- **Week 24**: Intelligent orchestration complete
+- **Week 26**: Production-ready system
 
-### 🔧 Key Components
-- **Dual Process Spawning**: CLI process + ACP server for each agent
-- **Port Pool Management**: Allocate unique ports for each agent's ACP server
-- **ACP Network Integration**: Agent registration and discovery via ACP
-- **Dual Health Monitoring**: Monitor both CLI process and ACP server health
-- **Role Template System**: 20 specialized agent role templates with ACP integration
-- **Coordinated Shutdown**: Graceful termination of both processes
+## Technical Considerations
 
-### 🚀 Revolutionary Features
-- **Every Agent = ACP Server**: Peer-to-peer communication capability
-- **No File-Based Messaging**: ELIMINATED - pure ACP communication
-- **Dynamic Discovery**: Agents find each other through ACP network
-- **Real-time Status**: Instant agent health and progress updates
-- **Network Resilience**: ACP network handles agent failures gracefully
+### Dependencies
+- **Claude CLI**: Core dependency for all agent processes
+- **ACP Protocol**: REST-based agent communication
+- **MCP Protocol**: External interface to Claude Code
+- **SQLite**: Session and metadata storage
 
-### 📦 Deliverables
-- Dual process agent spawning system
-- ACP server integration for all agents
-- Port pool management and allocation
-- ACP network registration and discovery
-- Dual health monitoring (CLI + ACP)
-- Complete role template library with ACP integration
-- Coordinated agent lifecycle tests
-- ACP network resilience testing
-
----
-
-</details>
-
-<details>
-<summary><strong>Epic 4: Orchestrator-as-Interface (Revolutionary Coordination) 👑</strong> (6-8 weeks)</summary>
-
-## Epic 4: Orchestrator-as-Interface (Revolutionary Coordination) 👑
-
-**Epic: Dual-Role Orchestrator Implementation**
-
-*Dependencies: Epic 3 (ACP Agent Network)*
-
-### 🎯 Scope
-Implement the **game-changing Orchestrator-as-Interface** pattern where the Orchestrator serves as both the single point of interaction with Claude Code AND the ACP network coordinator. This is the crown jewel of MAOS.
-
-### 🔧 Key Components
-- **Dual-Role Orchestrator**: Single interface to Claude Code + ACP network coordinator
-- **ACP-Based Phase Management**: Coordinate phases via direct agent communication
-- **Adaptive Planning**: Plan phases based on real-time agent feedback via ACP
-- **Unified Progress Reporting**: Present clean, coordinated updates to Claude Code
-- **Hidden Complexity Management**: ACP coordination invisible to users
-- **Real-time Agent Coordination**: Direct specialist agent coordination via ACP
-
-### 🚀 Revolutionary Features
-- **MAXIMUM AGENT FOCUS**: Agents work in isolation without interruptions
-- **MINIMAL ESSENTIAL COMMUNICATION**: ACP used only when coordination required
-- **SINGLE INTERFACE**: Only Orchestrator talks to Claude Code users
-- **PURE ACP COORDINATION**: All agent coordination via essential-only ACP messages
-- **HIDDEN COMPLEXITY**: Users see unified progress, not agent chaos
-- **DUAL LIFECYCLE SUPPORT**: Both micro-task and phase-based agent patterns
-- **REAL-TIME ADAPTATION**: Plan adjusts based on live agent feedback
-- **NO SUMMARIZERS NEEDED**: Direct agent communication eliminates need
-- **CLEAN USER EXPERIENCE**: Professional, unified project management interface
-
-### 📦 Deliverables
-- Dual-role Orchestrator agent implementation
-- ACP-based adaptive phase management
-- Real-time agent task assignment via ACP
-- Unified progress reporting to Claude Code
-- Phase-gate coordination via ACP messages
-- Agent discovery and specialist allocation
-- Clean user interface with hidden complexity
-- End-to-end orchestration testing with ACP network
-
----
-
-</details>
-
-<details>
-<summary><strong>Epic 5: Production-Ready ACP System 🏆</strong> (4-6 weeks)</summary>
-
-## Epic 5: Production-Ready ACP System 🏆
-
-**Epic: ACP Network Production Features**
-
-*Dependencies: Epic 4 (Orchestrator-as-Interface)*
-
-### 🎯 Scope
-Implement production-ready features for the **ACP network orchestration system** including multi-instance support, ACP network monitoring, security, and operational capabilities. This epic delivers a **production-ready revolutionary multi-agent system**.
-
-### 🔧 Key Components
-- **ACP Network State Management**: Complete ACP network state persistence and recovery
-- **Multi-Session Support**: Multiple concurrent orchestration sessions with ACP isolation
-- **ACP Network Monitoring**: Comprehensive monitoring of agent communication and health
-- **Security & Sandboxing**: Resource limits for both CLI processes and ACP servers
-- **Port Pool Management**: Production-grade port allocation and cleanup
-- **ACP Network Recovery**: Coordinated recovery of CLI processes and ACP servers
-- **Performance Optimization**: ACP communication optimization and resource management
-
-### 🚀 Revolutionary Production Features
-- **ACP Network Resilience**: Handle agent failures gracefully in ACP network
-- **Session Isolation**: Multiple orchestration sessions with separate ACP networks
-- **Comprehensive Monitoring**: Full visibility into ACP network activity and performance
-- **Resource Management**: Manage both process resources and network ports
-- **Production Security**: Sandboxed agents with controlled ACP communication
-- **Performance Tuning**: Optimized ACP message routing and agent coordination
-
-### 📦 Deliverables
-- Multi-session ACP network architecture
-- Comprehensive ACP network monitoring and observability
-- Production-grade security and sandboxing for dual processes
-- ACP network state persistence and recovery
-- Performance optimization and resource management
-- Automated cleanup of sessions, processes, and ports
-- Production deployment and operational documentation
-- **COMPLETE PRODUCTION-READY MAOS SYSTEM** 🚀
-
----
-
-</details>
-
-## 🚀 Revolutionary Implementation Strategy
-
-### 🎯 ACP-First Development Approach
-1. **Sequential Epic Development**: Each epic builds toward complete ACP network
-2. **ACP Integration MVP**: Test ACP communication at each epic
-3. **Dual Process Testing**: Comprehensive testing of CLI + ACP server combinations
-4. **Revolutionary Architecture Validation**: Prove Orchestrator-as-Interface pattern works
-
-### 🏆 Success Criteria
-- **ACP Network Functional**: Agents communicate seamlessly via ACP at each epic
-- **Orchestrator Interface Works**: Single, clean interface to Claude Code maintained
-- **Hidden Complexity Achieved**: Users never see agent coordination complexity
-- **Performance Benchmarks**: ACP communication meets performance requirements
-- **Production Deployment Ready**: Complete, scalable, secure multi-agent system
-
-### ⏱️ Revolutionary Timeline
-- **Epic 1-2**: ACP Foundation (6-8 weeks) - Longer due to revolutionary architecture
-- **Epic 3**: ACP Agent Network (4-5 weeks) - Build the peer-to-peer network
-- **Epic 4**: Orchestrator-as-Interface (6-8 weeks) - The crown jewel implementation
-- **Epic 5**: Production ACP System (4-6 weeks) - Polish and production features
-- **Total Estimated**: **20-27 weeks** for complete revolutionary system
-
-### 🎯 Key Milestones
-- **Week 8**: First ACP agent communication working
-- **Week 13**: Complete ACP agent network operational
-- **Week 21**: Orchestrator-as-Interface fully functional
-- **Week 27**: Production-ready revolutionary MAOS system delivered
-
----
+### Risk Mitigation
+- **Simplified Design**: Reduced complexity lowers implementation risk
+- **Proven Components**: Leverage Claude's existing session management
+- **Incremental Delivery**: Early feedback on core functionality
+- **Comprehensive Testing**: Prevent regressions during development
 
 ## References
 
-### 🔥 Revolutionary Architecture Documentation
-- **[ADR-04: ACP-Based Agent Communication](./decisions/04-agent-communication-patterns.md)** - Revolutionary peer-to-peer agent network
-- **[ADR-08: Agent Lifecycle and Management](./decisions/08-agent-lifecycle-and-management.md)** - Dual process management (CLI + ACP)
-- **[ADR-10: MCP Server Architecture](./decisions/10-mcp-server-architecture.md)** - Simplified MCP server with Orchestrator-only interface
-- **[ADR-11: Adaptive Phase-Based Orchestration](./decisions/11-adaptive-phase-based-orchestration.md)** - Orchestrator-as-Interface pattern
-
-### 🌐 External Standards and Protocols
-- **[Agent Communication Protocol (ACP)](https://agentcommunicationprotocol.dev/)** - Core agent communication standard
-- **[Model Context Protocol (MCP)](https://modelcontextprotocol.io)** - External interface to Claude Code
-
-### 📚 Supporting Documentation
-- [Agent Roles](./references/agent-roles.md) - 20 specialized agent role definitions
-- [MCP Tools](./references/mcp-tools.md) - Simplified MCP tool definitions
-- [Storage Schema](./references/storage-schema.md) - ACP-integrated database design
-- [POC Learnings](./references/poc-learnings.md) - Lessons that led to ACP revolution
+- **ADR-04**: Agent Communication Patterns - ACP architecture
+- **ADR-08**: Agent Lifecycle Management - Process management
+- **ADR-10**: MCP Server Architecture - External interface
+- **ADR-11**: Adaptive Phase-Based Orchestration - Intelligent coordination
 
 ---
 
-*Date: 2025-07-14*  
-*Author: Marvin (Claude)*  
-*Based on: Comprehensive MAOS ADR Documentation*
+*Last Updated: 2025-07-16*
+*Author: Development Team*

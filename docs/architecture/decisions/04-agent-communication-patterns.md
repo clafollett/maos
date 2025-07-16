@@ -26,9 +26,9 @@ Our initial approach used file-based messaging with shared directories, but this
 The [Agent Communication Protocol (ACP)](https://agentcommunicationprotocol.dev/) provides a standardized, REST-based communication framework specifically designed for agent interoperability. ACP enables direct agent-to-agent communication through embedded servers, eliminating the need for message routing through the MCP server.
 
 ## Decision
-We will implement a **peer-to-peer ACP network** where every agent (including the Orchestrator) runs its own ACP server, enabling direct, real-time, standardized communication between all agents.
+We will implement a **Multi-Agent Single Server** architecture using ACP, where a single Claude Code Agent manages multiple CLI processes, and the Orchestrator acts as a Router Agent to coordinate work.
 
-### Revolutionary Architecture: Every Agent = ACP Server
+### Streamlined Architecture: Multi-Agent Single Server
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -36,191 +36,176 @@ We will implement a **peer-to-peer ACP network** where every agent (including th
 │                                                                 │
 │  maos/orchestrate ──► Start orchestration session              │
 │  maos/session-status ──► Monitor progress                      │
-│  [NO MORE maos/agent-message - eliminated!]                    │
+│  maos/list-roles ──► List available agent roles               │
 └─────────────────────┬───────────────────────────────────────────┘
                       │ MCP Protocol
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                     MAOS MCP Server                            │
 │                                                                 │
-│  • Spawns agents into ACP network                              │
+│  • Provides MCP tools for orchestration                        │
 │  • Tracks session state                                        │
-│  • Streams ACP network activity to Claude Code                 │
-│  • Participates in ACP network for coordination                │
+│  • Streams orchestrator output to Claude Code                  │
 └─────────────────────┬───────────────────────────────────────────┘
-                      │ Spawns agents with ACP servers
+                      │ Spawns Orchestrator
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    ACP Agent Network                           │
+│            Orchestrator (Router Agent) - ACP Server            │
 │                                                                 │
-│  ┌─────────────────┐                                          │
-│  │  ORCHESTRATOR   │ ◄─── Meta-agent with ACP server         │
-│  │  (ACP Server)   │                                          │
-│  └─────────┬───────┘                                          │
-│            │ ACP REST API                                     │
-│            ▼                                                  │
+│  • Analyzes tasks and plans phases                             │
+│  • Routes work to appropriate agents                           │
+│  • Tracks agent sessions                                       │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │ ACP Requests
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│             Claude Code Agent - ACP Server                     │
+│                                                                 │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     │
-│  │Solution     │◄────┤Backend      │────►│Frontend     │     │
-│  │Architect    │     │Engineer     │     │Engineer     │     │
-│  │(ACP Server) │     │(ACP Server) │     │(ACP Server) │     │
+│  │ Claude CLI  │     │ Claude CLI  │     │ Claude CLI  │     │
+│  │ -p architect│     │ -p backend  │     │ -p frontend │     │
+│  │ Process     │     │ Process     │     │ Process     │     │
 │  └─────────────┘     └─────────────┘     └─────────────┘     │
 │                                                               │
-│  • Every agent runs embedded ACP server                      │
-│  • Direct peer-to-peer communication via REST API            │
-│  • Standardized message formats across all agents            │
-│  • Dynamic agent discovery through ACP mechanisms            │
-│  • Orchestrator coordinates via ACP messages                 │
+│  • Single ACP server manages multiple CLI processes           │
+│  • Each process has different role via -p flag               │
+│  • Session continuity via --session-id                       │
+│  • Efficient resource utilization                            │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Core ACP Integration Principles
 
-1. **Isolation by Default**: Agents work in focused isolation without interruptions
-2. **Communication When Needed**: ACP used only for essential coordination, not chatter
-3. **Every Agent is an ACP Server**: Each agent process embeds an ACP server
-4. **Peer-to-Peer Network**: Direct agent-to-agent communication, no central routing
-5. **Orchestrator as Participant**: Orchestrator is just another agent in the ACP network
-6. **Standardized Protocol**: All communication follows ACP REST API specification
-7. **Dynamic Discovery**: Agents discover each other through ACP mechanisms
-8. **Immediate Delivery, Async Processing**: Real-time message delivery, agents process when convenient
+1. **Multi-Agent Single Server**: One ACP server manages multiple CLI agent processes
+2. **Router Agent Pattern**: Orchestrator analyzes tasks and routes to appropriate agents
+3. **Session Continuity**: Claude CLI's --session-id preserves context across phases
+4. **Efficient Resource Use**: Single server process instead of many
+5. **Standardized Protocol**: All communication follows ACP REST API specification
+6. **Phase-by-Phase Planning**: Orchestrator plans based on actual outputs, not assumptions
+7. **Extensible Design**: Easy to add Gemini Agent, Codex Agent, etc.
+8. **Clean Separation**: MCP for external interface, ACP for internal coordination
 
 ## ACP Communication Architecture
 
-### 1. Agent Process Integration
+### 1. Claude Code Agent Integration
 
-Each agent spawns with an embedded ACP server that provides:
-- **Unique HTTP endpoint** for receiving messages
-- **Agent registration** with discoverable metadata
-- **Message routing** to/from the agent process
-- **Health monitoring** and status reporting
+The Claude Code Agent runs a single ACP server that:
+- **Manages multiple CLI processes** with different roles via -p flag
+- **Provides unified endpoint** for all agent communication
+- **Routes messages** to appropriate CLI processes based on session
+- **Monitors health** of all managed CLI processes
+- **Maintains session continuity** via --session-id flag
 
 ### 2. Message Types and Patterns
 
-Communication follows **minimal, essential-only** ACP message patterns:
+Communication follows **phase-based coordination** patterns:
 
-**Essential Communication Triggers:**
-- **Task Assignment**: When Orchestrator assigns new work
-- **Completion Status**: When agents finish assigned work
-- **Critical Handoffs**: When work must transfer between agents
-- **Direction Changes**: When Orchestrator needs to redirect effort
-- **Error/Blocking**: When agents need assistance to proceed
-- **Phase Transitions**: When moving between orchestration phases
+**Communication Flow:**
+- **Phase Initiation**: Orchestrator determines which agents needed for phase
+- **Per-Agent Requests**: Orchestrator sends individual request to Claude Code Agent for each agent
+- **Process Spawning**: Claude Code Agent spawns one CLI process per request
+- **Parallel/Sequential Execution**: Orchestrator manages execution strategy
+- **Individual Results**: Each agent's results returned separately to Orchestrator
+- **Phase Completion**: Orchestrator aggregates all results before planning next phase
 
 **Message Categories:**
-- **Task Assignment**: Orchestrator assigns work to agents
-- **Status Updates**: Agents report progress to Orchestrator (completion, blocking, errors)
-- **Essential Handoffs**: Direct agent-to-agent work transfer
-- **Critical Announcements**: System-wide notifications (phase changes, direction shifts)
-- **Artifact Notifications**: Announce created/updated shared artifacts
+- **Work Requests**: Orchestrator sends phase-specific tasks to Claude Code Agent
+- **Execution Status**: Claude Code Agent reports CLI process status
+- **Phase Results**: Completed work artifacts and summaries
+- **Error Handling**: Process failures or blocking issues
 
-**No Chatter Principle**: Messages sent only when **essential for coordination**, not for status broadcasts or social communication.
+**Phase-by-Phase Principle**: Each phase planned based on actual outputs from previous phases, not assumptions.
 
-**Message Structure**: All messages follow ACP standard format with sender/receiver identification, message type, content payload, and timestamps.
+**Message Structure**: All messages follow ACP standard format with phase context, session tracking, and result artifacts.
 
-### 3. ACP Agent Discovery
+### 3. Session and Agent Management
 
-Agents discover each other through ACP discovery mechanisms:
+The Claude Code Agent manages sessions and CLI processes:
 
-**Discovery Methods:**
-- **By Role**: Find all agents with specific roles (e.g., "backend_engineer", "architect")
-- **By Capability**: Locate agents with specific capabilities (e.g., "database_design", "api_testing")
-- **By Status**: Find available/active agents for coordination
-- **Session Overview**: Get complete picture of all agents in the orchestration
+**Session Management:**
+- **Session Tracking**: Maintains mapping of sessions to CLI processes
+- **Process Pool**: Manages available Claude CLI processes
+- **Role Assignment**: Assigns roles via -p flag for each phase
+- **Context Preservation**: Uses --session-id for continuity across phases
 
-**Agent Registry Information:**
-- Agent ID and role
-- Capabilities and status
-- ACP endpoint for communication
-- Last seen timestamp for health monitoring
+**Process Lifecycle:**
+- **On-Demand Spawning**: CLI processes created when needed
+- **Session Binding**: Each process bound to specific session via --session-id
+- **Resource Management**: Monitors and limits concurrent processes
+- **Clean Termination**: Graceful shutdown when phases complete
 
-### 5. Agent Communication Capabilities
+### 4. Artifact Sharing
 
-Agents access communication through environment variables and can:
-- **Send Messages**: Direct messages to specific agents or broadcast to role groups
-- **Receive Messages**: Read from their inbox with automatic message parsing
-- **Share Artifacts**: Place specifications, code, and results in shared context directories
-- **Broadcast Announcements**: Send system-wide notifications about milestones or status
-- **Request Assistance**: Ask for help from agents with specific roles or capabilities
+Agents share work through file system artifacts:
+- **Shared Context**: Common directories for specifications and code
+- **Phase Outputs**: Each phase produces artifacts for next phase
+- **Result Aggregation**: Claude Code Agent collects outputs for Orchestrator
+- **Version Control**: Git integration for tracking changes
 
-### 6. Status Updates via stdout
+### 5. Orchestrator as Router Agent
 
-Agents report status through structured JSON output:
+The Orchestrator acts as a Router Agent, coordinating work through the Claude Code Agent:
 
-```json
-{"type": "status", "message": "Starting API design", "progress": 0.1}
-{"type": "artifact", "path": "shared/context/architecture/api-spec.yaml", "description": "REST API specification"}
-{"type": "dependency", "waiting_for": "agent_researcher_001", "reason": "Need database recommendations"}
-{"type": "complete", "result": "success", "outputs": ["api-spec.yaml", "system-design.md"]}
-```
+**Router Responsibilities:**
+- **Task Analysis**: Breaks down high-level objectives into phases
+- **Work Distribution**: Routes phase work to Claude Code Agent
+- **Progress Tracking**: Monitors phase completion and results
+- **Adaptive Planning**: Plans next phase based on actual outputs
 
-### 4. Orchestrator as ACP Participant
+### 6. Communication Patterns
 
-**Revolutionary Insight**: The Orchestrator operates as a first-class ACP agent, not a central coordinator. This eliminates communication bottlenecks and creates true peer-to-peer coordination.
+**Phase-Based Communication:**
+- Orchestrator makes multiple requests to Claude Code Agent per phase (one per agent)
+- Each request spawns one Claude CLI process for a specific role/task
+- Orchestrator coordinates parallel/sequential execution of agents within phase
+- No direct agent-to-agent communication needed
+- Each agent's results flow back individually to Orchestrator
 
-**Orchestrator Responsibilities:**
-- **Task Assignment**: Send work assignments via ACP messages
-- **Status Monitoring**: Receive progress updates from agents
-- **Adaptive Planning**: Adjust orchestration based on real-time agent feedback
-- **Phase Coordination**: Manage transitions between orchestration phases
+**Efficient Resource Use:**
+- Single ACP server instead of many
+- Reduced network overhead and port management
+- Simplified message routing through one endpoint
+- Clean phase boundaries for work organization
 
-### 5. Communication Patterns
+### 7. Integration with MCP Server
 
-**Direct Agent-to-Agent Communication:**
-- Agents communicate directly for collaboration
-- No routing through MCP server or central coordinator
-- Real-time coordination for dependencies and handoffs
+**Streamlined MCP Tools:**
+- **`maos/orchestrate`**: Start orchestration with Claude Code Agent
+- **`maos/session-status`**: Monitor orchestration progress
+- **`maos/list-roles`**: List available agent roles
+- **REMOVED**: `maos/agent-message` and `maos/spawn-agent` (no longer needed)
 
-**Broadcast Communication:**
-- System-wide announcements (phase completions, alerts)
-- Multi-agent notifications for coordination
-- Excludes sender from broadcast recipients automatically
-
-**Shared Context Integration:**
-- Agents still share artifacts through file system
-- ACP messages announce artifact creation/updates
-- Combination of real-time messaging + persistent artifacts
-
-### 6. Integration with MCP Server
-
-**Simplified MCP Server Role:**
-- **Remove `maos/agent-message` tool** - No longer needed
-- **Spawn agents into ACP network** - Focus on lifecycle management
-- **Monitor ACP network activity** - Stream events to Claude Code
-- **Session state tracking** - Maintain orchestration overview
-
-**MCP Server Benefits:**
-- Simplified tool set focused on orchestration
-- No message routing complexity
-- Real-time ACP event streaming to Claude Code
-- Clean separation of concerns
+**Clean Architecture Benefits:**
+- MCP handles external interface to Claude Code
+- ACP handles internal coordination with Claude Code Agent
+- Clear separation between external and internal protocols
+- Simplified tool surface area
 
 ## Consequences
 
 ### Positive
-- **Eliminated Communication Disconnect**: Agents communicate directly, no MCP routing needed
-- **Real-Time Messaging**: No file system polling delays
-- **Standardized Protocol**: Industry-standard ACP communication format
-- **Better Scalability**: REST-based communication scales better than file systems
-- **Dynamic Discovery**: Built-in mechanisms for agents to find each other
-- **Framework Agnostic**: Future-proof for different AI agent types
-- **Orchestrator as Equal**: No special communication channels needed
-- **Simplified MCP Server**: Remove `maos/agent-message` tool entirely
-- **True Peer-to-Peer**: Direct agent-to-agent communication when needed
-- **Adaptive Coordination**: Orchestrator adapts based on real-time agent status
+- **Simplified Architecture**: Single ACP server manages all agents
+- **Efficient Resource Use**: One server process instead of many
+- **Session Continuity**: Claude's --session-id preserves context perfectly
+- **Easy Extension**: Simple to add Gemini Agent, Codex Agent, etc.
+- **Phase-Based Clarity**: Clean boundaries between work phases
+- **Reduced Complexity**: No peer-to-peer discovery or routing needed
+- **Better Debugging**: All communication through one central point
+- **Cost Optimization**: Reuse CLI processes across phases
+- **Clean Tool Interface**: Only 3 MCP tools needed
 
 ### Negative
-- **Network Overhead**: HTTP requests have more overhead than file operations
-- **Port Management**: Each agent needs unique port allocation
-- **ACP Dependency**: Requires ACP protocol implementation
-- **Complexity**: More complex than simple file-based messaging
-- **Discovery Latency**: Initial agent discovery may have delays
+- **Single Point of Failure**: Claude Code Agent becomes critical component
+- **Process Management**: Must handle multiple CLI processes efficiently
+- **ACP Dependency**: Still requires ACP protocol implementation
+- **Sequential Phases**: Less parallelism than peer-to-peer approach
 
 ### Mitigation
-- **Efficient ACP Implementation**: Use lightweight HTTP servers for ACP
-- **Port Pool Management**: Pre-allocate port pools for agent spawning
-- **Discovery Caching**: Cache agent information to reduce lookup latency
-- **Fallback Mechanisms**: File-based backup for critical communications
-- **Monitoring**: Comprehensive ACP network monitoring and debugging tools
+- **Robust Error Handling**: Comprehensive failure recovery in Claude Code Agent
+- **Process Pool Management**: Efficient CLI process lifecycle management
+- **Health Monitoring**: Active monitoring of all CLI processes
+- **Graceful Degradation**: Continue with reduced capacity if processes fail
+- **Session Recovery**: Leverage --session-id for resumption after failures
 
 ## References
 - [Agent Communication Protocol (ACP)](https://agentcommunicationprotocol.dev/) - Core communication protocol

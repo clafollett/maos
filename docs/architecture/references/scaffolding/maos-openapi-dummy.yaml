@@ -1,14 +1,17 @@
 openapi: 3.0.0
 info:
-  title: MAOS Multi-Agent Orchestration API
-  description: Dummy OpenAPI spec for scaffolding MCP server with Agenterra
+  title: MAOS MCP Server API
+  description: OpenAPI spec for scaffolding MAOS MCP server with Agenterra - represents the 3 core MCP tools
   version: 1.0.0
 
 paths:
   /orchestrate:
     post:
       operationId: orchestrate
-      summary: Orchestrate parallel task execution across AI agents
+      summary: Start a multi-agent orchestration session
+      description: |
+        Initiates an orchestration session where the Orchestrator coordinates
+        multiple agents through the Claude Code Agent to accomplish a goal.
       requestBody:
         required: true
         content:
@@ -16,34 +19,28 @@ paths:
             schema:
               type: object
               properties:
-                tasks:
+                objective:
+                  type: string
+                  description: High-level goal to accomplish
+                agents:
                   type: array
+                  description: Initial agents to consider (optional)
                   items:
                     type: object
                     properties:
-                      id:
+                      role:
                         type: string
-                      description:
+                        description: Agent role (architect, engineer, qa, etc.)
+                      task:
                         type: string
-                      agent_type:
-                        type: string
-                        enum: [claude, openai, gemini, ollama, default]
-                        default: default
-                      dependencies:
-                        type: array
-                        items:
-                          type: string
-                      timeout_seconds:
-                        type: integer
-                        default: 300
-                    required:
-                      - description
-                execution_strategy:
+                        description: Specific task for this agent
+                strategy:
                   type: string
                   enum: [parallel, sequential, adaptive]
-                  default: parallel
+                  default: adaptive
+                  description: Execution strategy for orchestration
               required:
-                - tasks
+                - objective
       responses:
         '200':
           description: Orchestration session started
@@ -54,136 +51,38 @@ paths:
                 properties:
                   session_id:
                     type: string
+                    description: Unique session identifier
                   status:
                     type: string
+                    enum: [started, planning, executing]
                   message:
                     type: string
+                    description: Initial status message
 
-  /register:
-    post:
-      operationId: register
-      summary: Register available CLI tools with MAOS
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                auto_detect:
-                  type: boolean
-                  default: true
-                  description: Automatically detect installed CLIs
-      responses:
-        '200':
-          description: Registration complete
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  detected:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/AgentInfo'
-                  registered_count:
-                    type: integer
-                  default_agent:
-                    type: string
-
-  /agents:
+  /session-status:
     get:
-      operationId: listAgents
-      summary: List registered CLI agents and their status
-      responses:
-        '200':
-          description: List of registered agents
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  agents:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/AgentInfo'
-
-  /agents/default:
-    put:
-      operationId: setDefaultAgent
-      summary: Set the default agent type for orchestration
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                agent_type:
-                  type: string
-                  enum: [claude, openai, gemini, ollama]
-              required:
-                - agent_type
-      responses:
-        '200':
-          description: Default agent updated
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  previous_default:
-                    type: string
-                  new_default:
-                    type: string
-
-  /sessions/{session_id}/status:
-    get:
-      operationId: getStatus
-      summary: Get status of orchestration session
+      operationId: sessionStatus
+      summary: Get the current status of an orchestration session
+      description: |
+        Returns the current state of an orchestration session including
+        phase progress and agent activity.
       parameters:
         - name: session_id
-          in: path
+          in: query
           required: true
           schema:
             type: string
-        - name: include_details
+          description: Session identifier
+        - name: include_agents
           in: query
           required: false
           schema:
             type: boolean
-            default: false
+            default: true
+          description: Include detailed agent information
       responses:
         '200':
-          description: Session status
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/SessionStatus'
-
-  /sessions/{session_id}/cancel:
-    post:
-      operationId: cancelSession
-      summary: Cancel running orchestration session
-      parameters:
-        - name: session_id
-          in: path
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                force:
-                  type: boolean
-                  default: false
-      responses:
-        '200':
-          description: Session cancelled
+          description: Session status retrieved
           content:
             application/json:
               schema:
@@ -191,91 +90,130 @@ paths:
                 properties:
                   session_id:
                     type: string
-                  status:
+                  objective:
                     type: string
-                  message:
+                  state:
                     type: string
+                    enum: [planning, executing, completed, failed]
+                  current_phase:
+                    type: object
+                    properties:
+                      number:
+                        type: integer
+                      name:
+                        type: string
+                      agents:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            role:
+                              type: string
+                            task:
+                              type: string
+                            status:
+                              type: string
+                  progress:
+                    type: object
+                    properties:
+                      phases_completed:
+                        type: integer
+                      current_phase:
+                        type: integer
+                  created_at:
+                    type: string
+                    format: date-time
+                  updated_at:
+                    type: string
+                    format: date-time
 
-  /sessions/{session_id}/progress:
+  /list-roles:
     get:
-      operationId: getProgress
-      summary: Stream real-time progress updates (SSE endpoint)
+      operationId: listRoles
+      summary: List available agent roles
+      description: |
+        Returns the list of available agent roles that can be used
+        in orchestration sessions.
+      parameters:
+        - name: include_descriptions
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: Include role descriptions and capabilities
+      responses:
+        '200':
+          description: List of available roles
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  roles:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                          description: Role identifier (e.g., architect, engineer)
+                        description:
+                          type: string
+                          description: Brief description of the role
+                        capabilities:
+                          type: array
+                          items:
+                            type: string
+                          description: List of capabilities for this role
+
+  # SSE endpoint for streaming orchestrator output
+  /sessions/{session_id}/stream:
+    get:
+      operationId: streamSession
+      summary: Stream orchestrator output via Server-Sent Events
+      description: |
+        Provides real-time streaming of orchestrator output and progress
+        updates via Server-Sent Events (SSE).
       parameters:
         - name: session_id
           in: path
           required: true
           schema:
             type: string
+          description: Session identifier to stream
       responses:
         '200':
-          description: Progress event stream
+          description: SSE stream established
           content:
             text/event-stream:
               schema:
                 type: string
+                description: Server-Sent Events stream
 
 components:
   schemas:
-    AgentInfo:
-      type: object
-      properties:
-        agent_type:
-          type: string
-        name:
-          type: string
-        command:
-          type: string
-        is_available:
-          type: boolean
-        is_authenticated:
-          type: boolean
-        error_message:
-          type: string
-          nullable: true
-      required:
-        - agent_type
-        - name
-        - command
-        - is_available
-        - is_authenticated
-
-    SessionStatus:
+    SessionInfo:
       type: object
       properties:
         session_id:
           type: string
+        objective:
+          type: string
         status:
           type: string
-          enum: [pending, running, completed, failed, cancelled]
-        started_at:
+        created_at:
           type: string
           format: date-time
-        completed_at:
+    
+    AgentRole:
+      type: object
+      properties:
+        name:
           type: string
-          format: date-time
-          nullable: true
-        task_summary:
-          type: object
-          properties:
-            total:
-              type: integer
-            completed:
-              type: integer
-            failed:
-              type: integer
-            running:
-              type: integer
-        tasks:
+        description:
+          type: string
+        capabilities:
           type: array
           items:
-            type: object
-            properties:
-              task_id:
-                type: string
-              description:
-                type: string
-              status:
-                type: string
-              agent_id:
-                type: string
-                nullable: true
+            type: string
