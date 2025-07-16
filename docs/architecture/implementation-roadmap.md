@@ -252,7 +252,7 @@ Implement production-ready features for the **PTY multiplexer orchestration syst
 ### ⏱️ Timeline
 - **Epic 1-2**: PTY Foundation (4-6 weeks) - Simplified due to eliminated network complexity
 - **Epic 3**: PTY Agent Network (3-4 weeks) - Build the multiplexer system
-- **Epic 4**: Orchestrator-as-Interface (6-8 weeks) - The crown jewel implementation
+- **Epic 4**: Orchestrator-as-Interface (4-6 weeks) - The crown jewel implementation
 - **Epic 5**: Production PTY System (3-4 weeks) - Polish and production features
 - **Total Estimated**: **20-27 weeks** for complete system
 

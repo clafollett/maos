@@ -29,6 +29,14 @@ Key insights:
 ## Decision
 We will implement comprehensive agent lifecycle management with **PTY multiplexer integration**, flexible role-based specialization supporting both predefined and custom roles, multiple instances, and robust process handling. All agents will run as single Claude CLI processes managed by the Orchestrator's PTY multiplexer.
 
+### Orchestrator-as-PTY-Multiplexer Pattern
+The **Orchestrator Agent** serves a dual role: it acts as both a specialized AI agent AND as the PTY multiplexer that manages all other agents. This centralized approach provides:
+- **Single point of control** for all agent processes
+- **Centralized communication routing** between agents
+- **Process lifecycle management** via PTY pairs
+- **Resource allocation and monitoring** across all agents
+- **Session continuity** through Claude CLI session binding
+
 ### Architectural Layering
 
 This ADR provides the low-level process management infrastructure that higher-level orchestration builds upon:
