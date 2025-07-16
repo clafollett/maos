@@ -4,7 +4,7 @@
 Accepted
 
 ## Context
-The POC revealed critical insights about orchestration that shaped our revolutionary ACP-based architecture:
+The POC revealed critical insights about orchestration that shaped our PTY multiplexer architecture:
 
 ### Original Issues:
 - **Central Planning Flaw**: Orchestrator attempting to plan entire project upfront
@@ -12,83 +12,79 @@ The POC revealed critical insights about orchestration that shaped our revolutio
 - **Knowledge Silos**: Engineers working without architectural context
 - **Misalignment**: Phases disconnected from each other
 
-### Revolutionary ACP Solution:
-With our **Agent Communication Protocol (ACP) integration** and **Orchestrator-as-Interface** pattern, we now have:
-- **Real-time coordination**: Direct agent-to-agent communication via ACP
+### PTY Multiplexer Solution:
+With our **Orchestrator-as-PTY-Multiplexer** pattern and **single interface** design, we now have:
+- **Real-time coordination**: Direct PTY control and message routing via Orchestrator
 - **Single interface**: Orchestrator as sole representative to Claude Code
-- **Adaptive planning**: Orchestrator coordinates with agents via ACP for incremental discovery
-- **Hidden complexity**: ACP network coordination invisible to users
+- **Adaptive planning**: Orchestrator coordinates with agents via PTY multiplexer for incremental discovery
+- **Configurable transparency**: PTY processes can be visible for debugging or hidden for clean UX
 
-Traditional orchestration assumes perfect upfront knowledge. Our ACP-based approach enables **adaptive discovery** where the Orchestrator coordinates real-time with specialist agents via ACP while presenting unified progress to Claude Code.
+Traditional orchestration assumes perfect upfront knowledge. Our PTY multiplexer approach enables **adaptive discovery** where the Orchestrator coordinates real-time with specialist agents via PTY control while presenting unified progress to Claude Code.
 
 ## Decision
-We will implement an **ACP-based adaptive orchestration model** where the Orchestrator operates as both:
+We will implement a **PTY multiplexer-based adaptive orchestration model** where the Orchestrator operates as both:
 1. **Single Interface** to Claude Code (via MCP)
-2. **ACP Network Coordinator** managing specialist agents via direct communication
+2. **PTY Multiplexer** managing specialist agents via direct process control
 
-The Orchestrator acts as a **Project Manager** coordinating real-time with specialist agents via ACP while presenting unified progress to users.
+The Orchestrator acts as a **Project Manager** coordinating real-time with specialist agents via PTY control while presenting unified progress to users.
 
 ### Core Principles
 
-1. **Dual Interface Role**: Orchestrator serves as single point to Claude Code REPL terminal while coordinating ACP network
-2. **Real-time ACP Coordination**: Direct communication with specialist agents via ACP REST API
+1. **Dual Interface Role**: Orchestrator serves as single point to Claude Code while controlling PTY multiplexer
+2. **Real-time PTY Coordination**: Direct communication with specialist agents via PTY read/write operations
 3. **Incremental Planning**: Plan phases based on real-time agent feedback and discoveries
-4. **Phase Gates**: Coordinate phase completion via ACP before planning next phase
+4. **Phase Gates**: Coordinate phase completion via PTY messages before planning next phase
 5. **Unified Progress Reporting**: Present clean, coordinated updates to Claude Code users
-6. **Hidden Complexity**: ACP network coordination invisible to users
+6. **Configurable Transparency**: PTY processes can be visible for debugging or hidden for clean UX
 
-### ACP-Based Orchestration Flow
+### PTY Multiplexer Orchestration Flow
 
 ```
-Claude Code ↔ MCP Server ↔ Orchestrator (ACP Agent)
-                              ↕ ACP Network
+Claude Code ↔ MCP Server ↔ Orchestrator (PTY Multiplexer)
+                              ↕ PTY Control
                           Specialist Agents
 ```
 
 **1. Session Initialization:**
-- Orchestrator spawned as ACP agent with dual role
+- Orchestrator spawned as single Claude CLI process with PTY multiplexer role
 - Connects to MCP server for Claude Code interface
-- Joins ACP network for agent coordination
+- Manages PTY pairs for agent process control
 
 **2. Adaptive Phase Execution:**
-- **Agent Discovery**: Find available specialist agents via ACP
-- **Task Assignment**: Send phase tasks to agents via ACP messages
-- **Real-time Coordination**: Monitor agent progress via ACP status updates
+- **Agent Spawning**: Create specialist agents as Claude CLI processes via PTY
+- **Task Assignment**: Send phase tasks to agents via PTY write operations
+- **Real-time Coordination**: Monitor agent progress via PTY read operations
 - **User Updates**: Report unified progress to Claude Code REPL Terminal
 
 **3. Phase Gate Coordination:**
-- **Collect Results**: Gather phase outputs from agents via ACP
+- **Collect Results**: Gather phase outputs from agents via PTY communication
 - **Review and Validate**: Analyze completeness and quality
 - **Plan Next Phase**: Determine next steps based on discoveries
-- **Report to User**: Present phase completion to Claude Code REPL Terminal
+- **Report to User**: Present phase completion to Claude Code
 
 **4. Iterative Discovery:**
 - Continue phase-by-phase until objectives met
 - Adapt plan based on real-time agent feedback
 - Maintain unified user experience throughout
 
-### ACP Coordination Patterns
+### PTY Coordination Patterns
 
-**Agent Task Assignment (Orchestrator → Agent):**
-```json
-{
-  "type": "phase_assignment",
-  "phase": "research",
-  "task": "Analyze authentication requirements",
-  "deliverables": ["requirements_doc", "constraints_analysis"],
-  "deadline": "2025-07-14T18:00:00Z"
-}
+**Agent Task Assignment (Orchestrator writes to Agent via PTY):**
+```
+TASK ASSIGNMENT from Orchestrator:
+Objective: Analyze authentication requirements for the application
+Context: Building secure user authentication system
+Deliverables: requirements_doc, constraints_analysis
+Success Criteria: Complete analysis with implementation recommendations
 ```
 
-**Agent Status Update (Agent → Orchestrator):**
-```json
-{
-  "type": "phase_progress",
-  "phase": "research", 
-  "status": "completed",
-  "deliverables": ["auth_requirements.md", "security_constraints.md"],
-  "insights": ["OAuth2 preferred", "MFA required"]
-}
+**Agent Status Update (Orchestrator reads from Agent via PTY):**
+```
+STATUS UPDATE to Orchestrator:
+Progress: Authentication requirements analysis completed
+Completed: auth_requirements.md, security_constraints.md created
+Next: Ready for implementation phase
+Insights: OAuth2 preferred, MFA required for compliance
 ```
 
 **Phase Completion Coordination:**
@@ -103,7 +99,7 @@ MAOS supports **two complementary agent lifecycle patterns** for maximum efficie
 
 **Micro-Task Pattern** (High-Efficiency Focused Work):
 ```
-Orchestrator → Spawn Agent → Focused Work (Isolation) → ACP Result → Terminate
+Orchestrator → Spawn Agent → Focused Work (Isolation) → PTY Result → Terminate
              ↑                                        ↑
         (single task)                            (immediate completion)
 ```
@@ -114,7 +110,7 @@ Orchestrator → Spawn Agent → Focused Work (Isolation) → ACP Result → Ter
 
 **Phase-Based Pattern** (Team Coordination):
 ```
-Orchestrator → Spawn Agent → Phase Work → ACP Progress → Next Phase/Terminate
+Orchestrator → Spawn Agent → Phase Work → PTY Progress → Next Phase/Terminate
              ↑                          ↑
         (phase assignment)        (minimal coordination)
 ```
@@ -130,63 +126,41 @@ Orchestrator → Spawn Agent → Phase Work → ACP Progress → Next Phase/Term
 
 ### Agent Pool Coordination with Session Binding
 
-**Revolutionary Context-Aware Orchestration:**
+**Context-Aware Orchestration:**
 
 The Orchestrator manages a **persistent Agent Resources Registry** that enables context continuity across the entire orchestration lifecycle:
 
-**Agent Pool Management ACP Messages:**
+**Agent Pool Management PTY Messages:**
 
-**Agent Registration (Agent → Orchestrator):**
-```json
-{
-  "type": "agent_registration",
-  "from": "frontend_engineer_1",
-  "to": "orchestrator",
-  "timestamp": "2025-07-14T10:30:00Z",
-  "content": {
-    "agent_id": "frontend_engineer_1",
-    "role": "frontend_engineer", 
-    "claude_session_id": "session_ghi789",
-    "capabilities": ["react", "typescript", "testing"],
-    "status": "ready",
-    "initial_spawn": true
-  }
-}
+**Agent Registration (Orchestrator reads from Agent via PTY):**
+```
+AGENT REGISTRATION to Orchestrator:
+Agent ID: frontend_engineer_1
+Role: frontend_engineer
+Claude Session ID: session_ghi789
+Capabilities: react, typescript, testing
+Status: ready for tasks
+Initial spawn completed
 ```
 
-**Agent Sleep Request (Agent → Orchestrator):**
-```json
-{
-  "type": "agent_sleep_request",
-  "from": "backend_engineer_1",
-  "to": "orchestrator",
-  "timestamp": "2025-07-14T15:45:00Z",
-  "content": {
-    "agent_id": "backend_engineer_1",
-    "phase_completed": "api_implementation",
-    "deliverables": ["user_api.rs", "auth_service.rs"],
-    "ready_for_sleep": true,
-    "session_preserved": true
-  }
-}
+**Agent Sleep Request (Orchestrator reads from Agent via PTY):**
+```
+SLEEP REQUEST to Orchestrator:
+Agent ID: backend_engineer_1
+Phase Completed: api_implementation
+Deliverables: user_api.rs, auth_service.rs
+Ready for sleep: true
+Session preserved for future reactivation
 ```
 
-**Selective Agent Reactivation (Orchestrator → Agent Pool):**
-```json
-{
-  "type": "agent_reactivation",
-  "from": "orchestrator",
-  "to": "frontend_engineer_1",
-  "timestamp": "2025-07-14T16:00:00Z",
-  "content": {
-    "agent_id": "frontend_engineer_1",
-    "claude_session_id": "session_ghi789",
-    "new_phase": "ui_integration",
-    "context_continuity": true,
-    "previous_work_reference": "phase_2_frontend_components",
-    "new_tasks": ["integrate_auth_components", "add_error_handling"]
-  }
-}
+**Selective Agent Reactivation (Orchestrator writes to Agent via PTY):**
+```
+REACTIVATION from Orchestrator:
+Agent ID: frontend_engineer_1
+Claude Session ID: session_ghi789
+New Phase: ui_integration
+Context: You previously worked on frontend components
+New Tasks: integrate_auth_components, add_error_handling
 ```
 
 **Orchestrator Pool Management Patterns:**
@@ -207,40 +181,40 @@ The Orchestrator manages a **persistent Agent Resources Registry** that enables 
 ## Consequences
 
 ### Positive
-- **Perfect Context Continuity**: Agents never lose memory between activations (revolutionary!)
+- **Perfect Context Continuity**: Agents never lose memory between activations
 - **Intelligent Resource Management**: Agents sleep when idle, conserving system resources
 - **Selective Expert Reactivation**: Choose specific agents with relevant context for new phases
 - **Maximum Focus & Productivity**: Agents work in isolation without interruptions (proven efficient)
-- **Minimal Communication Overhead**: ACP used only when essential, not for chatter
+- **Minimal Communication Overhead**: PTY used only when essential, not for chatter
 - **Dual Lifecycle Support**: Both micro-task (high-efficiency) and phase-based patterns
 - **Unified User Experience**: Single, clean interface via Orchestrator to Claude Code
 - **Agent Pool Coordination**: Orchestrator manages persistent specialist agent resources
 - **Essential-Only Coordination**: Communication triggers limited to critical needs
-- **Better Alignment**: Each phase builds on actual agent outputs via ACP feedback
+- **Better Alignment**: Each phase builds on actual agent outputs via PTY feedback
 - **Reduced Waste**: No planning for features that research agents show aren't needed
 - **Higher Quality**: Specialist agents work from concrete specifications with full context
-- **Hidden Complexity**: ACP network coordination invisible to users
+- **Configurable Transparency**: PTY processes can be hidden for clean UX or visible for debugging/learning
 - **Adaptive Planning**: Real-time agent feedback enables dynamic plan adjustment
 - **Seamless Collaboration**: Agents reference and build upon each other's previous work
-- **Performance**: Direct ACP communication vs. complex file-based coordination
+- **Performance**: Direct PTY communication vs. complex file-based coordination
 - **Memory Persistence**: Claude Code session binding ensures no context loss
 
 ### Negative
-- **Orchestrator Complexity**: Dual role as both user interface and ACP coordinator
-- **ACP Dependency**: Requires reliable ACP network for coordination
-- **Network Overhead**: HTTP-based ACP communication adds latency
-- **Debugging Complexity**: ACP network coordination hidden from users
+- **Orchestrator Complexity**: Dual role as both user interface and PTY multiplexer
+- **PTY Dependency**: Requires portable-pty for cross-platform process control
+- **Process Management Overhead**: Managing multiple Claude CLI processes via PTY
+- **Debugging Complexity**: PTY process coordination hidden from users
 - **More Orchestrator Invocations**: Orchestrator runs between each phase
 - **Complex State Management**: Must track partial plans and phase outputs
 - **Harder Estimation**: Can't predict total phases until project progresses
 
 ### Mitigation
-- **ACP Health Monitoring**: Robust monitoring of ACP network for reliability
+- **PTY Health Monitoring**: Robust monitoring of PTY processes for reliability
 - **Orchestrator Training**: Clear prompts about dual interface/coordinator role
-- **Phase Review Mechanisms**: Strong ACP-based phase completion validation
-- **Common Patterns**: Templates for typical phase sequences and ACP coordination
-- **Debug Tools**: ACP network activity monitoring for troubleshooting
-- **Graceful Degradation**: Fallback mechanisms when ACP coordination fails
+- **Phase Review Mechanisms**: Strong PTY-based phase completion validation
+- **Common Patterns**: Templates for typical phase sequences and PTY coordination
+- **Debug Tools**: PTY process activity monitoring for troubleshooting
+- **Graceful Degradation**: Fallback mechanisms when PTY coordination fails
 
 ## Implementation Notes
 
@@ -251,13 +225,13 @@ The Orchestrator prompt should emphasize the **dual interface/coordinator role**
 **As Claude Code Interface:**
 - "You are the ONLY voice users hear - represent the entire team professionally"
 - "Present unified, clear progress updates to Claude Code users"
-- "Hide ACP network complexity - users don't need to see agent coordination"
+- "Hide PTY process complexity - users don't need to see agent coordination"
 - "Report phase completions and discoveries in user-friendly language"
 
-**As ACP Network Coordinator:**
-- "Coordinate with specialist agents via ACP messages for real-time collaboration"
+**As PTY Multiplexer Coordinator:**
+- "Coordinate with specialist agents via PTY messages for real-time collaboration"
 - "Assign specific, concrete tasks to agents based on their expertise"
-- "Monitor agent progress via ACP status updates"
+- "Monitor agent progress via PTY status updates"
 - "Plan only 1-2 phases ahead based on actual agent outputs, not assumptions"
 - "Each phase should produce concrete deliverables from specialist agents"
 
@@ -267,10 +241,11 @@ The Orchestrator prompt should emphasize the **dual interface/coordinator role**
 - "Adapt the plan based on discoveries from specialist agents"
 
 ## References
-- **ADR-04: ACP-Based Agent Communication** - Defines ACP coordination patterns used by Orchestrator
-- **ADR-08: Agent Lifecycle and Management** - ACP server spawning for specialist agents
+- **ADR-04: Orchestrator-as-PTY-Multiplexer Communication** - Defines PTY coordination patterns used by Orchestrator
+- **ADR-08: Agent Lifecycle and PTY Multiplexer Management** - PTY process spawning for specialist agents
 - **ADR-10: MCP Server Architecture** - Orchestrator-only interface to Claude Code
-- [Agent Communication Protocol (ACP)](https://agentcommunicationprotocol.dev/) - Core agent coordination protocol
+- [Tmux-Orchestrator](https://github.com/Jedward23/Tmux-Orchestrator) - Inspiration for PTY multiplexer patterns
+- [portable-pty](https://docs.rs/portable-pty/) - Cross-platform PTY implementation
 - POC analysis showing Orchestrator planning failures
 - Agile methodologies and iterative development
 - Project management best practices

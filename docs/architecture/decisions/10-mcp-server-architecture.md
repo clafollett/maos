@@ -1,4 +1,4 @@
-# ADR-10: MCP Server Architecture
+# ADR-10: Simplified MCP Server Architecture
 
 ## Status
 Accepted
@@ -11,22 +11,22 @@ MAOS needs to provide multi-agent orchestration capabilities to AI tools like Cl
 - **Streaming Support**: Real-time updates via Server-Sent Events (SSE)
 - **Language Agnostic**: Clients don't need to know MAOS is written in Rust
 
-### Revolutionary ACP Integration Insight
-With our **Agent Communication Protocol (ACP) integration**, the MCP server role is dramatically simplified:
-- **No message routing needed**: Agents communicate directly via ACP
-- **Remove `maos/agent-message` tool**: This tool was fundamentally broken and is no longer needed
-- **Focus on orchestration lifecycle**: MCP server manages sessions and streams ACP network activity
-- **Simplified architecture**: Clean separation between MCP (external interface) and ACP (internal agent network)
+### PTY Multiplexer Simplification
+With our **Orchestrator-as-PTY-Multiplexer** architecture, the MCP server role is dramatically simplified:
+- **No complex networking**: All agent communication handled via PTY multiplexer
+- **Single process interface**: MCP server only communicates with Orchestrator
+- **Focus on orchestration lifecycle**: MCP server manages sessions and streams Orchestrator output
+- **Simplified architecture**: Clean separation between MCP (external interface) and PTY (internal process control)
 
 Key architectural insights: 
-- **MAOS MCP server spawns agents into an ACP network**
-- **Only the Orchestrator communicates with Claude Code** - all other agents are pure ACP participants
+- **MAOS MCP server spawns single Orchestrator Agent**
+- **Only the Orchestrator communicates with Claude Code** - all other agents are PTY-controlled processes
 - **Orchestrator serves as the single interface** representing the entire multi-agent system
 
 ## Decision
-MAOS will be implemented as a **simplified MCP server** that exposes orchestration lifecycle capabilities through tools and resources, while spawning agents into an **ACP network** for peer-to-peer communication. The MCP server focuses on session management and streaming ACP network activity back to clients.
+MAOS will be implemented as a **simplified MCP server** that exposes orchestration lifecycle capabilities through tools and resources, while spawning a single **Orchestrator Agent** that manages all other agents via PTY multiplexer. The MCP server focuses on session management and streaming Orchestrator output back to clients.
 
-### Revolutionary ACP-Integrated Architecture
+### Simplified PTY Multiplexer Architecture
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │   Claude Code (MCP Client)                                     │
@@ -48,47 +48,48 @@ MAOS will be implemented as a **simplified MCP server** that exposes orchestrati
 │ Resources:                                                     │
 │ • Orchestrator output (streaming)                             │
 │ • Session status                                               │
-│ • Agent discovery info                                         │
+│ • Agent role definitions                                       │
 └────────────┬───────────────────────────────────────────────────┘
-             │ Spawns Orchestrator + Agents into ACP network
+             │ Spawns single Orchestrator Agent
              ▼
 ┌────────────────────────────────────────────────────────────────┐
-│   ACP Agent Network (REVOLUTIONARY!)                          │
+│   Orchestrator Agent (PTY Multiplexer)                        │
 │                                                                │
-│  ┌─────────────────┐                                          │
-│  │  ORCHESTRATOR   │ ◄─── SINGLE INTERFACE to Claude Code    │
-│  │  (ACP Server)   │      • Only agent with MCP connection   │
-│  └─────────┬───────┘      • Represents entire system         │
-│            │ ACP REST API (Pure P2P!)                        │
+│  ┌─────────────────┐ ◄─── SINGLE INTERFACE to Claude Code    │
+│  │  ORCHESTRATOR   │      • Only agent with MCP connection   │
+│  │  (Claude CLI)   │      • Represents entire system         │
+│  └─────────┬───────┘      • Manages all other agents via PTY │
+│            │ PTY Control (Hub-and-Spoke)                     │
 │            ▼                                                  │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     │
-│  │Solution     │◄────┤Backend      │────►│Frontend     │     │
+│  │Solution     │     │Backend      │     │Frontend     │     │
 │  │Architect    │     │Engineer     │     │Engineer     │     │
-│  │(Claude -p + │     │(Claude -p + │     │(Claude -p + │     │
-│  │ ACP Server) │     │ ACP Server) │     │ ACP Server) │     │
+│  │(Claude CLI) │     │(Claude CLI) │     │(Claude CLI) │     │
+│  │ PTY Control │     │ PTY Control │     │ PTY Control │     │
 │  │  NO MCP!    │     │  NO MCP!    │     │  NO MCP!    │     │
 │  └─────────────┘     └─────────────┘     └─────────────┘     │
 │                                                               │
 │  • Orchestrator = Single point of interaction                │
-│  • All other agents = Pure ACP participants                  │
-│  • Clean separation: MCP ↔ Orchestrator ↔ ACP Network       │
-│  • Real-time coordination via ACP only                       │
+│  • All other agents = PTY-controlled Claude CLI processes    │
+│  • Clean separation: MCP ↔ Orchestrator ↔ PTY Processes     │
+│  • Real-time coordination via PTY read/write                 │
+│  • Cross-platform via portable-pty                           │
 └────────────────────────────────────────────────────────────────┘
 ```
 
 ### Simplified MCP Tools and Resources
 
-With ACP integration, MAOS exposes a **simplified set** of orchestration capabilities through **three MCP tools** and **three resources**. The complete tool definitions and schemas are documented in the [MCP Tools Reference](../references/mcp-tools.md).
+With PTY multiplexer integration, MAOS exposes a **simplified set** of orchestration capabilities through **three MCP tools** and **three resources**. The complete tool definitions and schemas are documented in the [MCP Tools Reference](../references/mcp-tools.md).
 
 **Tools:**
-1. `maos/orchestrate` - Start multi-agent orchestration sessions (spawns agents into ACP network)
-2. `maos/session-status` - Query orchestration session status and ACP network activity
+1. `maos/orchestrate` - Start multi-agent orchestration sessions (spawns Orchestrator with PTY multiplexer)
+2. `maos/session-status` - Query orchestration session status and agent activity
 3. `maos/list-roles` - List available agent roles
 
 **Resources:**
 1. **Orchestrator output (SSE)** - Real-time output from the Orchestrator agent only
-2. **Session status** - Current state of orchestration and ACP network
-3. **Agent discovery info** - Available agents and their ACP endpoints for debugging
+2. **Session status** - Current state of orchestration and PTY process management
+3. **Agent role definitions** - Available agents and their role specifications
 
 ### Orchestrator-Only Streaming
 
@@ -97,7 +98,7 @@ With ACP integration, MAOS exposes a **simplified set** of orchestration capabil
 **Why Orchestrator-Only:**
 - **Single Point of Interaction**: Orchestrator represents the entire multi-agent system
 - **Clean Interface**: Claude Code users see unified output, not chaos from multiple agents
-- **Clear Delegation**: Orchestrator coordinates via ACP, reports results via MCP
+- **Clear Delegation**: Orchestrator coordinates via PTY multiplexer, reports results via MCP
 - **Simplified Architecture**: No complex multi-agent output multiplexing needed
 
 **SSE Event Types:**
@@ -106,33 +107,41 @@ With ACP integration, MAOS exposes a **simplified set** of orchestration capabil
 - **`session-complete`** - Final orchestration results
 
 **Streaming Architecture:**
-- **Monitor Only Orchestrator**: Subscribe to Orchestrator's stdout/stderr
-- **ACP Coordination Hidden**: All inter-agent communication happens via ACP (invisible to MCP)
+- **Monitor Only Orchestrator**: Subscribe to Orchestrator's stdout/stderr via single Claude CLI process
+- **PTY Coordination Hidden**: All inter-agent communication happens via PTY (invisible to MCP)
 - **Unified Experience**: Claude Code sees clean, coordinated output
 - **Performance**: Single agent stream vs. complex multi-agent multiplexing
+- **Cross-Platform**: Works on Windows, macOS, Linux via portable-pty
 
 ### MCP Server Configuration
 
 The server configuration and transport details are documented in the [MCP Tools Reference](../references/mcp-tools.md#mcp-server-configuration).
 
-## Implementation Strategy with ACP Integration
+**Key Configuration Elements:**
+- **Orchestrator Process**: Single Claude CLI process with session persistence
+- **PTY Management**: Cross-platform PTY pair allocation via portable-pty
+- **Resource Limits**: Configurable limits on concurrent agents and memory usage
+- **Session Persistence**: Claude CLI `--session-id` for memory continuity
+- **Workspace Management**: Isolated workspaces with shared context access
 
-### Phase 1: Simplified MCP Server + ACP Network
-1. Implement simplified MCP protocol handler (fewer tools!)
-2. Create **ACP-integrated** tool definitions
-3. **ACP server spawning** with agent processes
+## Implementation Strategy with PTY Multiplexer
+
+### Phase 1: Simplified MCP Server + PTY Multiplexer
+1. Implement simplified MCP protocol handler (3 core tools)
+2. Create **PTY-integrated** tool definitions
+3. **Orchestrator process spawning** with PTY multiplexer capabilities
 4. **Orchestrator-only output streaming** (clean, unified interface)
 
-### Phase 2: ACP Network Features
-1. **ACP discovery and monitoring**
-2. Session persistence with ACP network state
-3. **Coordinated error recovery** (CLI + ACP server)
+### Phase 2: PTY Multiplexer Features
+1. **PTY process management and monitoring**
+2. Session persistence with Claude CLI session IDs
+3. **Coordinated error recovery** (PTY process restart with session restoration)
 
 ### Phase 3: Production Features
-1. Multi-instance support with **port pool management**
-2. Resource limits including **network and port allocation**
-3. Security sandboxing for both CLI and ACP processes
-4. **ACP network performance monitoring**
+1. Multi-instance support with **PTY resource management**
+2. Resource limits including **process and memory allocation**
+3. Security sandboxing for PTY-controlled Claude CLI processes
+4. **PTY multiplexer performance monitoring**
 
 ## Consequences
 
@@ -141,37 +150,42 @@ The server configuration and transport details are documented in the [MCP Tools 
 - **Orchestrator-Only Interface**: Clean, unified user experience via single agent interface
 - **Natural Integration**: Users interact with MAOS through their preferred AI tool
 - **Language Processing**: The LLM handles natural language parsing
-- **Hidden Complexity**: ACP coordination happens behind the scenes, invisible to users
+- **Configurable Transparency**: PTY coordination can be visible for debugging or hidden for clean UX
 - **Tool Agnostic**: Works with any MCP-compatible client
-- **Clean Separation**: MCP ↔ Orchestrator ↔ ACP Network
+- **Clean Separation**: MCP ↔ Orchestrator ↔ PTY Processes
 - **Streamlined Tool Set**: Just 3 core tools for orchestration
 - **Performance**: Single agent output stream vs. complex multi-agent multiplexing
 - **Clear Delegation Model**: Orchestrator represents entire multi-agent system
+- **Cross-Platform Compatibility**: Works on Windows, macOS, Linux without dependencies
+- **No Network Complexity**: No port management, discovery, or network configuration
+- **Simplified Deployment**: Single MCP server process with PTY multiplexer
 
 ### Negative
 - **MCP Dependency**: Requires clients to support MCP
-- **Network Overhead**: HTTP/SSE + ACP adds network usage
+- **PTY Dependency**: Requires portable-pty for cross-platform compatibility
 - **Limited by MCP**: Must work within protocol constraints
-- **ACP Integration Complexity**: Requires ACP protocol implementation
+- **Process Management Complexity**: Managing multiple Claude CLI processes via PTY
 
 ### Mitigation
-- **Simplified Architecture**: ACP integration actually reduces overall complexity
-- **Efficient ACP Implementation**: Use lightweight HTTP servers for ACP
-- **Optimize SSE Streaming**: Single ACP network stream is more efficient
-- **Contribute to Standards**: Engage with both MCP and ACP communities
+- **Simplified Architecture**: PTY multiplexer reduces overall complexity vs. networking
+- **PTY Abstraction**: portable-pty handles cross-platform PTY differences
+- **Optimize SSE Streaming**: Single Orchestrator stream is efficient
+- **Contribute to Standards**: Engage with MCP community for improvements
 - **Provide Standalone CLI**: For non-MCP users who want direct access
+- **Robust Process Monitoring**: Health checks and automatic restart capabilities
 
 ## References
-- **ADR-04: ACP-Based Agent Communication** - Defines the ACP integration that simplifies this MCP server
-- **ADR-08: Agent Lifecycle and Management** - Provides ACP server spawning infrastructure
+- **ADR-04: Orchestrator-as-PTY-Multiplexer Communication** - Defines the PTY communication that simplifies this MCP server
+- **ADR-08: Agent Lifecycle and PTY Multiplexer Management** - Provides PTY process spawning infrastructure
 - [MCP Tools Reference](../references/mcp-tools.md) - Complete tool and resource definitions
 - [Agent Roles Reference](../references/agent-roles.md) - Agent role specifications
-- [Agent Communication Protocol (ACP)](https://agentcommunicationprotocol.dev/) - Core agent communication protocol
+- [Tmux-Orchestrator](https://github.com/Jedward23/Tmux-Orchestrator) - Inspiration for PTY multiplexer patterns
+- [portable-pty](https://docs.rs/portable-pty/) - Cross-platform PTY implementation
 - [Model Context Protocol Specification](https://modelcontextprotocol.io) - MCP external interface protocol
 - [Claude Code MCP Documentation](https://docs.anthropic.com/en/docs/claude-code/mcp) - Client integration
 - SSE (Server-Sent Events) for real-time streaming
 
 ---
-*Date: 2025-07-09*  
+*Date: 2025-07-16*  
 *Author: Marvin (Claude)*  
 *Reviewers: @clafollett (Cali LaFollett - LaFollett Labs LLC)*
