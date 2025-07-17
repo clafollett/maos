@@ -1,0 +1,15 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|MultiEdit|Update",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if echo '$(.tool_input.file_path)' | grep -q '\\.rs$'; then cargo fmt && cargo clippy --fix --allow-dirty -- -D warnings; fi"
+          }
+        ]
+      }
+    ]
+  }
+}

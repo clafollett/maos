@@ -111,24 +111,22 @@ struct ExecutionState {
 fn enhance_role_context(role: &str, base_context: &str) -> String {
     match role {
         "engineer" => format!(
-            r#"{}ADDITIONAL ENGINEER REQUIREMENTS:
+            r#"{base_context}ADDITIONAL ENGINEER REQUIREMENTS:
 - Any architectural decisions found in summaries are MANDATORY to follow
 - Do not create monolithic applications if microservices are specified
 - Follow exact UI specifications including touch target sizes
 - Use the exact technology stack specified by architects
 - Check shared_context for architect_*_summary.md files
 
-"#,
-            base_context
+"#
         ),
         "qa_engineer" => format!(
-            r#"{}ADDITIONAL QA REQUIREMENTS:
+            r#"{base_context}ADDITIONAL QA REQUIREMENTS:
 - Test against the specifications found in previous phases
 - Verify implementation matches architectural decisions
 - Check shared_context for all technical specifications
 
-"#,
-            base_context
+"#
         ),
         _ => base_context.to_string(),
     }
@@ -161,7 +159,7 @@ async fn main() -> Result<()> {
             let agent_index = resume_info
                 .agent_dir
                 .split('_')
-                .last()
+                .next_back()
                 .and_then(|s| s.parse::<usize>().ok())
                 .unwrap_or(0);
 
@@ -200,7 +198,7 @@ async fn main() -> Result<()> {
             let agent_index = resume_info
                 .agent_dir
                 .split('_')
-                .last()
+                .next_back()
                 .and_then(|s| s.parse::<usize>().ok())
                 .unwrap_or(0);
 
@@ -241,7 +239,7 @@ async fn main() -> Result<()> {
         args.join(" ")
     };
 
-    println!("User request: {}\n", user_request);
+    println!("User request: {user_request}\n");
 
     // Step 1: Spawn Orchestrator agent
     println!("Spawning Orchestrator agent...");
@@ -396,7 +394,7 @@ Output ONLY the JSON, no other text."#
 
     if !output.status.success() {
         let error_msg = String::from_utf8_lossy(&output.stderr);
-        println!("Claude not available: {}", error_msg);
+        println!("Claude not available: {error_msg}");
         return Err(anyhow::anyhow!("Claude not available"));
     }
 
@@ -424,7 +422,7 @@ Output ONLY the JSON, no other text."#
         .trim_end_matches("\n```");
 
     println!("Got response from Claude!");
-    println!("Claude's response text: {}", response_text);
+    println!("Claude's response text: {response_text}");
 
     match serde_json::from_str::<ExecutionPlan>(response_text) {
         Ok(plan) => {
@@ -465,7 +463,7 @@ Output ONLY the JSON, no other text."#
                 let _ = fs::write(orchestrator_dir.join("session_id.txt"), session_id).await;
             }
 
-            return Ok(plan);
+            Ok(plan)
         }
         Err(_) => Err(anyhow::anyhow!("Failed to parse JSON from Claude response")),
     }
@@ -666,8 +664,8 @@ async fn execute_plan_with_state(
         }
 
         // After phase agents complete, launch summariser to distill outputs for next phase
-        if let Err(e) = spawn_summariser(idx, &workspace_root, &plan).await {
-            println!("⚠️  Summariser failed: {}", e);
+        if let Err(e) = spawn_summariser(idx, workspace_root, &plan).await {
+            println!("⚠️  Summariser failed: {e}");
         }
 
         // Move to next phase
@@ -701,8 +699,7 @@ async fn spawn_agent(
         if let Ok(resume_info) = serde_json::from_str::<Value>(&resume_content) {
             if let Some(session_id) = resume_info.get("session_id").and_then(|s| s.as_str()) {
                 println!(
-                    "[{}_{}] 🔄 RESUMING from previous session: {}",
-                    role, agent_index, session_id
+                    "[{role}_{agent_index}] 🔄 RESUMING from previous session: {session_id}"
                 );
                 return resume_agent(
                     role,
@@ -718,7 +715,7 @@ async fn spawn_agent(
         }
     }
 
-    println!("[{}_{}] Starting: {}", role, agent_index, task);
+    println!("[{role}_{agent_index}] Starting: {task}");
 
     // Create agent workspace
     fs::create_dir_all(workspace).await?;
@@ -769,7 +766,7 @@ async fn spawn_agent(
     let full_task = if let Some(context) = phase_context {
         // Add role-specific enhancements
         let enhanced_context = enhance_role_context(role, context);
-        format!("{}Your task: {}", enhanced_context, task)
+        format!("{enhanced_context}Your task: {task}")
     } else {
         task.to_string()
     };
@@ -873,8 +870,7 @@ async fn spawn_agent(
                                 .map(|s| s.to_string());
                             if let Some(sid) = &session_id {
                                 println!(
-                                    "[{}_{}] Session ID: {}",
-                                    role_clone, agent_index_clone, sid
+                                    "[{role_clone}_{agent_index_clone}] Session ID: {sid}"
                                 );
                             }
                         }
@@ -914,15 +910,13 @@ async fn spawn_agent(
                                         let tool_name = tool_use.as_str().unwrap_or("unknown");
                                         tool_count += 1;
                                         println!(
-                                            "  [{:>12}] Using tool: {} (#{} tools used)",
-                                            role_clone, tool_name, tool_count
+                                            "  [{role_clone:>12}] Using tool: {tool_name} (#{tool_count} tools used)"
                                         );
 
                                         // Show periodic progress updates
                                         if last_progress_time.elapsed().as_secs() >= 30 {
                                             println!(
-                                                "  [{:>12}] 🔄 Still working... ({} tools used so far)",
-                                                role_clone, tool_count
+                                                "  [{role_clone:>12}] 🔄 Still working... ({tool_count} tools used so far)"
                                             );
                                             last_progress_time = std::time::Instant::now();
                                         }
@@ -991,7 +985,7 @@ async fn spawn_agent(
                 let agent_id = workspace
                     .file_name()
                     .and_then(|n| n.to_str())
-                    .and_then(|n| n.split('_').last())
+                    .and_then(|n| n.split('_').next_back())
                     .unwrap_or("0");
 
                 // Use actual session ID from Claude (or fallback to timestamp)
@@ -1012,8 +1006,7 @@ async fn spawn_agent(
 
                 // Create a structured message for other agents
                 let message = format!(
-                    "# Agent: {} (ID: {})\n## Session: {}\n## Status: Completed\n\n{}",
-                    role, agent_id, session_id_short, full_response
+                    "# Agent: {role} (ID: {agent_id})\n## Session: {session_id_short}\n## Status: Completed\n\n{full_response}"
                 );
                 let message_file = workspace
                     .parent()
@@ -1021,7 +1014,7 @@ async fn spawn_agent(
                     .parent()
                     .unwrap()
                     .join("messages")
-                    .join(format!("{}_{}_completed.md", role, agent_id));
+                    .join(format!("{role}_{agent_id}_completed.md"));
                 fs::write(&message_file, &message).await?;
 
                 // Check if agent created any files
@@ -1034,7 +1027,7 @@ async fn spawn_agent(
                     }
 
                     if !files.is_empty() {
-                        println!("[{}_{}] Workspace files: {:?}", role, agent_index, files);
+                        println!("[{role}_{agent_index}] Workspace files: {files:?}");
                     }
                 }
 
@@ -1049,13 +1042,11 @@ async fn spawn_agent(
 
                     if !project_files.is_empty() {
                         println!(
-                            "[{}_{}] PROJECT FILES: {:?}",
-                            role, agent_index, project_files
+                            "[{role}_{agent_index}] PROJECT FILES: {project_files:?}"
                         );
                     } else {
                         println!(
-                            "[{}_{}] ⚠️  No files created in project directory!",
-                            role, agent_index
+                            "[{role}_{agent_index}] ⚠️  No files created in project directory!"
                         );
                     }
                 }
@@ -1073,8 +1064,7 @@ async fn spawn_agent(
 
                     if !shared_files.is_empty() {
                         println!(
-                            "[{}_{}] Shared outputs: {:?}",
-                            role, agent_index, shared_files
+                            "[{role}_{agent_index}] Shared outputs: {shared_files:?}"
                         );
                     }
                 }
@@ -1111,8 +1101,7 @@ async fn spawn_agent(
                     let _ =
                         fs::write(&resume_file, serde_json::to_string_pretty(&resume_info)?).await;
                     println!(
-                        "[{}_{}] ⚠️  Timeout - session saved for resumption: {}",
-                        role, agent_index, sid
+                        "[{role}_{agent_index}] ⚠️  Timeout - session saved for resumption: {sid}"
                     );
                 }
             }
@@ -1151,7 +1140,7 @@ async fn build_context_payload(
             .filter_map(|p| p.ok())
             .collect();
         let vec = stream::iter(md_paths)
-            .then(|p| tokio::fs::read_to_string(p))
+            .then(tokio::fs::read_to_string)
             .collect::<Vec<_>>()
             .await;
         for item in vec {
@@ -1165,11 +1154,15 @@ async fn build_context_payload(
 }
 
 /// Spawn summariser agent after a phase to consolidate outputs into a targeted summary for next phase
-async fn spawn_summariser(phase_index: usize, workspace_root: &PathBuf, plan: &ExecutionPlan) -> Result<()> {
+async fn spawn_summariser(
+    phase_index: usize,
+    workspace_root: &PathBuf,
+    plan: &ExecutionPlan,
+) -> Result<()> {
     // Create a dedicated workspace for the summariser for this phase
     let workspace = workspace_root
         .join("agents")
-        .join(format!("summariser_{}", phase_index));
+        .join(format!("summariser_{phase_index}"));
     fs::create_dir_all(&workspace).await?;
 
     let shared_context = workspace_root.join("shared_context");
@@ -1236,8 +1229,7 @@ async fn resume_agent(
     let start = std::time::Instant::now();
 
     println!(
-        "[{}_{}] Resuming session to complete work...",
-        role, agent_index
+        "[{role}_{agent_index}] Resuming session to complete work..."
     );
 
     // Create a focused prompt to complete remaining work
@@ -1333,8 +1325,7 @@ Complete your work by writing a summary of everything you accomplished to the sh
                                     let tool_name = tool_use.as_str().unwrap_or("unknown");
                                     tool_count += 1;
                                     println!(
-                                        "[{}] Using tool: {} (#{} tools used, resumed work)",
-                                        role_clone, tool_name, tool_count
+                                        "[{role_clone}] Using tool: {tool_name} (#{tool_count} tools used, resumed work)"
                                     );
                                 }
                             }
@@ -1376,13 +1367,12 @@ Complete your work by writing a summary of everything you accomplished to the sh
                 let agent_id = workspace
                     .file_name()
                     .and_then(|n| n.to_str())
-                    .and_then(|n| n.split('_').last())
+                    .and_then(|n| n.split('_').next_back())
                     .unwrap_or("0");
 
                 let session_id_short = &session_id[..8];
                 let shared_file = shared_context.join(format!(
-                    "{}_{}_{}_resumed.md",
-                    role, agent_id, session_id_short
+                    "{role}_{agent_id}_{session_id_short}_resumed.md"
                 ));
                 fs::write(&shared_file, &full_response).await?;
 
