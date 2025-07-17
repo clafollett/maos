@@ -18,8 +18,6 @@ This document consolidates all Model Context Protocol (MCP) tool and resource de
   },
   "tools": [
     "maos/orchestrate",
-    "maos/spawn-agent",
-    "maos/agent-message",
     "maos/session-status",
     "maos/list-roles"
   ],
@@ -158,150 +156,7 @@ Start a multi-agent orchestration session with multiple agents working on a comm
 }
 ```
 
-### 2. maos/spawn-agent
-
-Spawn a single specialized agent for a specific task, optionally within an existing session.
-
-```json
-{
-  "name": "maos/spawn-agent",
-  "description": "Spawn a specialized agent for a specific task",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "role": {
-        "oneOf": [
-          {
-            "type": "string",
-            "enum": ["architect", "engineer", "researcher", "qa", "pm", 
-                     "devops", "security", "data_scientist", "ux_designer", 
-                     "documenter", "reviewer", "analyst", "tester"],
-            "description": "Predefined agent role"
-          },
-          {
-            "type": "object",
-            "properties": {
-              "name": {
-                "type": "string",
-                "description": "Custom role name"
-              },
-              "description": {
-                "type": "string",
-                "description": "Brief role overview"
-              },
-              "responsibilities": {
-                "type": "string",
-                "description": "Detailed list of responsibilities"
-              }
-            },
-            "required": ["name", "description"],
-            "description": "Custom agent role definition"
-          }
-        ]
-      },
-      "task": {
-        "type": "string",
-        "description": "Task description for the agent"
-      },
-      "session_id": {
-        "type": "string",
-        "description": "Session to add agent to"
-      },
-      "instance_suffix": {
-        "type": "string",
-        "description": "Optional suffix for agent identification"
-      },
-      "dependencies": {
-        "type": "array",
-        "items": { "type": "string" },
-        "description": "Agent IDs this agent depends on"
-      },
-      "context": {
-        "type": "object",
-        "description": "Additional context for the agent"
-      },
-      "template_override": {
-        "type": "object",
-        "properties": {
-          "prompt_template": {
-            "type": "string",
-            "description": "Custom prompt template for this agent"
-          },
-          "timeout_seconds": {
-            "type": "integer",
-            "description": "Override default timeout"
-          },
-          "max_memory_mb": {
-            "type": "integer",
-            "description": "Override memory limit"
-          }
-        },
-        "description": "Override default template settings"
-      }
-    },
-    "required": ["role", "task", "session_id"]
-  }
-}
-```
-
-**Example Usage:**
-```json
-{
-  "role": {
-    "name": "performance_analyst",
-    "description": "Analyzes API performance metrics",
-    "responsibilities": "Profile endpoints, identify bottlenecks, suggest optimizations"
-  },
-  "task": "Analyze the performance of the user management API",
-  "session_id": "sess_abc123",
-  "dependencies": ["agent_engineer_backend_1_ghi789"],
-  "template_override": {
-    "timeout_seconds": 3600
-  }
-}
-```
-
-### 3. maos/agent-message
-
-Send messages between agents for coordination and information sharing.
-
-```json
-{
-  "name": "maos/agent-message", 
-  "description": "Send a message between agents",
-  "inputSchema": {
-    "type": "object",
-    "properties": {
-      "from_agent": { 
-        "type": "string",
-        "description": "Sender agent ID"
-      },
-      "to_agent": { 
-        "type": "string",
-        "description": "Target agent ID or role-based selector (e.g., 'engineer_*', 'all_engineers')"
-      },
-      "message": { 
-        "type": "string",
-        "description": "Message content"
-      },
-      "type": {
-        "type": "string",
-        "enum": ["request", "response", "notification", "broadcast"],
-        "default": "notification"
-      }
-    },
-    "required": ["from_agent", "to_agent", "message"]
-  }
-}
-```
-
-**Role-Based Selectors:**
-- `engineer_*` - All engineers in the session
-- `all_engineers` - Same as above
-- `*` - All agents (broadcast)
-- `architect_1` - Specific architect instance
-
-### 4. maos/session-status
+### 2. maos/session-status
 
 Get the current status of an orchestration session and its agents.
 
@@ -363,7 +218,7 @@ Get the current status of an orchestration session and its agents.
 }
 ```
 
-### 5. maos/list-roles
+### 3. maos/list-roles
 
 List available predefined roles and active custom roles.
 
@@ -466,15 +321,15 @@ Current status of all agents in a session.
 }
 ```
 
-### 3. Agent Registry
+### 3. Agent Roles
 
-List of available agent roles and their capabilities.
+List of available agent roles that can be used in orchestration.
 
 ```json
 {
-  "uri": "maos://agents/available",
-  "name": "Available Agents",
-  "description": "List of registered CLI tools and their capabilities",
+  "uri": "maos://roles",
+  "name": "Agent Roles",
+  "description": "List of available agent roles and their capabilities",
   "mimeType": "application/json"
 }
 ```
@@ -528,16 +383,6 @@ const stream = client.subscribeResource(
 );
 ```
 
-### Adding an Agent to Existing Session
-
-```javascript
-await client.callTool("maos/spawn-agent", {
-  role: "devops",
-  task: "Set up deployment pipeline for the payment service",
-  session_id: result.session_id,
-  dependencies: [result.agents[1].agent_id] // Depends on engineer
-});
-```
 
 ## References
 

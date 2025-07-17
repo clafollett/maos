@@ -26,54 +26,49 @@ Key architectural insights:
 ## Decision
 MAOS will be implemented as a **simplified MCP server** that exposes orchestration lifecycle capabilities through tools and resources, while spawning agents into an **ACP network** for peer-to-peer communication. The MCP server focuses on session management and streaming ACP network activity back to clients.
 
-### Revolutionary ACP-Integrated Architecture
+### Streamlined Multi-Agent Single Server Architecture
 ```
-┌────────────────────────────────────────────────────────────────┐
-│   Claude Code (MCP Client)                                     │
-│   - User types natural language                                │
-│   - LLM interprets into tools                                  │
-│   - Displays ONLY Orchestrator output                          │
-└────────────┬───────────────────────────────────────────────────┘
-             │ MCP Protocol (HTTP/SSE)
-             │ ONLY communicates with Orchestrator
-             ▼
-┌────────────────────────────────────────────────────────────────┐
-│   MAOS MCP Server (SIMPLIFIED!)                               │
-├────────────────────────────────────────────────────────────────┤
-│ Tools:                                                         │
-│ • maos/orchestrate      ← Start orchestration                 │
-│ • maos/session-status   ← Monitor progress                    │
-│ • maos/list-roles       ← List available roles              │
-├────────────────────────────────────────────────────────────────┤
-│ Resources:                                                     │
-│ • Orchestrator output (streaming)                             │
-│ • Session status                                               │
-│ • Agent discovery info                                         │
-└────────────┬───────────────────────────────────────────────────┘
-             │ Spawns Orchestrator + Agents into ACP network
-             ▼
-┌────────────────────────────────────────────────────────────────┐
-│   ACP Agent Network (REVOLUTIONARY!)                          │
-│                                                                │
-│  ┌─────────────────┐                                          │
-│  │  ORCHESTRATOR   │ ◄─── SINGLE INTERFACE to Claude Code    │
-│  │  (ACP Server)   │      • Only agent with MCP connection   │
-│  └─────────┬───────┘      • Represents entire system         │
-│            │ ACP REST API (Pure P2P!)                        │
-│            ▼                                                  │
+┌─────────────────────────────────────────────────────────────────┐
+│                    Claude Code (MCP Client)                     │
+│                                                                 │
+│  maos/orchestrate ──► Start orchestration session              │
+│  maos/session-status ──► Monitor progress                      │
+│  maos/list-roles ──► List available agent roles               │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │ MCP Protocol
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     MAOS MCP Server                            │
+│                                                                 │
+│  • Provides MCP tools for orchestration                        │
+│  • Tracks session state                                        │
+│  • Streams orchestrator output to Claude Code                  │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │ Spawns Orchestrator
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│            Orchestrator (Router Agent) - ACP Server            │
+│                                                                 │
+│  • Analyzes tasks and plans phases                             │
+│  • Routes work to Claude Code Agent                            │
+│  • Tracks progress and adapts planning                         │
+└─────────────────────┬───────────────────────────────────────────┘
+                      │ ACP Requests
+                      ▼
+┌─────────────────────────────────────────────────────────────────┐
+│             Claude Code Agent - ACP Server                     │
+│                                                                 │
 │  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     │
-│  │Solution     │◄────┤Backend      │────►│Frontend     │     │
-│  │Architect    │     │Engineer     │     │Engineer     │     │
-│  │(Claude -p + │     │(Claude -p + │     │(Claude -p + │     │
-│  │ ACP Server) │     │ ACP Server) │     │ ACP Server) │     │
-│  │  NO MCP!    │     │  NO MCP!    │     │  NO MCP!    │     │
+│  │ Claude CLI  │     │ Claude CLI  │     │ Claude CLI  │     │
+│  │ -p architect│     │ -p backend  │     │ -p frontend │     │
+│  │ Process     │     │ Process     │     │ Process     │     │
 │  └─────────────┘     └─────────────┘     └─────────────┘     │
 │                                                               │
-│  • Orchestrator = Single point of interaction                │
-│  • All other agents = Pure ACP participants                  │
-│  • Clean separation: MCP ↔ Orchestrator ↔ ACP Network       │
-│  • Real-time coordination via ACP only                       │
-└────────────────────────────────────────────────────────────────┘
+│  • Single ACP server manages multiple CLI processes           │
+│  • Each process has different role via -p flag               │
+│  • Session continuity via --session-id                       │
+│  • Efficient resource utilization                            │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Simplified MCP Tools and Resources
@@ -162,12 +157,13 @@ The server configuration and transport details are documented in the [MCP Tools 
 - **Provide Standalone CLI**: For non-MCP users who want direct access
 
 ## References
-- **ADR-04: ACP-Based Agent Communication** - Defines the ACP integration that simplifies this MCP server
-- **ADR-08: Agent Lifecycle and Management** - Provides ACP server spawning infrastructure
+- **ADR-04: ACP-Based Agent Communication** - Defines the Multi-Agent Single Server architecture
+- **ADR-08: Agent Lifecycle and Management** - Provides CLI process management for Claude Code Agent
+- **ADR-11: Adaptive Phase-Based Orchestration** - Defines Router Agent pattern for Orchestrator
 - [MCP Tools Reference](../references/mcp-tools.md) - Complete tool and resource definitions
 - [Agent Roles Reference](../references/agent-roles.md) - Agent role specifications
-- [Agent Communication Protocol (ACP)](https://agentcommunicationprotocol.dev/) - Core agent communication protocol
-- [Model Context Protocol Specification](https://modelcontextprotocol.io) - MCP external interface protocol
+- [Agent Communication Protocol (ACP)](https://agentcommunicationprotocol.dev/) - Internal coordination protocol
+- [Model Context Protocol Specification](https://modelcontextprotocol.io) - External interface protocol
 - [Claude Code MCP Documentation](https://docs.anthropic.com/en/docs/claude-code/mcp) - Client integration
 - SSE (Server-Sent Events) for real-time streaming
 
