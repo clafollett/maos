@@ -581,10 +581,9 @@ Agent Registration → Task Creation → Capability Matching → Task Assignment
 
 #### Project Structure
 - `crates/maos-domain/` - Domain models and business logic
-- `crates/maos-application/` - Use cases and application services
-- `crates/maos-infrastructure/` - Technical implementations
-- `crates/maos-cli/` - Command-line interface
-- `crates/maos-tests/` - Integration and acceptance tests
+- `crates/maos-app/` - Use cases and application services
+- `crates/maos-io/` - Technical implementations (I/O operations)
+- `crates/maos/` - Main binary (CLI and MCP server)
 
 ## Coding Standards
 

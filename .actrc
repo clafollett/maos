@@ -1,0 +1,4 @@
+# Lean act config for Rust CI testing (with Node.js for GitHub Actions)
+-P ubuntu-latest=rust:1.88
+--container-architecture linux/amd64
+--artifact-server-path /tmp/artifacts

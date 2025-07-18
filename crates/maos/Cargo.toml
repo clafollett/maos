@@ -1,0 +1,25 @@
+[package]
+name = "maos"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Multi-Agent Orchestration System"
+
+[[bin]]
+name = "maos"
+path = "src/main.rs"
+
+[dependencies]
+maos-domain = { path = "../maos-domain" }
+maos-app = { path = "../maos-app" }
+maos-io = { path = "../maos-io" }
+
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true

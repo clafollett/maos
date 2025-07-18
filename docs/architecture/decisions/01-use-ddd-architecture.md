@@ -22,18 +22,18 @@ We will use Domain-Driven Design (DDD) principles adapted for our MCP server arc
    - Domain Events: SessionCreated, AgentSpawned, AgentCompleted
    - Domain Services: DependencyResolver, AgentScheduler
 
-2. **Application Layer** (`maos-application`) - MCP tool handlers
+2. **Application Layer** (`maos-app`) - MCP tool handlers
    - Tool Handlers: OrchestrateHandler, SpawnAgentHandler
    - Query Handlers: GetSessionStatus, ListAgents
    - Application Services: SessionManager, ProcessManager
 
-3. **Infrastructure Layer** (`maos-infrastructure`) - Technical implementation
+3. **Infrastructure Layer** (`maos-io`) - Technical implementation
    - Storage: SQLite + File System (see ADR-02)
    - Process Management: CLI spawning and monitoring
    - MCP Server: HTTP/SSE protocol implementation
    - Communication: File-based message routing
 
-4. **Presentation Layer** (`maos-server`) - MCP interface
+4. **Presentation Layer** (`maos`) - MCP interface
    - MCP Tool Definitions
    - SSE Stream Handlers
    - Resource Providers
@@ -90,7 +90,7 @@ We will use Domain-Driven Design (DDD) principles adapted for our MCP server arc
 
 3. **Dependency Direction**:
    - Domain ← Application ← Infrastructure
-   - Domain ← Server (MCP interface)
+   - Domain ← Presentation (MCP interface)
    - No circular dependencies
 
 4. **Pragmatic Choices**:
