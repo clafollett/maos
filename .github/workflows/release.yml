@@ -1,0 +1,92 @@
+name: Release
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+    if: github.event_name == 'push' && !contains(github.event.head_commit.message, 'chore(release)')
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - uses: dtolnay/rust-toolchain@stable
+      
+      - name: Install cargo-release
+        run: cargo install cargo-release --version '^0.25'
+      
+      - name: Determine version bump
+        id: version
+        run: |
+          # For pre-1.0, we only do patch bumps unless explicitly marked as milestone
+          # Look for [milestone] tag to trigger minor version bump
+          if git log -1 --pretty=%B | grep -q "\[milestone\]"; then
+            echo "bump=minor" >> $GITHUB_OUTPUT
+            echo "Pre-1.0 milestone release detected"
+          else
+            echo "bump=patch" >> $GITHUB_OUTPUT
+            echo "Standard patch release for pre-1.0 development"
+          fi
+      
+      - name: Bump version
+        run: |
+          # Update version in all Cargo.toml files
+          cargo release ${{ steps.version.outputs.bump }} --no-confirm --execute
+          
+          # Get the new version
+          NEW_VERSION=$(grep "^version" Cargo.toml | head -1 | cut -d '"' -f2)
+          echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
+      
+      - name: Update Cargo.lock
+        run: cargo update --workspace
+      
+      - name: Generate Release Notes
+        id: notes
+        run: |
+          # Extract commit messages since last tag
+          LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ -z "$LAST_TAG" ]; then
+            COMMITS=$(git log --pretty=format:"- %s" --no-merges)
+          else
+            COMMITS=$(git log ${LAST_TAG}..HEAD --pretty=format:"- %s" --no-merges)
+          fi
+          
+          # Create release notes
+          echo "RELEASE_NOTES<<EOF" >> $GITHUB_OUTPUT
+          echo "## What's Changed" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "" >> $GITHUB_OUTPUT
+          echo "**Note**: This is a pre-1.0 release. Breaking changes may occur without notice." >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+      
+      - name: Commit version bump
+        run: |
+          git add -A
+          git commit -m "chore(release): v${{ env.NEW_VERSION }}"
+          git push
+      
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ env.NEW_VERSION }}
+          name: Release v${{ env.NEW_VERSION }}
+          body: ${{ steps.notes.outputs.RELEASE_NOTES }}
+          draft: false
+          prerelease: true  # All pre-1.0 releases are prereleases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

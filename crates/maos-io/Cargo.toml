@@ -1,0 +1,19 @@
+[package]
+name = "maos-io"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "MAOS I/O Layer"
+
+[dependencies]
+maos-domain = { path = "../maos-domain" }
+maos-app = { path = "../maos-app" }
+tokio.workspace = true
+sqlx.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+uuid.workspace = true
+anyhow.workspace = true
+tracing.workspace = true

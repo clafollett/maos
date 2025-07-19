@@ -581,10 +581,9 @@ Agent Registration → Task Creation → Capability Matching → Task Assignment
 
 #### Project Structure
 - `crates/maos-domain/` - Domain models and business logic
-- `crates/maos-application/` - Use cases and application services
-- `crates/maos-infrastructure/` - Technical implementations
-- `crates/maos-cli/` - Command-line interface
-- `crates/maos-tests/` - Integration and acceptance tests
+- `crates/maos-app/` - Use cases and application services
+- `crates/maos-io/` - Technical implementations (I/O operations)
+- `crates/maos/` - Main binary (CLI and MCP server)
 
 ## Coding Standards
 
@@ -615,6 +614,22 @@ use serde::{Deserialize, Serialize};
 - `snake_case` - functions, variables
 - `CamelCase` - types, structs, enums
 - `SCREAMING_SNAKE_CASE` - constants
+
+#### String Formatting (Rust 1.88.0+)
+**MUST use inline format strings** for improved performance and readability:
+```rust
+// Good - Rust 1.88.0+ style (required by clippy::uninlined_format_args)
+println!("Would orchestrate task: {task}");
+info!("Processing agent: {agent_id}");
+error!("Failed to connect to {endpoint}");
+
+// Bad - Legacy format string style (deprecated)
+println!("Would orchestrate task: {}", task);
+info!("Processing agent: {}", agent_id);
+error!("Failed to connect to {}", endpoint);
+```
+
+**Clippy Rule:** This is enforced by `clippy::uninlined_format_args` which became a default warning in Rust 1.88.0. Our CI treats clippy warnings as errors (`-D warnings`), so this style is mandatory.
 
 #### Logging Standards
 - **ALWAYS use the `tracing` crate** for all logging

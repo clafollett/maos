@@ -52,11 +52,11 @@ crates/maos-domain/
 │       └── task_repository.rs    // Trait definition
 ```
 
-### 2. Application Layer (`maos-application`)
+### 2. Application Layer (`maos-app`)
 **Use cases and application services**
 
 ```rust
-crates/maos-application/
+crates/maos-app/
 ├── src/
 │   ├── commands/              // Command handlers
 │   │   ├── register_agent.rs
@@ -72,11 +72,11 @@ crates/maos-application/
 │       └── task_dto.rs
 ```
 
-### 3. Infrastructure Layer (`maos-infrastructure`)
+### 3. Infrastructure Layer (`maos-io`)
 **External concerns and adapters**
 
 ```rust
-crates/maos-infrastructure/
+crates/maos-io/
 ├── src/
 │   ├── persistence/
 │   │   ├── sqlite/
@@ -287,15 +287,15 @@ maos/
 │   │   ├── Cargo.toml
 │   │   ├── src/
 │   │   └── tests/
-│   ├── maos-application/     # Use cases
+│   ├── maos-app/            # Use cases
 │   │   ├── Cargo.toml
 │   │   ├── src/
 │   │   └── tests/
-│   ├── maos-infrastructure/  # Technical concerns
+│   ├── maos-io/             # Technical concerns
 │   │   ├── Cargo.toml
 │   │   ├── src/
 │   │   └── tests/
-│   ├── maos-cli/            # Presentation
+│   ├── maos/               # Main binary
 │   │   ├── Cargo.toml
 │   │   ├── src/
 │   │   └── tests/
