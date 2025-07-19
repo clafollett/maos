@@ -16,6 +16,7 @@ check-env:
     @test -f stack.env || (echo "❌ stack.env file not found. Ensure it exists and is properly sourced." && exit 1)
     @test -n "${RUST_TOOLCHAIN:-}" || (echo "❌ RUST_TOOLCHAIN not set. Run: source stack.env" && exit 1)
     @test -n "${BUILD_FLAGS:-}" || (echo "❌ BUILD_FLAGS not set. Run: source stack.env" && exit 1)
+    @test -n "${MIN_MACOS_VERSION:-}" || (echo "❌ Platform variables not set. Run: source stack.env" && exit 1)
     @echo "✅ Environment properly configured"
 
 # Development setup and validation
@@ -32,20 +33,59 @@ dev-setup:
 
 # Validate stack versions match stack.env
 validate-stack:
-    @echo "🔍 Validating development stack..."
-    @echo "Required files check:"
-    @test -f rust-toolchain.toml || (echo "❌ rust-toolchain.toml missing" && exit 1)
-    @test -f clippy.toml || (echo "❌ clippy.toml missing" && exit 1)
-    @test -f rustfmt.toml || (echo "❌ rustfmt.toml missing" && exit 1)
-    @echo "✅ All required files present"
-    @echo "Toolchain versions:"
-    @rustc --version
-    @cargo --version
-    @just --version
-    @echo "Environment variables:"
-    @echo "RUST_TOOLCHAIN: ${RUST_TOOLCHAIN}"
-    @echo "BUILD_FLAGS: ${BUILD_FLAGS}"
-    @echo "📋 Stack validation complete"
+    #!/usr/bin/env bash
+    echo "🔍 Validating development stack..."
+    
+    # Required files check
+    echo "Required files check:"
+    test -f rust-toolchain.toml || (echo "❌ rust-toolchain.toml missing" && exit 1)
+    test -f clippy.toml || (echo "❌ clippy.toml missing" && exit 1)
+    test -f rustfmt.toml || (echo "❌ rustfmt.toml missing" && exit 1)
+    echo "✅ All required files present"
+    
+    # Platform validation
+    echo "Platform validation:"
+    case "$(uname -s)" in
+        Darwin)
+            # macOS version check
+            macos_version=$(sw_vers -productVersion | cut -d. -f1,2)
+            if [[ $(echo "$macos_version >= ${MIN_MACOS_VERSION}" | bc -l) -eq 1 ]]; then
+                echo "✅ macOS $macos_version (>= ${MIN_MACOS_VERSION} required)"
+            else
+                echo "❌ macOS $macos_version is below minimum ${MIN_MACOS_VERSION}"
+                exit 1
+            fi
+            ;;
+        Linux)
+            # Basic Linux validation
+            echo "✅ Linux platform detected"
+            if command -v lsb_release >/dev/null 2>&1; then
+                distro=$(lsb_release -si)
+                version=$(lsb_release -sr)
+                echo "📋 Detected: $distro $version"
+            fi
+            ;;
+        MINGW*|CYGWIN*|MSYS*)
+            echo "✅ Windows with Unix-like environment detected"
+            ;;
+        *)
+            echo "⚠️  Unknown platform: $(uname -s)"
+            ;;
+    esac
+    
+    # Toolchain versions
+    echo "Toolchain versions:"
+    rustc --version
+    cargo --version
+    just --version
+    
+    # Environment variables
+    echo "Environment variables:"
+    echo "RUST_TOOLCHAIN: ${RUST_TOOLCHAIN}"
+    echo "BUILD_FLAGS: ${BUILD_FLAGS}"
+    echo "JUST_VERSION: ${JUST_VERSION}"
+    echo "CLIPPY_VERSION: ${CLIPPY_VERSION}"
+    echo "📋 Stack validation complete"
 
 # Install development dependencies
 install-deps:
@@ -148,9 +188,17 @@ setup-git-hooks:
     
     # Validate development environment
     echo "📋 Sourcing stack.env..."
-    source stack.env || {
+    # Git hooks run from the repository root, but let's be explicit
+    REPO_ROOT="$(git rev-parse --show-toplevel)"
+    STACK_ENV_PATH="$REPO_ROOT/stack.env"
+    if [ ! -f "$STACK_ENV_PATH" ]; then
+        echo "❌ stack.env file not found at $STACK_ENV_PATH"
+        echo "💡 Ensure the file exists and is properly located in the project root directory"
+        exit 1
+    fi
+    source "$STACK_ENV_PATH" || {
         echo "❌ Failed to source stack.env"
-        echo "💡 Make sure you're in the project root directory"
+        echo "💡 Check the file for errors or permissions issues"
         exit 1
     }
     

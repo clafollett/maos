@@ -169,6 +169,9 @@ Use inline format strings (enforced by clippy):
 
 ```rust
 // ✅ Good - Modern Rust style
+let agent_id = 42;
+let endpoint = "http://example.com";
+
 println!("Processing agent: {agent_id}");
 error!("Failed to connect to {endpoint}");
 
