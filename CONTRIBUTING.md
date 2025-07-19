@@ -60,7 +60,7 @@ Our development environment is defined in `stack.env` to ensure consistency acro
 
 - **Rust**: Stable toolchain (defined in `rust-toolchain.toml`)
 - **Just**: Task runner for development workflows
-- **Pre-commit**: Git hooks for quality gates (optional but recommended)
+- **cargo-audit**: Security vulnerability scanner (auto-installed via `just dev-setup`)
 
 ### Stack Validation
 

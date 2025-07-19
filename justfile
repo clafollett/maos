@@ -13,6 +13,7 @@ default:
 # Check if environment is properly configured
 check-env:
     @echo "🔧 Checking environment configuration..."
+    @test -f stack.env || (echo "❌ stack.env file not found. Ensure it exists and is properly sourced." && exit 1)
     @test -n "${RUST_TOOLCHAIN:-}" || (echo "❌ RUST_TOOLCHAIN not set. Run: source stack.env" && exit 1)
     @test -n "${BUILD_FLAGS:-}" || (echo "❌ BUILD_FLAGS not set. Run: source stack.env" && exit 1)
     @echo "✅ Environment properly configured"
@@ -50,6 +51,8 @@ validate-stack:
 install-deps:
     @echo "📦 Installing Rust components..."
     rustup component add rustfmt clippy rust-src
+    @echo "📦 Installing cargo tools..."
+    cargo install cargo-audit --quiet || echo "⚠️  cargo-audit already installed"
     @echo "✅ Dependencies installed"
 
 # Code formatting
@@ -132,8 +135,42 @@ ci: format-check lint test audit build
 
 # Set up git hooks (pure Rust alternative to pre-commit)
 setup-git-hooks:
-    @echo "🪝 Setting up git hooks..."
-    @mkdir -p .git/hooks
-    @echo '#!/bin/sh\n# Validate development environment before commit\nsource stack.env || (echo "❌ Failed to source stack.env" && exit 1)\njust validate-stack || (echo "❌ Stack validation failed" && exit 1)\njust pre-commit || (echo "❌ Pre-commit checks failed" && exit 1)' > .git/hooks/pre-commit
-    @chmod +x .git/hooks/pre-commit
-    @echo "✅ Git hooks installed! All commits will validate environment and run quality checks"
+    #!/usr/bin/env bash
+    echo "🪝 Setting up git hooks..."
+    mkdir -p .git/hooks
+    cat > .git/hooks/pre-commit << 'HOOK_EOF'
+    #!/bin/sh
+    # MAOS Pre-commit Hook - Validates environment and runs quality checks
+    
+    set -e  # Exit on any error
+    
+    echo "🪝 MAOS Pre-commit validation starting..."
+    
+    # Validate development environment
+    echo "📋 Sourcing stack.env..."
+    source stack.env || {
+        echo "❌ Failed to source stack.env"
+        echo "💡 Make sure you're in the project root directory"
+        exit 1
+    }
+    
+    # Validate stack configuration
+    echo "🔍 Validating development stack..."
+    just validate-stack || {
+        echo "❌ Stack validation failed"
+        echo "💡 Run 'just dev-setup' to fix your environment"
+        exit 1
+    }
+    
+    # Run all quality checks
+    echo "✅ Running pre-commit quality checks..."
+    just pre-commit || {
+        echo "❌ Pre-commit checks failed"
+        echo "💡 Fix the issues above and try committing again"
+        exit 1
+    }
+    
+    echo "🎉 All pre-commit checks passed!"
+    HOOK_EOF
+    chmod +x .git/hooks/pre-commit
+    echo "✅ Git hooks installed! All commits will validate environment and run quality checks"
