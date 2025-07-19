@@ -10,63 +10,87 @@ on:
   pull_request:
 
 env:
-  RUST_TOOLCHAIN: stable
   CARGO_TERM_COLOR: always
 
 jobs:
+  # Validate development environment standards
+  validate-stack:
+    name: Validate Stack Environment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - name: Validate rust-toolchain.toml exists
+        run: test -f rust-toolchain.toml
+      - name: Validate stack.env exists  
+        run: test -f stack.env
+      - name: Validate justfile exists
+        run: test -f justfile
+      - name: Source stack.env and validate
+        run: |
+          source stack.env
+          echo "RUST_TOOLCHAIN: $RUST_TOOLCHAIN"
+          echo "BUILD_FLAGS: $BUILD_FLAGS"
+          test -n "$RUST_TOOLCHAIN"
+          test -n "$BUILD_FLAGS"
+
   check:
     name: Check
     runs-on: ubuntu-latest
+    needs: validate-stack
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: Swatinem/rust-cache@v2
         with:
           # Cache key includes Cargo.toml hash for dependency changes
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-      - run: cargo check --all-targets
+      - name: Run check via just
+        run: just check
 
-  test:
-    name: Test
+  # Use just for all CI tasks to ensure consistency with local development
+  ci-pipeline:
+    name: Full CI Pipeline via Just
     runs-on: ubuntu-latest
+    needs: validate-stack
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: Swatinem/rust-cache@v2
         with:
-          # Cache key includes Cargo.toml hash for dependency changes
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-      - run: cargo test --all-features
+      - name: Install development dependencies
+        run: just install-deps
+      - name: Source stack.env and run full CI pipeline
+        run: |
+          source stack.env
+          just ci
 
-  fmt:
-    name: Format
-    runs-on: ubuntu-latest
+  # Cross-platform testing to ensure our setup works everywhere
+  cross-platform-test:
+    name: Cross-Platform Test
+    runs-on: ${{ matrix.os }}
+    needs: validate-stack
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - run: cargo fmt --all -- --check
-
-  clippy:
-    name: Clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: Swatinem/rust-cache@v2
         with:
-          # Cache key includes Cargo.toml hash for dependency changes
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-      - run: cargo clippy --all-targets -- -D warnings
-
-  security:
-    name: Security Audit
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: rustsec/audit-check@dd51754d4e59da7395a4cd9b593f0ff2d61a9b95 # v1.4.1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install development dependencies
+        run: just install-deps
+      - name: Test development environment setup
+        run: |
+          source stack.env
+          just validate-stack
+          just pre-commit

@@ -1,0 +1,35 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug MAOS",
+      "type": "lldb",
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/maos",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": ["rust"],
+      "console": "integratedTerminal",
+      "preLaunchTask": {
+        "type": "cargo",
+        "command": "build",
+        "args": ["--bin", "maos"]
+      }
+    },
+    {
+      "name": "Debug Tests",
+      "type": "lldb", 
+      "request": "launch",
+      "program": "${workspaceFolder}/target/debug/deps/maos-*",
+      "args": [],
+      "cwd": "${workspaceFolder}",
+      "sourceLanguages": ["rust"],
+      "console": "integratedTerminal",
+      "preLaunchTask": {
+        "type": "cargo",
+        "command": "test",
+        "args": ["--no-run"]
+      }
+    }
+  ]
+}
