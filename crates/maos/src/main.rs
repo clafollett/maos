@@ -37,7 +37,7 @@ async fn main() -> Result<()> {
             println!("MCP server would start here");
         }
         Commands::Orchestrate { task } => {
-            tracing::info!("Starting orchestration for task: {}", task);
+            tracing::info!("Starting orchestration for task: {task}");
             // TODO: Implement CLI orchestration
             println!("Would orchestrate task: {task}");
         }
