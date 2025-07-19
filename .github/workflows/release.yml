@@ -1,5 +1,9 @@
 name: Release
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 on:
   push:
     branches: [ main ]
@@ -8,7 +12,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    if: "!contains(github.event.head_commit.message, 'chore(release)')"
+    if: github.event_name == 'push' && !contains(github.event.head_commit.message, 'chore(release)')
     steps:
       - uses: actions/checkout@v4
         with:
@@ -23,7 +27,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       
       - name: Install cargo-release
-        run: cargo install cargo-release
+        run: cargo install cargo-release --version '^0.25'
       
       - name: Determine version bump
         id: version
@@ -41,7 +45,7 @@ jobs:
       - name: Bump version
         run: |
           # Update version in all Cargo.toml files
-          cargo release version ${{ steps.version.outputs.bump }} --no-confirm --execute
+          cargo release ${{ steps.version.outputs.bump }} --no-confirm --execute
           
           # Get the new version
           NEW_VERSION=$(grep "^version" Cargo.toml | head -1 | cut -d '"' -f2)

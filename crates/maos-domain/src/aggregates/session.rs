@@ -1,11 +1,11 @@
+use crate::value_objects::SessionId;
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Session aggregate - represents an orchestration session
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Session {
-    pub id: Uuid,
+    pub id: SessionId,
     pub task_description: String,
     pub status: SessionStatus,
     pub created_at: DateTime<Utc>,
@@ -24,7 +24,7 @@ impl Session {
     pub fn new(task_description: String) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: SessionId::new(),
             task_description,
             status: SessionStatus::Created,
             created_at: now,

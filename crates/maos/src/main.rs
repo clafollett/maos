@@ -39,7 +39,7 @@ async fn main() -> Result<()> {
         Commands::Orchestrate { task } => {
             tracing::info!("Starting orchestration for task: {}", task);
             // TODO: Implement CLI orchestration
-            println!("Would orchestrate task: {}", task);
+            println!("Would orchestrate task: {task}");
         }
         Commands::Status => {
             tracing::info!("Showing system status");

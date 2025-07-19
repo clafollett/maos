@@ -1,13 +1,13 @@
+use crate::value_objects::{AgentId, SessionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Instance aggregate - represents a running instance of an agent
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Instance {
-    pub id: Uuid,
-    pub agent_id: Uuid,
-    pub session_id: Uuid,
+    pub id: uuid::Uuid,
+    pub agent_id: AgentId,
+    pub session_id: SessionId,
     pub status: InstanceStatus,
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
@@ -23,10 +23,10 @@ pub enum InstanceStatus {
 }
 
 impl Instance {
-    pub fn new(agent_id: Uuid, session_id: Uuid) -> Self {
+    pub fn new(agent_id: AgentId, session_id: SessionId) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: uuid::Uuid::new_v4(),
             agent_id,
             session_id,
             status: InstanceStatus::Starting,

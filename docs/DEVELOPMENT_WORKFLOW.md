@@ -615,6 +615,22 @@ use serde::{Deserialize, Serialize};
 - `CamelCase` - types, structs, enums
 - `SCREAMING_SNAKE_CASE` - constants
 
+#### String Formatting (Rust 1.88.0+)
+**MUST use inline format strings** for improved performance and readability:
+```rust
+// Good - Rust 1.88.0+ style (required by clippy::uninlined_format_args)
+println!("Would orchestrate task: {task}");
+info!("Processing agent: {agent_id}");
+error!("Failed to connect to {endpoint}");
+
+// Bad - Legacy format string style (deprecated)
+println!("Would orchestrate task: {}", task);
+info!("Processing agent: {}", agent_id);
+error!("Failed to connect to {}", endpoint);
+```
+
+**Clippy Rule:** This is enforced by `clippy::uninlined_format_args` which became a default warning in Rust 1.88.0. Our CI treats clippy warnings as errors (`-D warnings`), so this style is mandatory.
+
 #### Logging Standards
 - **ALWAYS use the `tracing` crate** for all logging
 - **NEVER use `println!`, `eprintln!`, or `dbg!`** in production code

@@ -18,6 +18,8 @@ repository = "https://github.com/clafollett/maos"
 tokio = { version = "1", features = ["full"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
+# Pinned to 0.8.5 due to syntax error in 0.8.6 (missing 'fn' keyword)
+# TODO: Change to "^0.8.7" when 0.8.7+ is released with the fix
 sqlx = { version = "=0.8.5", features = ["sqlite", "runtime-tokio"] }
 uuid = { version = "1.0", features = ["v4", "serde"] }
 thiserror = "2.0"

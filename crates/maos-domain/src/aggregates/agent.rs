@@ -1,13 +1,13 @@
+use crate::value_objects::{AgentId, AgentRole};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
-use uuid::Uuid;
 
 /// Agent aggregate - represents an AI agent in the system
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
-    pub id: Uuid,
+    pub id: AgentId,
     pub name: String,
-    pub role: String,
+    pub role: AgentRole,
     pub status: AgentStatus,
     pub capabilities: Vec<String>,
     pub created_at: DateTime<Utc>,
@@ -23,10 +23,10 @@ pub enum AgentStatus {
 }
 
 impl Agent {
-    pub fn new(name: String, role: String, capabilities: Vec<String>) -> Self {
+    pub fn new(name: String, role: AgentRole, capabilities: Vec<String>) -> Self {
         let now = Utc::now();
         Self {
-            id: Uuid::new_v4(),
+            id: AgentId::new(),
             name,
             role,
             status: AgentStatus::Available,
