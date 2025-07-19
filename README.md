@@ -6,6 +6,54 @@
 
 MAOS (Multi-Agent Orchestration System) is a sophisticated orchestration platform that coordinates multiple specialized AI agents to tackle complex software development projects. Instead of relying on a single generalist AI, MAOS spawns and coordinates teams of specialist agents, each optimized for specific domains like architecture, engineering, security, and data modeling.
 
+## Quick Start
+
+### 🚀 **Automated Development Environment**
+
+MAOS includes a fully automated development environment that ensures consistency across all contributors and CI environments:
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/clafollett/maos.git
+cd maos
+
+# 2. Install just task runner (one-time setup)
+cargo install just
+
+# 3. One-command setup (installs everything automatically)
+source stack.env && just dev-setup
+```
+
+**What this does automatically:**
+- ✅ Validates required Rust toolchain versions
+- ✅ Installs all development dependencies  
+- ✅ Sets up git hooks for quality enforcement
+- ✅ Runs full quality pipeline (format, lint, test, security audit)
+- ✅ Configures VS Code with optimal Rust settings
+
+**Enforced Standards:**
+- 🔧 **Rust Toolchain**: Automatically pinned via `rust-toolchain.toml`
+- 📝 **Code Formatting**: `rustfmt` with MAOS configuration  
+- 🔍 **Code Quality**: `clippy` with strict warnings-as-errors
+- 🧪 **Testing**: Full test suite with coverage tracking
+- 🔒 **Security**: Automated vulnerability scanning
+- 🪝 **Git Hooks**: Pre-commit validation of all quality gates
+
+### 🛠️ **Development Workflow**
+
+```bash
+# All development commands via 'just' task runner
+just                # List all available commands
+just ci             # Run full CI pipeline locally  
+just pre-commit     # Run all quality checks
+just test           # Run tests
+just format         # Format code
+just lint           # Run clippy lints
+just audit          # Security audit
+```
+
+**CI/CD Integration**: Our GitHub Actions automatically enforce the same environment standards, ensuring "no surprises" between local development and CI.
+
 ## Architecture Philosophy
 
 ### Specialized Agent Teams

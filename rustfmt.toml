@@ -1,4 +1,4 @@
-# Rustfmt configuration for Agenterra
+# Rustfmt configuration for MAOS
 # Ensures consistent formatting across the project
 
 edition = "2024"
