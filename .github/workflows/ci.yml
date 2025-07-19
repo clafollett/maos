@@ -64,6 +64,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install development dependencies
+        run: just install-deps
       - name: Source stack.env and run full CI pipeline
         run: |
           source stack.env
@@ -85,6 +87,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install development dependencies
+        run: just install-deps
       - name: Test development environment setup
         run: |
           source stack.env
