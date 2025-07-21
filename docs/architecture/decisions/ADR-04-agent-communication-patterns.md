@@ -31,47 +31,47 @@ We will implement a **Multi-Agent Single Server** architecture using ACP, where 
 ### Streamlined Architecture: Multi-Agent Single Server
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    Claude Code (MCP Client)                     │
-│                                                                 │
-│  maos/orchestrate ──► Start orchestration session              │
-│  maos/session-status ──► Monitor progress                      │
-│  maos/list-roles ──► List available agent roles               │
-└─────────────────────┬───────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                  Claude Code (MCP Client)                 │
+│                                                           │
+│  maos/orchestrate ──► Start orchestration session         │
+│  maos/session-status ──► Monitor progress                 │
+│  maos/list-roles ──► List available agent roles           │
+└─────────────────────┬─────────────────────────────────────┘
                       │ MCP Protocol
                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     MAOS MCP Server                            │
-│                                                                 │
-│  • Provides MCP tools for orchestration                        │
-│  • Tracks session state                                        │
-│  • Streams orchestrator output to Claude Code                  │
-└─────────────────────┬───────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                     MAOS MCP Server                       │
+│                                                           │
+│  • Provides MCP tools for orchestration                   │
+│  • Tracks session state                                   │
+│  • Streams orchestrator output to Claude Code             │
+└─────────────────────┬─────────────────────────────────────┘
                       │ Spawns Orchestrator
                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│            Orchestrator (Router Agent) - ACP Server            │
-│                                                                 │
-│  • Analyzes tasks and plans phases                             │
-│  • Routes work to appropriate agents                           │
-│  • Tracks agent sessions                                       │
-└─────────────────────┬───────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│          Orchestrator (Router Agent) - ACP Server         │
+│                                                           │
+│  • Analyzes tasks and plans phases                        │
+│  • Routes work to appropriate agents                      │
+│  • Tracks agent sessions                                  │
+└─────────────────────┬─────────────────────────────────────┘
                       │ ACP Requests
                       ▼
-┌─────────────────────────────────────────────────────────────────┐
-│             Claude Code Agent - ACP Server                     │
-│                                                                 │
-│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     │
-│  │ Claude CLI  │     │ Claude CLI  │     │ Claude CLI  │     │
-│  │ -p architect│     │ -p backend  │     │ -p frontend │     │
-│  │ Process     │     │ Process     │     │ Process     │     │
-│  └─────────────┘     └─────────────┘     └─────────────┘     │
-│                                                               │
-│  • Single ACP server manages multiple CLI processes           │
-│  • Each process has different role via -p flag               │
-│  • Session continuity via --session-id                       │
-│  • Efficient resource utilization                            │
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│             Claude Code Agent - ACP Server                │
+│                                                           │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐  │
+│  │ Claude CLI  │     │ Claude CLI  │     │ Claude CLI  │  │
+│  │ -p architect│     │ -p backend  │     │ -p frontend │  │
+│  │ Process     │     │ Process     │     │ Process     │  │
+│  └─────────────┘     └─────────────┘     └─────────────┘  │
+│                                                           │
+│  • Single ACP server manages multiple CLI processes       │
+│  • Each process has different role via -p flag            │
+│  • Session continuity via --session-id                    │
+│  • Efficient resource utilization                         │
+└───────────────────────────────────────────────────────────┘
 ```
 
 ### Core ACP Integration Principles
