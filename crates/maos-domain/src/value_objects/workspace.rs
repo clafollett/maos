@@ -216,7 +216,7 @@ mod tests {
         let path = PathBuf::from("/tmp/workspace");
         let workspace = Workspace::from_path(&path).unwrap();
 
-        let display_str = format!("{}", workspace);
+        let display_str = format!("{workspace}");
         assert_eq!(display_str, workspace.slug());
         assert_eq!(display_str, "tmp-workspace");
     }

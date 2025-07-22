@@ -1,5 +1,5 @@
 use crate::aggregates::{AgentStatus, InstanceStatus};
-use crate::events::domain_event::{BaseEvent, DomainEvent};
+use crate::events::domain_event::{BaseEvent, DomainEvent, EventError, impl_domain_event_as_json};
 use crate::value_objects::{AgentId, AgentRole, SessionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -60,6 +60,8 @@ impl DomainEvent for AgentRegistered {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Agent status changed
@@ -117,6 +119,8 @@ impl DomainEvent for AgentStatusChanged {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Agent instance was spawned for a session
@@ -166,6 +170,8 @@ impl DomainEvent for AgentInstanceSpawned {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Agent instance status changed
@@ -226,6 +232,8 @@ impl DomainEvent for AgentInstanceStatusChanged {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Agent instance completed its work
@@ -289,6 +297,8 @@ impl DomainEvent for AgentInstanceCompleted {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Agent capabilities were updated
@@ -343,6 +353,8 @@ impl DomainEvent for AgentCapabilitiesUpdated {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 #[cfg(test)]

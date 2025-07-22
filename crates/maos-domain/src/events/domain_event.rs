@@ -5,8 +5,20 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use uuid::Uuid;
 
+/// Macro to implement the as_json method for DomainEvent implementations
+macro_rules! impl_domain_event_as_json {
+    () => {
+        fn as_json(&self) -> Result<String, EventError> {
+            serde_json::to_string(self)
+                .map_err(|e| EventError::SerializationError(e.to_string()))
+        }
+    };
+}
+
+pub(crate) use impl_domain_event_as_json;
+
 /// Core domain event trait for event sourcing and pub/sub patterns
-pub trait DomainEvent: Debug + Clone + Serialize + for<'de> Deserialize<'de> + Send + Sync {
+pub trait DomainEvent: Debug + Clone + Send + Sync {
     /// Unique identifier for this event instance
     fn event_id(&self) -> Uuid;
     
@@ -24,6 +36,9 @@ pub trait DomainEvent: Debug + Clone + Serialize + for<'de> Deserialize<'de> + S
     
     /// Optional metadata for correlation and debugging
     fn metadata(&self) -> &HashMap<String, String>;
+    
+    /// Serialize the event to JSON for persistence/transmission
+    fn as_json(&self) -> Result<String, EventError>;
 }
 
 /// Event dispatcher for handling domain events
@@ -210,6 +225,8 @@ mod tests {
         fn metadata(&self) -> &HashMap<String, String> {
             &self.base.metadata
         }
+
+        impl_domain_event_as_json!();
     }
 
     #[tokio::test]

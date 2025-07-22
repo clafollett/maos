@@ -73,12 +73,14 @@ impl AgentRole {
             AgentRole::Reviewer => "reviewer".to_string(),
             AgentRole::Analyst => "analyst".to_string(),
             AgentRole::Tester => "tester".to_string(),
-            AgentRole::Custom { name, instance_suffix, .. } => {
-                match instance_suffix {
-                    Some(suffix) => format!("{}-{}", name, suffix),
-                    None => name.clone(),
-                }
-            }
+            AgentRole::Custom {
+                name,
+                instance_suffix,
+                ..
+            } => match instance_suffix {
+                Some(suffix) => format!("{name}-{suffix}"),
+                None => name.clone(),
+            },
         }
     }
 
@@ -142,9 +144,20 @@ impl AgentRole {
             AgentRole::Orchestrator => 20,
             AgentRole::Pm | AgentRole::Documenter | AgentRole::Reviewer => 30,
             AgentRole::ApplicationArchitect | AgentRole::ApiArchitect => 35,
-            AgentRole::DataArchitect | AgentRole::SecurityArchitect | AgentRole::Devops | AgentRole::Security => 40,
-            AgentRole::SolutionArchitect | AgentRole::Researcher | AgentRole::Qa | AgentRole::UxDesigner | AgentRole::Analyst | AgentRole::Tester => 45,
-            AgentRole::BackendEngineer | AgentRole::FrontendEngineer | AgentRole::MobileEngineer | AgentRole::DataScientist => 60,
+            AgentRole::DataArchitect
+            | AgentRole::SecurityArchitect
+            | AgentRole::Devops
+            | AgentRole::Security => 40,
+            AgentRole::SolutionArchitect
+            | AgentRole::Researcher
+            | AgentRole::Qa
+            | AgentRole::UxDesigner
+            | AgentRole::Analyst
+            | AgentRole::Tester => 45,
+            AgentRole::BackendEngineer
+            | AgentRole::FrontendEngineer
+            | AgentRole::MobileEngineer
+            | AgentRole::DataScientist => 60,
             AgentRole::Custom { .. } => 45, // Default for custom roles
         }
     }
@@ -153,9 +166,22 @@ impl AgentRole {
     pub fn default_memory_mb(&self) -> u32 {
         match self {
             AgentRole::Pm | AgentRole::Documenter => 1024,
-            AgentRole::Orchestrator | AgentRole::Researcher | AgentRole::UxDesigner | AgentRole::Reviewer => 2048,
-            AgentRole::FrontendEngineer | AgentRole::MobileEngineer | AgentRole::Qa | AgentRole::Analyst | AgentRole::Tester => 3072,
-            AgentRole::SolutionArchitect | AgentRole::ApplicationArchitect | AgentRole::ApiArchitect | AgentRole::SecurityArchitect | AgentRole::BackendEngineer | AgentRole::Devops | AgentRole::Security => 4096,
+            AgentRole::Orchestrator
+            | AgentRole::Researcher
+            | AgentRole::UxDesigner
+            | AgentRole::Reviewer => 2048,
+            AgentRole::FrontendEngineer
+            | AgentRole::MobileEngineer
+            | AgentRole::Qa
+            | AgentRole::Analyst
+            | AgentRole::Tester => 3072,
+            AgentRole::SolutionArchitect
+            | AgentRole::ApplicationArchitect
+            | AgentRole::ApiArchitect
+            | AgentRole::SecurityArchitect
+            | AgentRole::BackendEngineer
+            | AgentRole::Devops
+            | AgentRole::Security => 4096,
             AgentRole::DataArchitect => 6144,
             AgentRole::DataScientist => 8192,
             AgentRole::Custom { .. } => 2048, // Default for custom roles
@@ -179,7 +205,9 @@ impl AgentRole {
     /// Get instance suffix for custom roles
     pub fn instance_suffix(&self) -> Option<&String> {
         match self {
-            AgentRole::Custom { instance_suffix, .. } => instance_suffix.as_ref(),
+            AgentRole::Custom {
+                instance_suffix, ..
+            } => instance_suffix.as_ref(),
             _ => None,
         }
     }
@@ -213,13 +241,16 @@ impl AgentRole {
     /// Create a role with instance suffix (builder pattern)
     pub fn with_suffix(self, suffix: String) -> Self {
         match self {
-            AgentRole::Custom { name, description, responsibilities, .. } => {
-                AgentRole::Custom {
-                    name,
-                    description,
-                    responsibilities,
-                    instance_suffix: Some(suffix),
-                }
+            AgentRole::Custom {
+                name,
+                description,
+                responsibilities,
+                ..
+            } => AgentRole::Custom {
+                name,
+                description,
+                responsibilities,
+                instance_suffix: Some(suffix),
             },
             // Predefined roles don't support suffixes in the enum variant
             // but we could handle this differently if needed
@@ -384,7 +415,8 @@ mod tests {
             "custom_analyst".to_string(),
             "Custom analysis role".to_string(),
             "Perform custom analysis tasks".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert_eq!(role.name(), "custom_analyst");
         assert_eq!(role.description(), "Custom analysis role");
@@ -416,7 +448,9 @@ mod tests {
             "custom_engineer".to_string(),
             "Custom engineering role".to_string(),
             "Custom engineering tasks".to_string(),
-        ).unwrap().with_suffix("api".to_string());
+        )
+        .unwrap()
+        .with_suffix("api".to_string());
 
         assert_eq!(role.name(), "custom_engineer-api");
         assert_eq!(role.instance_suffix(), Some(&"api".to_string()));
@@ -440,7 +474,8 @@ mod tests {
             "custom_role".to_string(),
             "Custom role".to_string(),
             "Custom responsibilities".to_string(),
-        ).unwrap();
+        )
+        .unwrap();
 
         assert!(predefined.is_predefined());
         assert!(!custom.is_predefined());

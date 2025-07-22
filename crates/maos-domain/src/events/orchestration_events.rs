@@ -1,4 +1,4 @@
-use crate::events::domain_event::{BaseEvent, DomainEvent};
+use crate::events::domain_event::{BaseEvent, DomainEvent, EventError, impl_domain_event_as_json};
 use crate::value_objects::{AgentId, SessionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -59,6 +59,8 @@ impl DomainEvent for OrchestrationStarted {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Agent assignment was made during orchestration
@@ -122,6 +124,8 @@ impl DomainEvent for AgentAssigned {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Orchestration strategy was changed
@@ -182,6 +186,8 @@ impl DomainEvent for OrchestrationStrategyChanged {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Orchestration phase completed
@@ -251,6 +257,8 @@ impl DomainEvent for OrchestrationPhaseCompleted {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Orchestration completed successfully
@@ -317,6 +325,8 @@ impl DomainEvent for OrchestrationCompleted {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Orchestration failed with error details
@@ -383,6 +393,8 @@ impl DomainEvent for OrchestrationFailed {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Resource constraint encountered during orchestration
@@ -446,6 +458,8 @@ impl DomainEvent for ResourceConstraintEncountered {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 #[cfg(test)]

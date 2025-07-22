@@ -100,7 +100,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: strategic-planning, agent-coordination, adaptive-orchestration, phase-management
 - **Default Timeout**: 20 minutes (planning and coordination tasks)
 - **Max Memory**: 4096 MB (large orchestration context and planning)
-- **Detailed Template**: [orchestrator.md](role-templates/orchestrator.md)
+- **Detailed Template**: [orchestrator.md](../../../assets/agent-roles/orchestrator.md)
 - **Special Properties**: 
   - **Always Auto-Spawned**: Never explicitly requested by users
   - **Meta-Role**: Coordinates other agents rather than performing domain work
@@ -118,7 +118,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: solution-design, technology-selection, enterprise-integration
 - **Default Timeout**: 45 minutes
 - **Max Memory**: 3072 MB
-- **Detailed Template**: [solution_architect.md](role-templates/solution_architect.md)
+- **Detailed Template**: [solution_architect.md](../../../assets/agent-roles/solution_architect.md)
 
 #### 2. Application Architect
 - **Description**: Designs internal structure and patterns for single applications
@@ -131,7 +131,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: component-design, internal-apis, design-patterns
 - **Default Timeout**: 35 minutes
 - **Max Memory**: 2048 MB
-- **Detailed Template**: [application_architect.md](role-templates/application_architect.md)
+- **Detailed Template**: [application_architect.md](../../../assets/agent-roles/application_architect.md)
 
 #### 3. Data Architect
 - **Description**: Designs data models, storage systems, and data flow architecture
@@ -144,7 +144,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: data-modeling, database-design, data-pipelines
 - **Default Timeout**: 40 minutes
 - **Max Memory**: 3072 MB
-- **Detailed Template**: [data_architect.md](role-templates/data_architect.md)
+- **Detailed Template**: [data_architect.md](../../../assets/agent-roles/data_architect.md)
 
 #### 4. API Architect
 - **Description**: Designs API interfaces, service contracts, and integration patterns
@@ -157,7 +157,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: api-design, service-contracts, api-governance
 - **Default Timeout**: 35 minutes
 - **Max Memory**: 2048 MB
-- **Detailed Template**: [api_architect.md](role-templates/api_architect.md)
+- **Detailed Template**: [api_architect.md](../../../assets/agent-roles/api_architect.md)
 
 #### 5. Security Architect
 - **Description**: Designs security controls, threat models, and compliance frameworks
@@ -170,7 +170,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: security-design, threat-modeling, compliance-frameworks
 - **Default Timeout**: 40 minutes
 - **Max Memory**: 2048 MB
-- **Detailed Template**: [security_architect.md](role-templates/security_architect.md)
+- **Detailed Template**: [security_architect.md](../../../assets/agent-roles/security_architect.md)
 
 #### 6. Backend Engineer
 - **Description**: Implements server-side logic, APIs, and data processing
@@ -184,7 +184,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: server-side-development, api-implementation, database-integration
 - **Default Timeout**: 60 minutes
 - **Max Memory**: 4096 MB
-- **Detailed Template**: [backend_engineer.md](role-templates/backend_engineer.md)
+- **Detailed Template**: [backend_engineer.md](../../../assets/agent-roles/backend_engineer.md)
 
 #### 7. Frontend Engineer
 - **Description**: Implements user interfaces and client-side application logic
@@ -198,7 +198,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: frontend-development, ui-implementation, client-side-optimization
 - **Default Timeout**: 60 minutes
 - **Max Memory**: 4096 MB
-- **Detailed Template**: [frontend_engineer.md](role-templates/frontend_engineer.md)
+- **Detailed Template**: [frontend_engineer.md](../../../assets/agent-roles/frontend_engineer.md)
 
 #### 8. Mobile Engineer
 - **Description**: Implements mobile applications for iOS, Android, or cross-platform
@@ -212,7 +212,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: mobile-development, native-platforms, mobile-optimization
 - **Default Timeout**: 60 minutes
 - **Max Memory**: 4096 MB
-- **Detailed Template**: [mobile_engineer.md](role-templates/mobile_engineer.md)
+- **Detailed Template**: [mobile_engineer.md](../../../assets/agent-roles/mobile_engineer.md)
 
 #### 9. Researcher
 - **Description**: Investigates technologies and provides recommendations
@@ -225,7 +225,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: technology-research, documentation, analysis
 - **Default Timeout**: 45 minutes
 - **Max Memory**: 2048 MB
-- **Detailed Template**: [researcher.md](role-templates/researcher.md)
+- **Detailed Template**: [researcher.md](../../../assets/agent-roles/researcher.md)
 
 #### 10. QA (Quality Assurance)
 - **Description**: Reviews code and specifications for quality
@@ -238,7 +238,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: testing, code-review, bug-tracking
 - **Default Timeout**: 45 minutes
 - **Max Memory**: 3072 MB
-- **Detailed Template**: [qa.md](role-templates/qa.md)
+- **Detailed Template**: [qa.md](../../../assets/agent-roles/qa.md)
 
 #### 11. PM (Project Manager)
 - **Description**: Coordinates agents and tracks progress
@@ -251,7 +251,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: coordination, progress-tracking, communication
 - **Default Timeout**: 30 minutes
 - **Max Memory**: 1024 MB
-- **Detailed Template**: [pm.md](role-templates/pm.md)
+- **Detailed Template**: [pm.md](../../../assets/agent-roles/pm.md)
 
 #### 12. DevOps
 - **Description**: Manages infrastructure and deployment
@@ -264,7 +264,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: infrastructure, deployment, ci-cd
 - **Default Timeout**: 40 minutes
 - **Max Memory**: 3072 MB
-- **Detailed Template**: [devops.md](role-templates/devops.md)
+- **Detailed Template**: [devops.md](../../../assets/agent-roles/devops.md)
 
 #### 13. Security
 - **Description**: Analyzes security vulnerabilities and compliance
@@ -277,7 +277,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: security-analysis, vulnerability-assessment, compliance-checking
 - **Default Timeout**: 40 minutes
 - **Max Memory**: 2048 MB
-- **Detailed Template**: [security.md](role-templates/security.md)
+- **Detailed Template**: [security.md](../../../assets/agent-roles/security.md)
 
 #### 14. Data Scientist
 - **Description**: Analyzes data requirements and develops models
@@ -290,7 +290,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: data-analysis, machine-learning, statistics
 - **Default Timeout**: 60 minutes
 - **Max Memory**: 8192 MB
-- **Detailed Template**: [data_scientist.md](role-templates/data_scientist.md)
+- **Detailed Template**: [data_scientist.md](../../../assets/agent-roles/data_scientist.md)
 
 #### 15. UX Designer
 - **Description**: Creates user interface designs and user experiences (distinct from system architecture design)
@@ -303,7 +303,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: ui-design, ux-design, prototyping
 - **Default Timeout**: 45 minutes
 - **Max Memory**: 2048 MB
-- **Detailed Template**: [ux_designer.md](role-templates/ux_designer.md)
+- **Detailed Template**: [ux_designer.md](../../../assets/agent-roles/ux_designer.md)
 
 #### 16. Documenter
 - **Description**: Creates and maintains documentation
@@ -316,7 +316,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: technical-writing, documentation, knowledge-management
 - **Default Timeout**: 30 minutes
 - **Max Memory**: 1024 MB
-- **Detailed Template**: [documenter.md](role-templates/documenter.md)
+- **Detailed Template**: [documenter.md](../../../assets/agent-roles/documenter.md)
 
 #### 17. Reviewer
 - **Description**: Reviews code and design decisions
@@ -329,7 +329,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: code-review, architecture-review, feedback
 - **Default Timeout**: 30 minutes
 - **Max Memory**: 2048 MB
-- **Detailed Template**: [reviewer.md](role-templates/reviewer.md)
+- **Detailed Template**: [reviewer.md](../../../assets/agent-roles/reviewer.md)
 
 #### 18. Analyst
 - **Description**: Analyzes requirements and business logic
@@ -342,7 +342,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: requirements-analysis, business-analysis, documentation
 - **Default Timeout**: 45 minutes
 - **Max Memory**: 2048 MB
-- **Detailed Template**: [analyst.md](role-templates/analyst.md)
+- **Detailed Template**: [analyst.md](../../../assets/agent-roles/analyst.md)
 
 #### 19. Tester
 - **Description**: Focuses on comprehensive testing strategies
@@ -355,7 +355,7 @@ pub mod PredefinedRoles {
 - **Capabilities**: test-planning, test-execution, quality-metrics
 - **Default Timeout**: 45 minutes
 - **Max Memory**: 3072 MB
-- **Detailed Template**: [tester.md](role-templates/tester.md)
+- **Detailed Template**: [tester.md](../../../assets/agent-roles/tester.md)
 
 ## Agent Templates
 

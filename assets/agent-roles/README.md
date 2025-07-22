@@ -44,21 +44,28 @@ MAOS provides 20 predefined role templates, each optimized for specific types of
 
 ### Variable Substitution
 
-Templates use two types of variables:
+Templates use a unified `{variable_name}` format for all variable substitution:
 
-1. **Curly-brace variables `{var}`** - Replaced by MAOS before spawning:
-   - `{role_name}` - The agent's role
-   - `{agent_id}` - Unique agent identifier
+1. **Identity Variables** - Agent identification and context:
+   - `{role_name}` - The agent's role name
+   - `{agent_id}` - Unique agent identifier  
    - `{session_id}` - Current session ID
    - `{instance_number}` - Instance number for this role
-   - `{task}` - The specific task description
    - `{custom_role_desc}` - Additional role description (if custom)
 
-2. **Dollar-sign variables `$VAR`** - Environment variables for agent use:
-   - `$MAOS_WORKSPACE` - Agent's private workspace
-   - `$MAOS_SHARED_CONTEXT` - Shared context directory
-   - `$MAOS_MESSAGE_DIR` - Message queue location
-   - `$MAOS_PROJECT_ROOT` - Project root directory
+2. **Task Variables** - Current assignment context:
+   - `{task}` - The specific task description
+   - `{project_context}` - Project background and context
+   - `{deadline}` - Task completion deadline
+   - `{complexity_level}` - Task complexity assessment
+   - `{priority}` - Task priority level
+
+3. **Environment Variables** - Workspace and resource paths:
+   - `{workspace_path}` - Agent's private workspace directory
+   - `{shared_context}` - Shared context directory path
+   - `{message_dir}` - Message queue location
+   - `{project_root}` - Project root directory path
+
 
 ### Template Structure
 

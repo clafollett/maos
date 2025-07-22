@@ -1,5 +1,5 @@
-use crate::aggregates::session::SessionStatus;
-use crate::events::domain_event::{BaseEvent, DomainEvent, EventError};
+use crate::aggregates::session::{SessionStatus, SessionAgentStatus};
+use crate::events::domain_event::{BaseEvent, DomainEvent, EventError, impl_domain_event_as_json};
 use crate::value_objects::{AgentId, SessionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -61,6 +61,8 @@ impl DomainEvent for SessionCreated {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Session was started and is now in progress
@@ -106,6 +108,8 @@ impl DomainEvent for SessionStarted {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Session was paused
@@ -153,6 +157,8 @@ impl DomainEvent for SessionPaused {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Session was resumed from paused state
@@ -198,6 +204,8 @@ impl DomainEvent for SessionResumed {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Session completed successfully
@@ -255,6 +263,8 @@ impl DomainEvent for SessionCompleted {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Session failed with error information
@@ -312,6 +322,8 @@ impl DomainEvent for SessionFailed {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Session was cancelled by user or system
@@ -359,6 +371,8 @@ impl DomainEvent for SessionCancelled {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Agent was spawned in the session
@@ -416,6 +430,8 @@ impl DomainEvent for SessionAgentSpawned {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Agent status changed within the session
@@ -473,6 +489,8 @@ impl DomainEvent for SessionAgentStatusChanged {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 /// Session phase advanced
@@ -530,6 +548,8 @@ impl DomainEvent for SessionPhaseAdvanced {
     fn metadata(&self) -> &HashMap<String, String> {
         &self.base.metadata
     }
+
+    impl_domain_event_as_json!();
 }
 
 #[cfg(test)]
