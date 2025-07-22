@@ -221,7 +221,7 @@ Epic #12 delivers the foundational infrastructure components that enable sophist
 **Technical Specifications:**
 - SQLite database with schema defined in ADR-02 and storage schema reference
 - Repository pattern abstraction enabling future storage backend alternatives
-- File system organization under `~/.maos/projects/{workspace-hash}/` structure
+- File system organization under `~/.maos/projects/{workspace-slug}/` structure
 - Database migrations using sqlx for schema evolution and version management
 - Configurable retention policies with automated cleanup scheduling
 - Structured logging integration for audit trail generation

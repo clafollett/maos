@@ -31,7 +31,7 @@ MAOS uses a hybrid approach with SQLite for metadata and the file system for age
 Key components:
 - **SQLite Databases**: Global instance tracking and project-specific metadata
 - **File System**: Agent outputs, inter-agent messages, and shared context
-- **Project Isolation**: Each project has its own storage area under `~/.maos/projects/{workspace-hash}/`
+- **Project Isolation**: Each project has its own storage area under `~/.maos/projects/{workspace-slug}/`
 
 ### File System Patterns
 
