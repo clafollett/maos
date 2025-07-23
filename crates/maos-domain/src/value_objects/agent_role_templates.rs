@@ -134,24 +134,24 @@ impl AgentRole {
     pub fn raw_template(&self) -> Result<String, TemplateError> {
         let template_filename = match self {
             AgentRole::Orchestrator => "orchestrator.md",
-            AgentRole::SolutionArchitect => "solution_architect.md",
-            AgentRole::ApplicationArchitect => "application_architect.md",
-            AgentRole::DataArchitect => "data_architect.md",
-            AgentRole::ApiArchitect => "api_architect.md",
-            AgentRole::SecurityArchitect => "security_architect.md",
-            AgentRole::BackendEngineer => "backend_engineer.md",
-            AgentRole::FrontendEngineer => "frontend_engineer.md",
-            AgentRole::MobileEngineer => "mobile_engineer.md",
+            AgentRole::SolutionArchitect => "solution-architect.md",
+            AgentRole::ApplicationArchitect => "application-architect.md",
+            AgentRole::DataArchitect => "data-architect.md",
+            AgentRole::ApiArchitect => "api-architect.md",
+            AgentRole::SecurityArchitect => "security-architect.md",
+            AgentRole::BackendEngineer => "backend-engineer.md",
+            AgentRole::FrontendEngineer => "frontend-engineer.md",
+            AgentRole::MobileEngineer => "mobile-engineer.md",
             AgentRole::Researcher => "researcher.md",
             AgentRole::Qa => "qa.md",
             AgentRole::Pm => "pm.md",
             AgentRole::Devops => "devops.md",
-            AgentRole::Security => "security.md",
-            AgentRole::DataScientist => "data_scientist.md",
-            AgentRole::UxDesigner => "ux_designer.md",
-            AgentRole::Documenter => "documenter.md",
+            AgentRole::Security => "secops.md",
+            AgentRole::DataScientist => "data-scientist.md",
+            AgentRole::UxDesigner => "ux-designer.md",
+            AgentRole::Documenter => "techwriter.md",
             AgentRole::Reviewer => "reviewer.md",
-            AgentRole::Analyst => "analyst.md",
+            AgentRole::Analyst => "business-analyst.md",
             AgentRole::Tester => "tester.md",
             AgentRole::Custom { .. } => {
                 return Err(TemplateError::CustomRoleTemplate(
@@ -418,8 +418,8 @@ mod tests {
     fn test_available_templates_list() {
         let templates = AgentRole::available_templates();
         assert!(!templates.is_empty());
-        assert!(templates.contains(&"backend_engineer.md".to_string()));
-        assert!(templates.contains(&"data_scientist.md".to_string()));
+        assert!(templates.contains(&"backend-engineer.md".to_string()));
+        assert!(templates.contains(&"data-scientist.md".to_string()));
         // Should not contain TEMPLATE_USAGE.md (excluded)
         assert!(!templates.contains(&"TEMPLATE_USAGE.md".to_string()));
     }

@@ -110,4 +110,7 @@ temp/
 # Rust/Cargo
 target/
 
+# MAOS temporary workspace
+.maos/
+
 

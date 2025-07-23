@@ -218,7 +218,7 @@ graph TD
   "subject": "Requirements Analysis Complete: E-commerce Checkout",
   "body": "Completed analysis for checkout flow. Identified 15 functional requirements, 8 NFRs, and 6 integration points.",
   "context": {
-    "document": "{shared_context}/requirements/checkout-v2.md",
+    "document": "{shared_context}/requirements/checkout.md",
     "key_findings": ["Payment gateway integration complex", "Need fraud detection"],
     "next_steps": ["Architecture design", "Technical spike on payment API"]
   }
