@@ -1,7 +1,7 @@
 ---
 allowed-tools: Bash, Read, Task
 description: Session management - list, show, resume, fork, archive, cleanup, status
-argument-hint: list [status]|show <id>|resume <id>|fork <id>|archive <id>|cleanup|status <id> <new_status>
+argument-hint: list [status]|show <id>|resume <id>|fork <id>|archive <id>|cleanup [--all|<id>]|status <id> <new_status>
 ---
 
 # MAOS Session Manager
@@ -52,10 +52,16 @@ python3 .claude/hooks/maos/session_manager.py fork "$ARGUMENTS"
 python3 .claude/hooks/maos/session_manager.py archive "$ARGUMENTS"
 ```
 
-### Clean Up Old Sessions
+### Clean Up Sessions
 ```bash
 # Remove sessions older than 7 days
 python3 .claude/hooks/maos/session_manager.py cleanup
+
+# Delete a specific session
+python3 .claude/hooks/maos/session_manager.py cleanup <session_id>
+
+# Purge ALL MAOS data (removes entire .maos directory)
+python3 .claude/hooks/maos/session_manager.py cleanup --all
 ```
 
 ### Update Session Status

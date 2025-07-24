@@ -491,8 +491,26 @@ def cli_main():
     
     elif command == "cleanup":
         if len(sys.argv) > 2:
+            arg = sys.argv[2]
+            
+            # Check for --all flag to purge everything
+            if arg == "--all":
+                print("Purging ALL MAOS data...")
+                
+                # Simply remove the entire .maos directory
+                if manager.base_dir.exists():
+                    try:
+                        shutil.rmtree(manager.base_dir)
+                        print("Successfully purged all MAOS data")
+                    except OSError as e:
+                        logger.error(f"Failed to purge .maos directory: {e}")
+                        print(f"Error: Failed to purge .maos directory: {e}")
+                else:
+                    print("No MAOS data to purge (.maos directory not found)")
+                return
+            
             # Delete specific session
-            partial_id = sys.argv[2]
+            partial_id = arg
             session_id = resolve_session_id(manager, partial_id)
             if session_id:
                 # Create delete_session method

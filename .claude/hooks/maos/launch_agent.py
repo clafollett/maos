@@ -1,14 +1,21 @@
 #!/usr/bin/env python3
 """
-Utility script to launch MAOS agents with processed templates.
-This script handles template processing and workspace setup for agent commands.
+MAOS Agent Launcher with Claude CLI Orchestration.
+This script handles intelligent agent routing via persistent orchestrator session
+and direct Claude CLI execution with streaming output.
 """
 
 import sys
 import json
 import logging
+import time
 from pathlib import Path
-from template_processor import process_agent_template
+from datetime import datetime
+from typing import Dict, Optional, Any, Tuple
+
+# Import orchestration modules
+from claude_orchestrator import ClaudeOrchestrator
+from claude_agent import ClaudeAgent
 from session_manager import SessionManager, SessionType
 from security_utils import safe_path_join, validate_agent_name
 
@@ -20,22 +27,68 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
+def load_or_create_manifest(session_path: Path) -> Dict[str, Any]:
+    """Load existing manifest or create new one."""
+    manifest_path = safe_path_join(session_path, "manifest.json")
+    
+    if manifest_path.exists():
+        try:
+            with open(manifest_path, 'r') as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Failed to load manifest: {e}")
+    
+    # Create new manifest
+    return {
+        "session_id": session_path.name,
+        "created_at": datetime.now().isoformat(),
+        "orchestrator": {},
+        "agents": {}
+    }
+
+
+def save_manifest(session_path: Path, manifest: Dict[str, Any]) -> None:
+    """Save manifest to disk."""
+    manifest_path = safe_path_join(session_path, "manifest.json")
+    try:
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(manifest_path, 'w') as f:
+            json.dump(manifest, f, indent=2)
+    except Exception as e:
+        logger.error(f"Failed to save manifest: {e}")
+
+
+def get_next_instance_number(agent_name: str, manifest: Dict[str, Any]) -> int:
+    """Get the next available instance number for an agent role."""
+    agents = manifest.get('agents', {})
+    existing_numbers = []
+    
+    for instance_name in agents.keys():
+        if instance_name.startswith(f"{agent_name}-"):
+            try:
+                num = int(instance_name.split('-')[-1])
+                existing_numbers.append(num)
+            except ValueError:
+                pass
+    
+    return max(existing_numbers) + 1 if existing_numbers else 1
+
+
 def launch_agent(agent_name: str, task: str):
-    """Launch an agent with a processed template and prepared workspace."""
+    """Launch an agent using Claude CLI with intelligent orchestration."""
     
     # Validate agent name
     if not validate_agent_name(agent_name):
         logger.error(f"Invalid agent name: {agent_name}")
         raise ValueError(f"Invalid agent name: {agent_name}")
     
-    # Get current working directory (where the command is run from)
-    # This should be the project root when run via slash commands
+    # Get current working directory
     cwd = Path.cwd()
     
-    # Check if we're part of an orchestration session
+    # Get or create MAOS session
     manager = SessionManager()
     
-    # Check for orchestration session via environment variable or marker file
+    # Check for existing session
     orchestration_session_id = None
     current_session_file = cwd / ".maos" / ".current_orchestration"
     
@@ -44,84 +97,117 @@ def launch_agent(agent_name: str, task: str):
             with open(current_session_file, 'r') as f:
                 data = json.load(f)
                 orchestration_session_id = data.get('session_id')
-        except (json.JSONDecodeError, OSError) as e:
+        except Exception as e:
             logger.warning(f"Failed to read orchestration marker: {e}")
     
     if orchestration_session_id:
-        # We're part of an orchestration, use that session
         session_id = orchestration_session_id
-        print(f"Using orchestration session: {session_id[:8]}...")
-        # Register this agent with the orchestration session
-        manager.add_agent_to_session(session_id, agent_name)
+        logger.info(f"Using orchestration session: {session_id}")
     else:
-        # Standalone agent execution
+        # Create new session
         session = manager.create_session(
             task=task,
             session_type=SessionType.AGENT
         )
         session_id = session.session_id
-        print(f"Created standalone session: {session_id[:8]}...")
+        logger.info(f"Created new session: {session_id}")
     
-    # Process the template
-    template_path = f"assets/agent-roles/{agent_name}.md"
+    # Set up paths
+    session_path = safe_path_join(cwd, ".maos", "sessions", session_id)
+    project_dir = cwd  # Agents work in project root
+    shared_context = safe_path_join(session_path, "shared")
+    shared_context.mkdir(parents=True, exist_ok=True)
     
-    try:
-        processed_template = process_agent_template(
-            agent_name=agent_name,
-            session_id=session_id,
+    # Create messages directory for inter-agent communication
+    messages_dir = safe_path_join(session_path, "messages")
+    messages_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Load manifest
+    manifest = load_or_create_manifest(session_path)
+    
+    # Initialize orchestrator
+    orchestrator = ClaudeOrchestrator(session_path)
+    orchestrator.ensure_session()
+    
+    # Get routing decision from orchestrator
+    print(f"\n🤔 Consulting orchestrator for {agent_name}...")
+    decision = orchestrator.consult(agent_name, task, manifest)
+    
+    print(f"📋 Decision: {decision['decision']}")
+    print(f"💡 Reasoning: {decision['reasoning']}")
+    
+    # Determine agent instance
+    if decision['decision'] == 'reuse':
+        agent_instance = decision['agent_instance']
+        agent_data = manifest['agents'].get(agent_instance, {})
+        agent_session_id = agent_data.get('session_id')
+        print(f"♻️  Reusing existing agent: {agent_instance}")
+    else:
+        # Create new instance
+        next_num = get_next_instance_number(agent_name, manifest)
+        agent_instance = f"{agent_name}-{next_num}"
+        agent_session_id = None
+        print(f"🆕 Creating new agent: {agent_instance}")
+    
+    # Create agent workspace
+    agent_workspace = safe_path_join(session_path, "agents", agent_instance)
+    agent_workspace.mkdir(parents=True, exist_ok=True)
+    
+    # Initialize Claude agent executor
+    claude_agent = ClaudeAgent(session_path)
+    
+    # Direct CLI execution with streaming output
+    print(f"\n🚀 Executing {agent_instance}...")
+    
+    if agent_session_id:
+        # Resume existing session
+        result = claude_agent.resume(
+            agent_instance=agent_instance,
+            session_id=agent_session_id,
             task=task,
-            template_path=template_path,
-            cwd=str(cwd)
+            workspace=agent_workspace,
+            shared_context=shared_context,
+            project_dir=project_dir
         )
-    except Exception as e:
-        logger.error(f"Failed to process template: {e}", exc_info=True)
-        print(f"ERROR: Failed to process template: {e}", file=sys.stderr)
-        sys.exit(1)
+    else:
+        # Create new session
+        result = claude_agent.spawn_new(
+            agent_instance=agent_instance,
+            role=agent_name,
+            task=task,
+            workspace=agent_workspace,
+            shared_context=shared_context,
+            project_dir=project_dir
+        )
     
-    # Create workspace directories relative to CWD using safe path joining
-    try:
-        workspace_path = safe_path_join(cwd, ".maos", "sessions", session_id, "agents", agent_name)
-        workspace_path.mkdir(parents=True, exist_ok=True)
-        
-        shared_path = safe_path_join(cwd, ".maos", "sessions", session_id, "shared")
-        shared_path.mkdir(parents=True, exist_ok=True)
-    except (ValueError, OSError) as e:
-        logger.error(f"Failed to create workspace directories: {e}")
-        print(f"ERROR: Failed to create workspace directories: {e}", file=sys.stderr)
-        sys.exit(1)
+    if result['success']:
+        print(f"✅ Agent completed successfully")
+        if result.get('session_id'):
+            print(f"📌 Session ID: {result['session_id']}")
+        print(f"🛠️  Tools used: {result.get('tool_count', 0)}")
+        print(f"⏱️  Duration: {result.get('duration', 0):.1f}s")
+    else:
+        print(f"❌ Agent failed: {result.get('error', 'Unknown error')}")
     
-    # Save processed template
-    template_file = workspace_path / "agent_template.md"
-    try:
-        with open(template_file, 'w') as f:
-            f.write(processed_template)
-    except OSError as e:
-        logger.error(f"Failed to save processed template: {e}")
-        print(f"ERROR: Failed to save processed template: {e}", file=sys.stderr)
-        sys.exit(1)
-    
-    # Save launch metadata
+    # Output launch metadata
     metadata = {
-        "agent_name": agent_name,
+        "agent_instance": agent_instance,
+        "agent_role": agent_name,
         "session_id": session_id,
+        "agent_session_id": result.get('session_id') if result.get('success') else agent_session_id,
         "task": task,
-        "cwd": str(cwd),
-        "workspace_path": str(workspace_path),
-        "shared_path": str(shared_path),
-        "template_file": str(template_file)
+        "workspace": str(agent_workspace),
+        "shared_context": str(shared_context),
+        "project_dir": str(project_dir),
+        "orchestrator_decision": decision,
+        "result": {
+            "success": result.get('success', False),
+            "tool_count": result.get('tool_count', 0),
+            "duration": result.get('duration', 0)
+        }
     }
     
-    metadata_file = workspace_path / "launch_metadata.json"
-    try:
-        with open(metadata_file, 'w') as f:
-            json.dump(metadata, f, indent=2)
-    except OSError as e:
-        logger.error(f"Failed to save launch metadata: {e}")
-    
-    # Output the launch information
-    print(json.dumps(metadata, indent=2))
-    
-    # Don't return metadata as the return value is never used
+    return metadata
 
 
 def main():
@@ -133,18 +219,25 @@ def main():
     agent_name = sys.argv[1]
     
     # Get task from command line or stdin
-    if len(sys.argv) >= 3:
-        # Task provided as argument (for simple cases)
+    task = None
+    if len(sys.argv) > 2:
         task = sys.argv[2]
-    else:
-        # Read task from stdin (safer for complex input)
+    
+    if not task:
+        # Read task from stdin
         task = sys.stdin.read().strip()
         if not task:
             print("ERROR: No task provided via argument or stdin", file=sys.stderr)
             sys.exit(1)
     
     try:
-        launch_agent(agent_name, task)
+        metadata = launch_agent(agent_name, task)
+        
+        # Output metadata as JSON for potential parsing
+        print("\n" + "="*60)
+        print("Launch Metadata:")
+        print(json.dumps(metadata, indent=2))
+        
     except Exception as e:
         logger.error(f"Failed to launch agent: {e}", exc_info=True)
         print(f"ERROR: Failed to launch agent: {e}", file=sys.stderr)

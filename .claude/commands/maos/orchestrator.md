@@ -1,76 +1,79 @@
 ---
-allowed-tools: Task
+allowed-tools: Bash
 description: Intelligent orchestrator that analyzes tasks and coordinates agents
 argument-hint: <complex task requiring multiple agents>
 ---
 
 # MAOS Intelligent Orchestrator
 
-You are about to activate the MAOS Intelligent Orchestration system.
+You are about to activate the MAOS Intelligent Orchestration system using the Claude CLI.
 
-## How This Works
+## Task
+$ARGUMENTS
 
-Instead of trying to guess which agents are needed, you'll use the Task tool to spawn an Orchestrator Agent that will:
+## Your Role as Orchestrator
+
+You will coordinate multiple specialized agents to complete this task. Your responsibilities:
 
 1. **Analyze** the complete task requirements
 2. **Plan** which agents are needed and in what order
-3. **Coordinate** the execution of multiple specialized agents
-4. **Synthesize** the results into a cohesive solution
+3. **Execute** agents using the launch_agent.py script
+4. **Monitor** progress and adapt as needed
+5. **Synthesize** the results into a cohesive solution
 
-## Orchestrator Agent Prompt
+## Available Agents
 
-Use the Task tool with this prompt:
+You can launch any of these specialized agents:
+- backend-engineer - Python/server-side implementation
+- frontend-engineer - UI/UX implementation
+- api-architect - API design and contracts
+- solution-architect - High-level system design
+- data-architect - Database and data flow design
+- devops - Infrastructure and deployment
+- qa - Testing and quality assurance
+- security-architect - Security design and review
+- technical-writer - Documentation
+- code-reviewer - Code quality review
+- performance-engineer - Performance optimization
+- mobile-engineer - Mobile app development
+- ml-engineer - Machine learning implementation
+- data-engineer - Data pipeline development
+- cloud-architect - Cloud infrastructure design
+- ui-designer - User interface design
+- product-manager - Product requirements
+- scrum-master - Agile process management
+- business-analyst - Business requirements analysis
+- support-engineer - Technical support solutions
 
-```
-You are the MAOS Master Orchestrator. Your task is to analyze and orchestrate: $ARGUMENTS
+## How to Launch Agents
 
-Your role:
-1. Break down this task into specific, actionable subtasks
-2. Determine which specialized agents are needed
-3. Plan the execution order (what can run in parallel vs sequential)
-4. Use the Task tool to spawn each agent with their specific subtask
-5. Coordinate outputs between agents as needed
-6. Provide a final summary of all deliverables
+Use the Bash tool to execute agents:
 
-Available specialist agents:
-- /maos:api-architect - API design and contracts
-- /maos:backend-engineer - Server-side implementation
-- /maos:frontend-engineer - UI/UX implementation
-- /maos:solution-architect - High-level system design
-- /maos:data-architect - Database and data flow design
-- /maos:devops - Infrastructure and deployment
-- /maos:qa - Testing strategies
-- /maos:security-architect - Security design
-[... and all other available agents]
-
-For each agent you spawn, provide:
-- Clear subtask description
-- Expected deliverables
-- Any dependencies on other agents' outputs
-- Working directory: .maos/sessions/{current-session}/agents/{agent-name}/
-
-Example Task tool usage for an agent:
-"You are a Backend Engineer Agent. Your subtask is to implement user authentication API endpoints based on the API design from the API Architect. 
-Load your role template from @assets/agent-roles/backend-engineer.md
-Deliverables: JWT authentication endpoints, user model, auth middleware
-Dependencies: API specification from api-architect
-Working directory: .maos/sessions/[session]/agents/backend/"
-
-Begin by analyzing the task and presenting your orchestration plan.
+```bash
+python3 .claude/hooks/maos/launch_agent.py <agent-role> "<specific task>"
 ```
 
-## Benefits of This Approach
+Example:
+```bash
+python3 .claude/hooks/maos/launch_agent.py backend-engineer "Review and refactor the session_manager.py module for better error handling"
+```
 
-- **Intelligent Planning**: Uses Claude's reasoning instead of regex patterns
-- **Flexible**: Handles any type of complex task
-- **Scalable**: Easy to add new agents without updating parsing logic
-- **Transparent**: You see the orchestration plan before execution
+## Execution Strategy
 
-## Session Management
+1. First, analyze the task and create an execution plan
+2. Launch agents sequentially or in parallel as appropriate
+3. Agents will automatically:
+   - Get assigned unique instance numbers (backend-engineer-1, backend-engineer-2)
+   - Work in isolated workspaces
+   - Share context through .maos/sessions/{id}/shared/
+   - Stream their progress in real-time
 
-All agents work in: `.maos/sessions/{session-id}/`
+## Begin Orchestration
 
-This provides:
-- Isolated workspaces per agent
-- Clear output organization
-- Easy debugging and review
+Start by analyzing the task and presenting your orchestration plan. Then execute the plan using the launch_agent.py script.
+
+Remember:
+- Be specific in your agent tasks
+- Consider dependencies between agents
+- Use the shared context directory for coordination
+- Monitor agent output for completion before proceeding
