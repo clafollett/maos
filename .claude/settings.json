@@ -87,10 +87,6 @@
           {
             "type": "command",
             "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/user_prompt_submit.py\" --log-only"
-          },
-          {
-            "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/orchestrator.py\""
           }
         ]
       }
