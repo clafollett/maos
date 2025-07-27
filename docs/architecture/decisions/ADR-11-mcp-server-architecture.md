@@ -1,30 +1,31 @@
-# ADR-10: MCP Server Architecture
+# ADR-11: MCP Server Architecture
 
 ## Status
-Accepted
+Accepted (Updated for PTY architecture)
 
 ## Context
-MAOS needs to provide multi-agent orchestration capabilities to AI tools like Claude Code. After analyzing various integration approaches, the Model Context Protocol (MCP) emerged as the ideal solution because:
+MAOS can optionally provide multi-agent orchestration capabilities to AI tools like Claude Code via MCP. However, our experience revealed:
 
-- **Standardized Integration**: MCP is becoming the standard for AI tool extensions
-- **Tool Discovery**: Clients automatically discover MAOS capabilities
-- **Streaming Support**: Real-time updates via Server-Sent Events (SSE)
-- **Language Agnostic**: Clients don't need to know MAOS is written in Rust
+- **MCP Timeout Limitations**: 10s initial response, 60s total timeout prevents long-running operations
+- **Complexity Issues**: MCP servers add unnecessary layers when direct CLI usage works well
+- **Alternative Approach**: PTY multiplexer provides better control and reliability
 
-### Revolutionary ACP Integration Insight
-With our **Agent Communication Protocol (ACP) integration**, the MCP server role is dramatically simplified:
-- **No message routing needed**: Agents communicate directly via ACP
-- **Remove `maos/agent-message` tool**: This tool was fundamentally broken and is no longer needed
-- **Focus on orchestration lifecycle**: MCP server manages sessions and streams ACP network activity
-- **Simplified architecture**: Clean separation between MCP (external interface) and ACP (internal agent network)
+The MCP server is now **optional** - users can interact directly with the MAOS CLI or use MCP for integration with tools that require it.
 
-Key architectural insights: 
-- **MAOS MCP server spawns agents into an ACP network**
-- **Only the Orchestrator communicates with Claude Code** - all other agents are pure ACP participants
-- **Orchestrator serves as the single interface** representing the entire multi-agent system
+### PTY Architecture Simplification
+With our **PTY multiplexer approach**, the MCP server role is minimal:
+- **Single tool**: Just `maos/orchestrate` to start orchestration
+- **PTY handles complexity**: All agent management happens in the CLI
+- **No message routing**: PTY multiplexer handles all communication
+- **Streaming output**: MCP just forwards PTY output to client
+
+Key architectural insights:
+- **MCP server is a thin wrapper** around the MAOS CLI
+- **PTY multiplexer does the real work** of agent management
+- **Users can bypass MCP entirely** and use CLI directly
 
 ## Decision
-MAOS will be implemented as a **simplified MCP server** that exposes orchestration lifecycle capabilities through tools and resources, while spawning agents into an **ACP network** for peer-to-peer communication. The MCP server focuses on session management and streaming ACP network activity back to clients.
+MAOS will provide an **optional MCP server** as a thin wrapper around the PTY-based CLI, exposing minimal tools for clients that require MCP integration. The core functionality remains in the CLI.
 
 ### Streamlined Multi-Agent Single Server Architecture
 ```

@@ -1,7 +1,7 @@
-# ADR-11: Adaptive Phase-Based Orchestration
+# ADR-12: Adaptive Phase-Based Orchestration
 
 ## Status
-Accepted
+Accepted (Updated for PTY architecture)
 
 ## Context
 The POC revealed critical insights about orchestration that shaped our architecture:
@@ -12,90 +12,96 @@ The POC revealed critical insights about orchestration that shaped our architect
 - **Knowledge Silos**: Engineers working without architectural context
 - **Misalignment**: Phases disconnected from each other
 
-### ACP-Based Solution:
-With our **Agent Communication Protocol (ACP) integration** and **Orchestrator-as-Interface** pattern, we now have:
-- **Centralized coordination**: Orchestrator manages all agent interactions via Claude Code Agent
-- **Single interface**: Orchestrator as sole representative to Claude Code
+### PTY-Based Solution:
+With our **PTY multiplexer architecture** and **hub-and-spoke pattern**, we now have:
+- **Centralized coordination**: PTY multiplexer manages all agent I/O directly
+- **Single interface**: Orchestrator agent coordinates through the multiplexer
 - **Adaptive planning**: Orchestrator plans phases based on actual agent outputs
-- **Clean abstraction**: Implementation complexity hidden from users
+- **Clean abstraction**: Terminal complexity hidden from users
 
-Traditional orchestration assumes perfect upfront knowledge. Our approach enables **adaptive discovery** where the Orchestrator coordinates with specialist agents while presenting unified progress to Claude Code.
+Traditional orchestration assumes perfect upfront knowledge. Our approach enables **adaptive discovery** where the Orchestrator coordinates with specialist agents while the PTY multiplexer handles all communication.
 
 ## Decision
-We will implement an **adaptive orchestration model** where the Orchestrator operates as both:
-1. **Single Interface** to Claude Code (via MCP)
-2. **Router Agent** coordinating specialist agents through Claude Code Agent
+We will implement an **adaptive orchestration model** where:
+1. **PTY Multiplexer** handles all agent process management and I/O
+2. **Orchestrator Agent** acts as Project Manager coordinating through the multiplexer
+3. **Hub-and-Spoke Pattern** ensures all messages route through central control
 
 The Orchestrator acts as a **Project Manager** coordinating with specialist agents while presenting unified progress to users.
 
 ### Core Principles
 
-1. **Dual Interface Role**: Orchestrator serves as single point to Claude Code while coordinating agents
-2. **Centralized Coordination**: All agent communication flows through Claude Code Agent
+1. **PTY-Based Coordination**: All agent communication flows through PTY multiplexer
+2. **Message Routing**: Hub-and-spoke pattern with 500ms timing for Claude UI
 3. **Incremental Planning**: Plan phases based on actual agent outputs and discoveries
 4. **Phase Gates**: Aggregate phase results before planning next phase
-5. **Unified Progress Reporting**: Present clean, coordinated updates to Claude Code users
-6. **Clean Abstraction**: Implementation complexity hidden from users
+5. **Unified Progress Reporting**: Present clean, coordinated updates to users
+6. **Clean Abstraction**: PTY and process complexity hidden from users
 
-### ACP-Based Orchestration Flow
+### PTY-Based Orchestration Flow
 
 ```
-Claude Code ↔ MCP Server ↔ Orchestrator (ACP Agent)
-                              ↕ ACP Network
-                          Specialist Agents
+User → MAOS CLI → PTY Multiplexer
+                     │
+        ┌────────────┼────────────┐
+        ▼            ▼            ▼
+    Orchestrator  Backend    Frontend
+    (coordinator) (worker)    (worker)
 ```
 
 **1. Session Initialization:**
-- Orchestrator spawned as ACP agent with dual role
-- Connects to MCP server for Claude Code interface
-- Joins ACP network for agent coordination
+- User runs `maos orchestrate "build feature X"`
+- PTY multiplexer spawns orchestrator agent
+- Orchestrator receives task and begins planning
 
 **2. Adaptive Phase Execution:**
-- **Agent Planning**: Determine which agents needed for phase
-- **Task Assignment**: Send individual requests to Claude Code Agent per agent
-- **Progress Monitoring**: Track agent execution and collect results
-- **User Updates**: Report unified progress to Claude Code
+- **Agent Planning**: Orchestrator determines which agents needed
+- **Task Assignment**: Messages routed through PTY multiplexer
+- **Progress Monitoring**: Real-time output capture from PTYs
+- **User Updates**: Streaming output to user terminal
 
 **3. Phase Gate Coordination:**
-- **Collect Results**: Gather outputs from all agents in phase
-- **Review and Validate**: Analyze completeness and quality
+- **Collect Results**: Orchestrator queries agents for deliverables
+- **Review and Validate**: Analyze completeness via PTY messages
 - **Plan Next Phase**: Determine next steps based on discoveries
-- **Report to User**: Present phase completion to Claude Code
+- **Report to User**: Present phase completion updates
 
 **4. Iterative Discovery:**
 - Continue phase-by-phase until objectives met
 - Adapt plan based on real-time agent feedback
 - Maintain unified user experience throughout
 
-### ACP Coordination Patterns
+### PTY Communication Patterns
 
-**Agent Task Assignment (Orchestrator → Agent):**
-```json
-{
-  "type": "phase_assignment",
-  "phase": "research",
-  "task": "Analyze authentication requirements",
-  "deliverables": ["requirements_doc", "constraints_analysis"],
-  "deadline": "2025-07-14T18:00:00Z"
-}
+**Agent Task Assignment (Orchestrator → Agent via PTY):**
+```
+[From Orchestrator]: Please analyze authentication requirements for our API.
+Focus on:
+- Security best practices
+- Token management approach
+- Session handling
+- Integration with existing systems
+
+Let me know when you've completed your analysis.
 ```
 
-**Agent Status Update (Agent → Orchestrator):**
-```json
-{
-  "type": "phase_progress",
-  "phase": "research", 
-  "status": "completed",
-  "deliverables": ["auth_requirements.md", "security_constraints.md"],
-  "insights": ["OAuth2 preferred", "MFA required"]
-}
+**Agent Status Update (Agent → Orchestrator via PTY):**
+```
+I've completed the authentication analysis. Key findings:
+
+1. OAuth2 with JWT tokens recommended
+2. Refresh token rotation for security
+3. Redis for session management
+4. Need MFA support for enterprise users
+
+The detailed requirements are ready in auth_requirements.md.
 ```
 
 **Phase Completion Coordination:**
-- Orchestrator collects all agent deliverables
-- Reviews phase outputs for completeness
+- Orchestrator queries each agent for status
+- PTY multiplexer captures all responses
+- Orchestrator reviews outputs via messages
 - Plans next phase based on discoveries
-- Reports unified progress to Claude Code
 
 ### Phase-Based Execution Pattern
 
@@ -122,35 +128,37 @@ The beauty of this approach is its simplicity - everything is just a phase with 
 
 ### Session Registry for Context Continuity
 
-The Orchestrator maintains a **session registry** that tracks agents by role and assigns ordinal IDs when multiple agents of the same role exist:
+The PTY multiplexer maintains a **session registry** that tracks agents by role and Claude session IDs:
 
-**Session Registry:**
+**Session Registry (maintained by PTY multiplexer):**
 
-| agent_id        | session_id      | role          | work_context    |
-|-----------------|-----------------|---------------|-----------------|
-| architect_1     | session_abc123  | architect     | api_design, ... |
-| backend_eng_1   | session_def456  | backend_eng   | auth_service    |
-| backend_eng_2   | session_ghi789  | backend_eng   | user_service    |
-| frontend_eng_1  | session_jkl012  | frontend_eng  | auth_ui         |
-| frontend_eng_2  | session_mno345  | frontend_eng  | dashboard       |
-| qa_1            | session_pqr678  | qa            | api_tests       |
+| pty_id  | claude_session_id | role          | status   | work_context    |
+|---------|-------------------|---------------|----------|-----------------|
+| pts/2   | session_abc123    | orchestrator  | active   | main_coordinator|
+| pts/3   | session_def456    | backend       | active   | auth_service    |
+| pts/4   | session_ghi789    | backend       | idle     | user_service    |
+| pts/5   | session_jkl012    | frontend      | active   | auth_ui         |
+| pts/6   | session_mno345    | frontend      | idle     | dashboard       |
+| pts/7   | session_pqr678    | qa            | active   | api_tests       |
 
 **Intelligent Agent Selection:**
-The Orchestrator uses its own Claude session to make intelligent agent assignment decisions. When a new task needs to be assigned, the Orchestrator:
+The Orchestrator (running as a Claude agent itself) makes intelligent routing decisions:
 
-1. **Analyzes the Task**: Uses Claude to understand the task requirements and context
-2. **Reviews Registry**: Provides Claude with the current session registry and work history
-3. **Makes Smart Decision**: Claude recommends which existing agent to use or whether to create new
+1. **Task Analysis**: Orchestrator understands the task requirements
+2. **Registry Query**: PTY multiplexer provides current agent status
+3. **Smart Routing**: Orchestrator picks best agent or requests new spawn
 4. **Considers Factors**:
-   - Semantic understanding of work relationships
-   - Component dependencies and interactions
-   - Agent expertise based on past work
-   - Workload distribution across agents
-   - Context continuity benefits
+   - Agent specialization and past work
+   - Current agent availability (active/idle)
+   - Context continuity via session IDs
+   - Related component expertise
+   - Workload distribution
 
-**Implementation Examples:**
-- [session_registry_example.rs](../references/examples/session_registry_example.rs) - Basic session registry implementation
-- [intelligent_agent_selection.rs](../references/examples/intelligent_agent_selection.rs) - How Orchestrator uses Claude for smart agent assignment decisions
+**PTY Benefits:**
+- **Direct Status**: Know immediately if agent is responsive
+- **Session Persistence**: Claude --session-id preserves all context
+- **Process Control**: Can restart crashed agents with same session
+- **Real-time Monitoring**: See exactly what each agent is doing
 
 **Benefits:**
 - **Intelligent Reuse**: Orchestrator picks the right expert for each task
