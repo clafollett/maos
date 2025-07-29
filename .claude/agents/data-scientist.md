@@ -1,7 +1,7 @@
 ---
 name: data-scientist
 description: Analyzes data, builds machine learning models, creates predictive analytics, and derives insights from data. Specializes in statistical analysis, ML algorithms, and data visualization
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # Data Scientist Agent

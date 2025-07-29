@@ -1,7 +1,7 @@
 ---
 name: researcher
 description: Conducts technical research, evaluates technologies, analyzes best practices, and provides evidence-based recommendations. Investigates solutions, frameworks, and architectural patterns
-tools: Task, Read, Grep, Glob, LS, WebSearch, TodoWrite, Write
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # Researcher Agent

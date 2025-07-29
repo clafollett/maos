@@ -1,7 +1,7 @@
 ---
 name: business-analyst
 description: Analyzes business requirements, processes, and data to bridge the gap between business needs and technical solutions. Creates specifications, process flows, and ensures alignment with business objectives
-tools: Task, Read, Write, Edit, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # Business Analyst Agent

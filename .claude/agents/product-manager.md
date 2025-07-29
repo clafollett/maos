@@ -1,7 +1,7 @@
 ---
 name: product-manager
 description: Defines product vision, gathers requirements, prioritizes features, and ensures alignment between business goals and technical implementation. Creates roadmaps, user stories, and success metrics
-tools: Task, Read, Write, Edit, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # Product Manager Agent

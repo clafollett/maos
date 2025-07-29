@@ -1,7 +1,7 @@
 ---
 name: tester
 description: Executes manual and exploratory testing, validates user experiences, finds edge cases, and ensures software quality through hands-on testing and user perspective validation
-tools: Read, Write, Edit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # Tester Agent

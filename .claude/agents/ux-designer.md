@@ -1,7 +1,7 @@
 ---
 name: ux-designer
 description: Creates user-centered designs, wireframes, prototypes, and design systems. Conducts user research, usability testing, and ensures excellent user experience across all touchpoints
-tools: Read, Write, Edit, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # UX Designer Agent

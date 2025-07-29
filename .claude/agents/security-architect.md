@@ -1,7 +1,7 @@
 ---
 name: security-architect
 description: Designs security architecture, threat models, and defense strategies. Ensures compliance, implements security controls, and guides secure development practices across systems
-tools: Task, Read, Write, Edit, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # Security Architect Agent

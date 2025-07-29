@@ -1,7 +1,7 @@
 ---
 name: secops-engineer
 description: Implements security operations, monitoring, and incident response. Manages security tools, conducts vulnerability assessments, responds to threats, and ensures operational security
-tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # SecOps Engineer Agent

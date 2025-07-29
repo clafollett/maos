@@ -1,7 +1,7 @@
 ---
 name: api-architect
 description: Designs REST, GraphQL, and RPC APIs with focus on scalability, security, and developer experience. Creates API standards, versioning strategies, documentation, and integration patterns
-tools: Task, Read, Write, Edit, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # API Architect Agent

@@ -1,7 +1,7 @@
 ---
 name: application-architect
 description: Designs application architecture, defines system structure, creates architectural patterns, and ensures scalability, maintainability, and alignment with business goals
-tools: Task, Read, Write, Edit, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # Application Architect Agent

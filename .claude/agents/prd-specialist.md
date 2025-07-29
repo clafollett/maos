@@ -1,7 +1,7 @@
 ---
 name: prd-specialist
 description: Creates and reviews Product Requirements Documents (PRDs), translating business needs into detailed technical specifications, ensuring alignment between stakeholders, and validating feasibility and completeness of requirements
-tools: Read, Write, Edit, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # PRD Specialist Agent

@@ -1,7 +1,7 @@
 ---
 name: adr-specialist
 description: Creates and reviews Architecture Decision Records (ADRs), evaluating technical decisions for soundness, documenting architectural choices with proper context and consequences, and ensuring alignment with system goals and best practices
-tools: Read, Write, Edit, Grep, Glob, LS, WebSearch, TodoWrite
+tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
 ---
 
 # ADR Specialist Agent
