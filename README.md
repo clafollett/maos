@@ -116,7 +116,7 @@ MAOS is built on a foundation of carefully considered architectural decisions:
 - **[Orchestrator Specification](docs/architecture/references/orchestrator-specification.md)**: Deep dive into the meta-orchestration agent
 
 ### 🛠️ **Implementation Guides**
-- **[Role Templates](docs/architecture/references/role-templates/)**: Detailed prompt templates for each specialist role
+- **[Role Templates](assets/agent-roles/)**: Detailed prompt templates for each specialist role
 - **[MCP Tools](docs/architecture/references/mcp-tools.md)**: MCP server tool definitions and usage
 - **[Agent Integration Strategy](docs/AGENT_INTEGRATION_STRATEGY.md)**: Practical implementation approaches
 
