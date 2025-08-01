@@ -6,48 +6,99 @@
 import json
 import sys
 import re
+import os
 from pathlib import Path
+from typing import Dict, Optional
+
+# Import shared path utilities
+sys.path.append(str(Path(__file__).parent))
+from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+
+# Import MAOS handler
+sys.path.append(str(Path(__file__).parent))
+try:
+    from maos.pre_tool_handler import handle_maos_pre_tool
+except ImportError:
+    # Fallback if MAOS not available
+    handle_maos_pre_tool = None
 
 def is_dangerous_rm_command(command):
     """
     Comprehensive detection of dangerous rm commands.
-    Matches various forms of rm -rf and similar destructive patterns.
+    Properly distinguishes between flags and filenames to avoid false positives.
     """
-    # Normalize command by removing extra spaces and converting to lowercase
-    normalized = ' '.join(command.lower().split())
+    # Split into tokens to properly identify flags vs filenames
+    tokens = command.split()
     
-    # Pattern 1: Standard rm -rf variations
-    patterns = [
-        r'\brm\s+.*-[a-z]*r[a-z]*f',  # rm -rf, rm -fr, rm -Rf, etc.
-        r'\brm\s+.*-[a-z]*f[a-z]*r',  # rm -fr variations
-        r'\brm\s+--recursive\s+--force',  # rm --recursive --force
-        r'\brm\s+--force\s+--recursive',  # rm --force --recursive
-        r'\brm\s+-r\s+.*-f',  # rm -r ... -f
-        r'\brm\s+-f\s+.*-r',  # rm -f ... -r
-    ]
+    if not tokens or tokens[0].lower() != 'rm':
+        return False
     
-    # Check for dangerous patterns
-    for pattern in patterns:
-        if re.search(pattern, normalized):
-            return True
+    # Remove 'rm' to focus on arguments
+    args = tokens[1:]
     
-    # Pattern 2: Check for rm with recursive flag targeting dangerous paths
-    dangerous_paths = [
-        r'/',           # Root directory
-        r'/\*',         # Root with wildcard
-        r'~',           # Home directory
-        r'~/',          # Home directory path
-        r'\$HOME',      # Home environment variable
-        r'\.\.',        # Parent directory references
-        r'\*',          # Wildcards in general rm -rf context
-        r'\.',          # Current directory
-        r'\.\s*$',      # Current directory at end of command
-    ]
+    # Track flags found
+    has_recursive = False
+    has_force = False
     
-    if re.search(r'\brm\s+.*-[a-z]*r', normalized):  # If rm has recursive flag
-        for path in dangerous_paths:
-            if re.search(path, normalized):
-                return True
+    # Check for -- which stops flag processing
+    double_dash_index = len(args)
+    for i, arg in enumerate(args):
+        if arg == '--':
+            double_dash_index = i
+            break
+    
+    # Process arguments before --
+    for i, arg in enumerate(args[:double_dash_index]):
+        arg_lower = arg.lower()
+        
+        # Long options
+        if arg_lower == '--recursive':
+            has_recursive = True
+        elif arg_lower == '--force':
+            has_force = True
+        # Short options (must start with single dash and have letters)
+        elif arg.startswith('-') and len(arg) > 1 and arg[1] != '-':
+            # Check each character in the flag
+            for char in arg[1:]:
+                if char in 'rR':
+                    has_recursive = True
+                elif char == 'f':
+                    has_force = True
+    
+    # Check for dangerous combinations
+    if has_recursive and has_force:
+        return True
+    
+    # Check for just recursive with dangerous paths
+    if has_recursive:
+        # Get all non-flag arguments (potential paths)
+        paths = []
+        for i, arg in enumerate(args):
+            # Skip flags and arguments before --
+            if i < double_dash_index and arg.startswith('-') and arg != '-':
+                continue
+            # After --, everything is a path
+            if i > double_dash_index:
+                paths.append(arg)
+            # Before --, non-flag args are paths
+            elif not arg.startswith('-') or arg == '-':
+                paths.append(arg)
+        
+        # Check for dangerous paths
+        dangerous_patterns = [
+            r'^/$',          # Exactly root
+            r'^/\*',         # Root with wildcard
+            r'^~/?$',        # Home directory
+            r'^\$HOME',      # HOME variable
+            r'^\.\./?',      # Parent directory
+            r'^\*$',         # Just wildcard
+            r'^\.$',         # Current directory
+        ]
+        
+        for path in paths:
+            for pattern in dangerous_patterns:
+                if re.match(pattern, path):
+                    return True
     
     return False
 
@@ -88,6 +139,9 @@ def main():
         
         tool_name = input_data.get('tool_name', '')
         tool_input = input_data.get('tool_input', {})
+        hook_metadata = input_data.get('metadata', {})
+        
+        # CRITICAL SECURITY CHECKS FIRST (these can block operations)
         
         # Check for .env file access (blocks access to sensitive environment files)
         if is_env_file_access(tool_name, tool_input):
@@ -104,10 +158,19 @@ def main():
                 print("BLOCKED: Dangerous rm command detected and prevented", file=sys.stderr)
                 sys.exit(2)  # Exit code 2 blocks tool call and shows error to Claude
         
+        # MAOS ORCHESTRATION (non-blocking, coordination only)
+        if handle_maos_pre_tool:
+            try:
+                handle_maos_pre_tool(tool_name, tool_input, hook_metadata)
+            except Exception as e:
+                # Non-blocking MAOS error
+                print(f"⚠️  MAOS processing error (non-blocking): {e}", file=sys.stderr)
+        
+        # LOGGING (original behavior preserved)
+        
         # Ensure log directory exists
-        log_dir = Path.cwd() / 'logs'
-        log_dir.mkdir(parents=True, exist_ok=True)
-        log_path = log_dir / 'pre_tool_use.json'
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        log_path = LOGS_DIR / 'pre_tool_use.json'
         
         # Read existing log data or initialize empty list
         if log_path.exists():
@@ -131,8 +194,9 @@ def main():
     except json.JSONDecodeError:
         # Gracefully handle JSON decode errors
         sys.exit(0)
-    except Exception:
-        # Handle any other errors gracefully
+    except Exception as e:
+        # Handle any other errors gracefully - don't block operations due to MAOS issues
+        print(f"⚠️  MAOS hook error (non-blocking): {e}", file=sys.stderr)
         sys.exit(0)
 
 if __name__ == '__main__':

@@ -1,7 +1,7 @@
 ---
 name: code-reviewer
-description: Performs comprehensive code reviews focusing on security vulnerabilities, code quality, performance, documentation, and adherence to industry standards. Reviews PRs, architectural decisions, API design, and provides constructive feedback using Google/Microsoft best practices.
-tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
+description: Performs comprehensive code reviews and quality audits. Use proactively for code review requests, PR reviews, security vulnerability assessment, code quality evaluation, style guide compliance, architecture validation, API design review, and post-development quality audits. Keywords: review code, check quality, audit security, validate design, assess vulnerabilities, examine architecture.
+tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, Task, TodoWrite
 ---
 
 # Code Reviewer Agent

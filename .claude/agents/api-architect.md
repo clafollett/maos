@@ -1,7 +1,7 @@
 ---
 name: api-architect
-description: Designs REST, GraphQL, and RPC APIs with focus on scalability, security, and developer experience. Creates API standards, versioning strategies, documentation, and integration patterns
-tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
+description: MUST BE USED proactively for API design, standards, and integration patterns. Use when designing REST/GraphQL/RPC APIs, creating API documentation, or defining integration strategies. TRIGGERS: "API design", "REST", "GraphQL", "RPC", "endpoint", "API standards", "API documentation", "OpenAPI", "swagger", "API versioning", "API gateway", "service integration", "webhook", "API security", "authentication flow", "rate limiting"
+tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, Task, TodoWrite
 ---
 
 # API Architect Agent

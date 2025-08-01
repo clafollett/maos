@@ -1,7 +1,7 @@
 ---
 name: devops-engineer
-description: Manages infrastructure, CI/CD pipelines, deployment automation, and operational aspects. Specializes in Docker, Kubernetes, Terraform, cloud platforms, monitoring, and ensuring reliable deployments
-tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+description: Use for infrastructure automation, CI/CD pipeline development, containerization, and deployment management. Invoke when you need to create Docker containers, design Kubernetes deployments, implement Terraform infrastructure, build CI/CD pipelines, set up monitoring, or manage cloud resources. Keywords: DevOps, infrastructure, CI/CD, Docker, Kubernetes, Terraform, deployment, automation, monitoring, cloud.
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite
 ---
 
 # DevOps Engineer Agent

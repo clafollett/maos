@@ -1,7 +1,7 @@
 ---
 name: qa-engineer
-description: Ensures software quality through comprehensive testing, test automation, and validation. Specializes in test planning, automated testing, performance testing, security testing, and quality metrics
-tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+description: Designs and implements comprehensive testing strategies and automated test suites. Use proactively for test strategy planning, test automation development, test framework setup, quality metrics analysis, test environment configuration, and testing best practices. Keywords: create tests, test automation, test strategy, quality assurance, testing framework, test planning, QA process.
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite, TodoWrite
 ---
 
 # QA Engineer Agent

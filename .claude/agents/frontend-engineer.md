@@ -1,7 +1,7 @@
 ---
 name: frontend-engineer
-description: Builds user interfaces, implements client-side logic, and creates responsive web applications. Specializes in React, Vue, Angular, state management, API integration, and modern CSS/JavaScript
-tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+description: Use for frontend development, UI/UX implementation, client-side application logic, and responsive web design. Invoke when you need to build React/Vue/Angular components, implement state management, integrate with APIs, create responsive layouts, optimize performance, or develop interactive user interfaces. Keywords: frontend, UI, components, React, Vue, Angular, CSS, JavaScript, responsive, client-side.
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite
 ---
 
 # Frontend Engineer Agent

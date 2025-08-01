@@ -21,6 +21,11 @@ except ImportError:
     pass  # dotenv is optional
 
 
+# Import shared path utilities
+sys.path.append(str(Path(__file__).parent))
+from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+
+
 def get_tts_script_path():
     """
     Determine which TTS script to use based on available API keys.
@@ -93,10 +98,8 @@ def main():
         input_data = json.loads(sys.stdin.read())
         
         # Ensure log directory exists
-        import os
-        log_dir = os.path.join(os.getcwd(), 'logs')
-        os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, 'notification.json')
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        log_file = LOGS_DIR / 'notification.json'
         
         # Read existing log data or initialize empty list
         if os.path.exists(log_file):

@@ -26,49 +26,71 @@ maos/                           # Root directory
 ### 2. Branch Naming Convention for Multi-Agent Work
 
 ```
-# Pattern: <agent-role>/<issue-id>/<descriptive-name>
-architect/issue-42/microservices-design
-engineer/issue-42/api-implementation
-tester/issue-42/integration-tests
-researcher/issue-43/performance-analysis
+# Pattern: wrktr/issue-<issue-num>/<agent-role>-<issue-summary>
+wrktr/issue-42/architect-microservices
+wrktr/issue-42/engineer-api
+wrktr/issue-42/tester-integration
+wrktr/issue-43/researcher-performance
 
 # For parallel sub-tasks
-engineer/issue-42/api-implementation-auth
-engineer/issue-42/api-implementation-data
+wrktr/issue-42/engineer-auth
+wrktr/issue-42/engineer-data
 ```
 
-### 3. Worktree Creation Script
+### 3. Worktree Creation Pattern
 
-```bash
-#!/bin/bash
-# create-agent-worktree.sh
+```python
+#!/usr/bin/env python3
+# create_agent_worktree.py
 
-AGENT_ROLE=$1
-ISSUE_ID=$2
-TASK_DESC=$3
-BASE_BRANCH=${4:-main}
+import json
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+import re
 
-# Generate branch name
-BRANCH_NAME="${AGENT_ROLE}/issue-${ISSUE_ID}/${TASK_DESC}"
-WORKTREE_PATH="./worktrees/${BRANCH_NAME//\//-}"
-
-# Create worktree
-git worktree add -b "$BRANCH_NAME" "$WORKTREE_PATH" "$BASE_BRANCH"
-
-# Lock worktree with reason
-git worktree lock "$WORKTREE_PATH" --reason "Claude Code agent: $AGENT_ROLE working on issue $ISSUE_ID"
-
-# Create tracking file
-echo "{
-  \"agent\": \"$AGENT_ROLE\",
-  \"issue\": \"$ISSUE_ID\",
-  \"task\": \"$TASK_DESC\",
-  \"created\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
-  \"status\": \"in_progress\"
-}" > "$WORKTREE_PATH/.agent-metadata.json"
-
-echo "Worktree created at: $WORKTREE_PATH"
-echo "Branch: $BRANCH_NAME"
+def create_agent_worktree(agent_role, issue_id, task_desc, base_branch='main'):
+    """Create a git worktree for a Claude Code agent."""
+    
+    # Generate safe branch name
+    safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_desc)[:20]
+    branch_name = f"wrktr/issue-{issue_id}/{agent_role}-{safe_desc}"
+    worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{safe_desc}"
+    
+    # Create worktree
+    subprocess.run([
+        "git", "worktree", "add", "-b", branch_name, worktree_path, base_branch
+    ], check=True)
+    
+    # Lock worktree with reason
+    subprocess.run([
+        "git", "worktree", "lock", worktree_path,
+        "--reason", f"Claude Code agent: {agent_role} working on issue {issue_id}"
+    ], check=True)
+    
+    # Create tracking file
+    metadata = {
+        "agent": agent_role,
+        "issue": issue_id,
+        "task": task_desc,
+        "created": datetime.utcnow().isoformat() + "Z",
+        "status": "in_progress"
+    }
+    
+    Path(worktree_path).joinpath(".agent-metadata.json").write_text(
+        json.dumps(metadata, indent=2)
+    )
+    
+    print(f"Worktree created at: {worktree_path}")
+    print(f"Branch: {branch_name}")
+    
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("Usage: python create_agent_worktree.py <agent_role> <issue_id> <task_desc> [base_branch]")
+        sys.exit(1)
+    
+    create_agent_worktree(*sys.argv[1:])
 ```
 
 ### 4. Coordination Pattern: Task Registry
@@ -80,7 +102,7 @@ echo "Branch: $BRANCH_NAME"
     {
       "id": "architect-001",
       "worktree": "worktrees/architect-issue-42-microservices",
-      "branch": "architect/issue-42/microservices-design",
+      "branch": "wrktr/issue-42/architect-microservices",
       "files_modified": ["src/architecture/", "docs/design/"],
       "status": "active",
       "started": "2024-01-27T10:00:00Z"
@@ -88,7 +110,7 @@ echo "Branch: $BRANCH_NAME"
     {
       "id": "engineer-001",
       "worktree": "worktrees/engineer-issue-42-api",
-      "branch": "engineer/issue-42/api-implementation",
+      "branch": "wrktr/issue-42/engineer-api",
       "files_modified": ["src/api/", "tests/api/"],
       "status": "active",
       "started": "2024-01-27T10:05:00Z"
@@ -99,143 +121,242 @@ echo "Branch: $BRANCH_NAME"
 
 ### 5. Conflict Prevention Pattern
 
-```bash
-#!/bin/bash
-# check-file-conflicts.sh
+```python
+#!/usr/bin/env python3
+# check_file_conflicts.py
 
-# Check if files are being modified in other worktrees
-check_conflicts() {
-  local target_files=("$@")
-  local conflicts=()
-  
-  # Read active agents registry
-  for worktree in $(git worktree list --porcelain | grep "worktree" | cut -d' ' -f2); do
-    for file in "${target_files[@]}"; do
-      if [[ -f "$worktree/$file" ]] && git -C "$worktree" diff --name-only | grep -q "$file"; then
-        conflicts+=("$file is being modified in $worktree")
-      fi
-    done
-  done
-  
-  if [ ${#conflicts[@]} -gt 0 ]; then
-    echo "Potential conflicts detected:"
-    printf '%s\n' "${conflicts[@]}"
-    return 1
-  fi
-  
-  return 0
-}
+import subprocess
+import sys
+from pathlib import Path
+
+def check_conflicts(target_files):
+    """Check if files are being modified in other worktrees."""
+    conflicts = []
+    
+    # Get all worktrees
+    result = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        capture_output=True, text=True
+    )
+    
+    worktrees = []
+    for line in result.stdout.split('\n'):
+        if line.startswith('worktree '):
+            worktrees.append(line.split(' ', 1)[1])
+    
+    # Check each worktree for modifications
+    for worktree in worktrees:
+        for file in target_files:
+            file_path = Path(worktree) / file
+            if file_path.exists():
+                # Check if file has uncommitted changes
+                result = subprocess.run(
+                    ["git", "-C", worktree, "diff", "--name-only"],
+                    capture_output=True, text=True
+                )
+                if file in result.stdout:
+                    conflicts.append(f"{file} is being modified in {worktree}")
+    
+    if conflicts:
+        print("Potential conflicts detected:")
+        for conflict in conflicts:
+            print(f"  - {conflict}")
+        return False
+    
+    return True
+
+if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: python check_file_conflicts.py <file1> [file2] ...")
+        sys.exit(1)
+    
+    if not check_conflicts(sys.argv[1:]):
+        sys.exit(1)
 ```
 
 ### 6. Merge Strategy Pattern
 
-```bash
-#!/bin/bash
-# parallel-merge-strategy.sh
+```python
+#!/usr/bin/env python3
+# parallel_merge_strategy.py
 
-# Sequential merge for complex features
-sequential_merge() {
-  local base_branch="main"
-  local feature_branches=("$@")
-  
-  for branch in "${feature_branches[@]}"; do
-    echo "Merging $branch..."
-    git checkout "$base_branch"
-    git merge --no-ff "$branch" -m "Merge $branch into $base_branch"
+import subprocess
+import sys
+
+def sequential_merge(base_branch='main', feature_branches=None):
+    """Sequential merge for complex features."""
+    if not feature_branches:
+        return
     
-    # Run tests after each merge
-    if ! npm test; then
-      echo "Tests failed after merging $branch"
-      git reset --hard HEAD~1
-      return 1
-    fi
-  done
-}
+    for branch in feature_branches:
+        print(f"Merging {branch}...")
+        
+        # Checkout base branch
+        subprocess.run(["git", "checkout", base_branch], check=True)
+        
+        # Merge feature branch
+        subprocess.run([
+            "git", "merge", "--no-ff", branch,
+            "-m", f"Merge {branch} into {base_branch}"
+        ], check=True)
+        
+        # Run tests after each merge
+        result = subprocess.run(["npm", "test"], capture_output=True)
+        if result.returncode != 0:
+            print(f"Tests failed after merging {branch}")
+            subprocess.run(["git", "reset", "--hard", "HEAD~1"], check=True)
+            return False
+    
+    return True
 
-# Octopus merge for simple, non-conflicting branches
-octopus_merge() {
-  local base_branch="main"
-  local feature_branches=("$@")
-  
-  git checkout "$base_branch"
-  git merge --no-ff "${feature_branches[@]}" -m "Octopus merge: ${feature_branches[*]}"
-}
+def octopus_merge(base_branch='main', feature_branches=None):
+    """Octopus merge for simple, non-conflicting branches."""
+    if not feature_branches:
+        return
+    
+    subprocess.run(["git", "checkout", base_branch], check=True)
+    
+    merge_cmd = ["git", "merge", "--no-ff"] + list(feature_branches)
+    merge_cmd.extend(["-m", f"Octopus merge: {' '.join(feature_branches)}"])
+    
+    subprocess.run(merge_cmd, check=True)
+
+if __name__ == "__main__":
+    if len(sys.argv) < 3:
+        print("Usage: python parallel_merge_strategy.py <sequential|octopus> <branch1> [branch2] ...")
+        sys.exit(1)
+    
+    strategy = sys.argv[1]
+    branches = sys.argv[2:]
+    
+    if strategy == "sequential":
+        sequential_merge(feature_branches=branches)
+    elif strategy == "octopus":
+        octopus_merge(feature_branches=branches)
+    else:
+        print(f"Unknown strategy: {strategy}")
+        sys.exit(1)
 ```
 
 ### 7. Cleanup and Maintenance Pattern
 
-```bash
-#!/bin/bash
-# cleanup-worktrees.sh
+```python
+#!/usr/bin/env python3
+# cleanup_worktrees.py
 
-# Clean up completed worktrees
-cleanup_completed() {
-  for worktree_info in $(git worktree list --porcelain); do
-    if [[ $worktree_info == worktree* ]]; then
-      worktree_path=${worktree_info#worktree }
-      
-      # Check if metadata exists and task is completed
-      if [[ -f "$worktree_path/.agent-metadata.json" ]]; then
-        status=$(jq -r '.status' "$worktree_path/.agent-metadata.json")
-        if [[ "$status" == "completed" ]]; then
-          echo "Removing completed worktree: $worktree_path"
-          git worktree remove "$worktree_path"
-        fi
-      fi
-    fi
-  done
-  
-  # Prune any stale worktree references
-  git worktree prune
-}
+import json
+import subprocess
+from pathlib import Path
+from datetime import datetime, timedelta
 
-# Weekly maintenance
-weekly_maintenance() {
-  echo "Running weekly worktree maintenance..."
-  
-  # List all worktrees with age
-  echo "Active worktrees:"
-  git worktree list --porcelain | grep -E "^(worktree|branch)" | paste - - | \
-    while read -r worktree branch; do
-      path=${worktree#worktree }
-      branch_name=${branch#branch refs/heads/}
-      if [[ -f "$path/.agent-metadata.json" ]]; then
-        created=$(jq -r '.created' "$path/.agent-metadata.json")
-        echo "  $branch_name (created: $created)"
-      fi
-    done
-  
-  # Clean up old worktrees (older than 2 weeks)
-  cleanup_old_worktrees 14
-}
+def cleanup_completed():
+    """Clean up completed worktrees."""
+    # Get all worktrees
+    result = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        capture_output=True, text=True
+    )
+    
+    worktrees = []
+    for line in result.stdout.split('\n'):
+        if line.startswith('worktree '):
+            worktrees.append(line.split(' ', 1)[1])
+    
+    # Check each worktree
+    for worktree_path in worktrees:
+        metadata_path = Path(worktree_path) / ".agent-metadata.json"
+        if metadata_path.exists():
+            with open(metadata_path) as f:
+                metadata = json.load(f)
+            
+            if metadata.get('status') == 'completed':
+                print(f"Removing completed worktree: {worktree_path}")
+                subprocess.run(["git", "worktree", "remove", worktree_path])
+    
+    # Prune any stale worktree references
+    subprocess.run(["git", "worktree", "prune"])
+
+def weekly_maintenance(days_old=14):
+    """Run weekly worktree maintenance."""
+    print("Running weekly worktree maintenance...")
+    
+    # Get all worktrees
+    result = subprocess.run(
+        ["git", "worktree", "list", "--porcelain"],
+        capture_output=True, text=True
+    )
+    
+    print("\nActive worktrees:")
+    worktrees = {}
+    current_key = None
+    
+    for line in result.stdout.split('\n'):
+        if line.startswith('worktree '):
+            current_key = line.split(' ', 1)[1]
+            worktrees[current_key] = {}
+        elif line.startswith('branch ') and current_key:
+            worktrees[current_key]['branch'] = line.split(' ', 1)[1].replace('refs/heads/', '')
+    
+    # Check age and display info
+    cutoff_date = datetime.now() - timedelta(days=days_old)
+    
+    for worktree_path, info in worktrees.items():
+        metadata_path = Path(worktree_path) / ".agent-metadata.json"
+        if metadata_path.exists():
+            with open(metadata_path) as f:
+                metadata = json.load(f)
+            
+            created = metadata.get('created', '')
+            branch = info.get('branch', 'unknown')
+            print(f"  {branch} (created: {created})")
+            
+            # Remove old worktrees
+            if created:
+                created_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                if created_date < cutoff_date:
+                    print(f"    → Removing old worktree (older than {days_old} days)")
+                    subprocess.run(["git", "worktree", "remove", worktree_path])
+
+if __name__ == "__main__":
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] == "weekly":
+        weekly_maintenance()
+    else:
+        cleanup_completed()
 ```
 
 ### 8. Claude Code Integration Pattern
 
-```bash
-#!/bin/bash
-# claude-agent-launcher.sh
+```python
+#!/usr/bin/env python3
+# claude_agent_launcher.py
 
-launch_claude_agent() {
-  local agent_role=$1
-  local issue_id=$2
-  local task_desc=$3
-  
-  # Create worktree
-  ./scripts/create-agent-worktree.sh "$agent_role" "$issue_id" "$task_desc"
-  
-  # Get worktree path
-  local branch_name="${agent_role}/issue-${issue_id}/${task_desc}"
-  local worktree_path="./worktrees/${branch_name//\//-}"
-  
-  # Create agent prompt file
-  cat > "$worktree_path/.claude-prompt.md" << EOF
-You are a $agent_role agent working on issue #$issue_id.
+import subprocess
+import sys
+from pathlib import Path
+import re
 
-Task: $task_desc
+def launch_claude_agent(agent_role, issue_id, task_desc):
+    """Launch a Claude Code agent in a dedicated worktree."""
+    
+    # Create worktree
+    safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_desc)[:20]
+    branch_name = f"wrktr/issue-{issue_id}/{agent_role}-{safe_desc}"
+    worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{safe_desc}"
+    
+    # Create the worktree
+    subprocess.run([
+        sys.executable, "create_agent_worktree.py",
+        agent_role, issue_id, task_desc
+    ])
+    
+    # Create agent prompt file
+    prompt_content = f"""You are a {agent_role} agent working on issue #{issue_id}.
 
-Working directory: $worktree_path
-Branch: $branch_name
+Task: {task_desc}
+
+Working directory: {worktree_path}
+Branch: {branch_name}
 
 Please follow these guidelines:
 1. Only modify files within your assigned scope
@@ -244,48 +365,84 @@ Please follow these guidelines:
 4. Create clear, atomic commits
 
 Current task status can be found in .agent-metadata.json
-EOF
+"""
+    
+    prompt_path = Path(worktree_path) / ".claude-prompt.md"
+    prompt_path.write_text(prompt_content)
+    
+    # Launch Claude Code in the worktree
+    subprocess.run(["code", worktree_path])
+    print(f"Launched Claude Code for {agent_role} in {worktree_path}")
 
-  # Launch Claude Code in the worktree
-  cd "$worktree_path" && code .
-}
+if __name__ == "__main__":
+    if len(sys.argv) < 4:
+        print("Usage: python claude_agent_launcher.py <agent_role> <issue_id> <task_desc>")
+        sys.exit(1)
+    
+    launch_claude_agent(*sys.argv[1:])
 ```
 
 ### 9. Status Monitoring Pattern
 
-```bash
-#!/bin/bash
-# monitor-agents.sh
+```python
+#!/usr/bin/env python3
+# monitor_agents.py
 
-# Real-time agent status dashboard
-monitor_agents() {
-  while true; do
-    clear
-    echo "=== MAOS Agent Status Dashboard ==="
-    echo "Time: $(date)"
-    echo ""
-    
-    # Show active worktrees and their status
-    for worktree_info in $(git worktree list --porcelain); do
-      if [[ $worktree_info == worktree* ]]; then
-        worktree_path=${worktree_info#worktree }
+import json
+import subprocess
+import time
+from pathlib import Path
+from datetime import datetime
+
+def monitor_agents():
+    """Real-time agent status dashboard."""
+    while True:
+        # Clear screen (cross-platform)
+        print('\033[2J\033[H', end='')
         
-        if [[ -f "$worktree_path/.agent-metadata.json" ]]; then
-          agent=$(jq -r '.agent' "$worktree_path/.agent-metadata.json")
-          issue=$(jq -r '.issue' "$worktree_path/.agent-metadata.json")
-          status=$(jq -r '.status' "$worktree_path/.agent-metadata.json")
-          
-          # Get current activity
-          changes=$(git -C "$worktree_path" status --porcelain | wc -l)
-          
-          echo "[$status] Agent: $agent | Issue: #$issue | Changes: $changes"
-        fi
-      fi
-    done
-    
-    sleep 5
-  done
-}
+        print("=== MAOS Agent Status Dashboard ===")
+        print(f"Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+        print()
+        
+        # Get all worktrees
+        result = subprocess.run(
+            ["git", "worktree", "list", "--porcelain"],
+            capture_output=True, text=True
+        )
+        
+        worktrees = []
+        for line in result.stdout.split('\n'):
+            if line.startswith('worktree '):
+                worktrees.append(line.split(' ', 1)[1])
+        
+        # Show status for each worktree
+        for worktree_path in worktrees:
+            metadata_path = Path(worktree_path) / ".agent-metadata.json"
+            if metadata_path.exists():
+                with open(metadata_path) as f:
+                    metadata = json.load(f)
+                
+                agent = metadata.get('agent', 'unknown')
+                issue = metadata.get('issue', 'unknown')
+                status = metadata.get('status', 'unknown')
+                
+                # Get current activity
+                result = subprocess.run(
+                    ["git", "-C", worktree_path, "status", "--porcelain"],
+                    capture_output=True, text=True
+                )
+                changes = len(result.stdout.strip().split('\n')) if result.stdout.strip() else 0
+                
+                print(f"[{status}] Agent: {agent} | Issue: #{issue} | Changes: {changes}")
+        
+        # Wait before refresh
+        time.sleep(5)
+
+if __name__ == "__main__":
+    try:
+        monitor_agents()
+    except KeyboardInterrupt:
+        print("\nMonitoring stopped.")
 ```
 
 ### 10. Best Practices Summary

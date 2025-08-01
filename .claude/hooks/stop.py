@@ -20,6 +20,11 @@ try:
 except ImportError:
     pass  # dotenv is optional
 
+
+# Import shared path utilities
+sys.path.append(str(Path(__file__).parent))
+from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+
 # Import config utility
 sys.path.append(str(Path(__file__).parent / "utils"))
 from config import is_response_tts_enabled, is_completion_tts_enabled, get_engineer_name
@@ -247,9 +252,8 @@ def main():
         # stop_hook_active = input_data.get("stop_hook_active", False)
 
         # Ensure log directory exists
-        log_dir = os.path.join(os.getcwd(), "logs")
-        os.makedirs(log_dir, exist_ok=True)
-        log_path = os.path.join(log_dir, "stop.json")
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        log_path = LOGS_DIR / "stop.json"
 
         # Read existing log data or initialize empty list
         if os.path.exists(log_path):
@@ -285,7 +289,7 @@ def main():
                                     pass  # Skip invalid lines
                     
                     # Write to logs/chat.json
-                    chat_file = os.path.join(log_dir, 'chat.json')
+                    chat_file = LOGS_DIR / 'chat.json'
                     with open(chat_file, 'w') as f:
                         json.dump(chat_data, f, indent=2)
                 except Exception:

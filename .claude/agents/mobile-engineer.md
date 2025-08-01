@@ -1,7 +1,7 @@
 ---
 name: mobile-engineer
-description: Develops native and cross-platform mobile applications for iOS and Android. Specializes in mobile UI/UX, performance optimization, device APIs, and app store deployment
-tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+description: Use for mobile app development, native iOS/Android development, and cross-platform solutions. Invoke when you need to build mobile apps, implement device APIs, optimize mobile performance, handle app store deployment, create mobile UI components, or integrate platform-specific features. Keywords: mobile, iOS, Android, React Native, Flutter, app store, native, cross-platform, mobile UI.
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite
 ---
 
 # Mobile Engineer Agent

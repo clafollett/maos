@@ -1,7 +1,7 @@
 ---
 name: application-architect
-description: Designs application architecture, defines system structure, creates architectural patterns, and ensures scalability, maintainability, and alignment with business goals
-tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
+description: MUST BE USED proactively for application architecture design and system structure decisions. Use when defining architectural patterns, technology selection, or system design. TRIGGERS: "application architecture", "system design", "architectural patterns", "technology stack", "system structure", "component design", "architecture review", "scalability planning", "technical roadmap", "architectural decisions", "design patterns", "system blueprint"
+tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, Task, TodoWrite
 ---
 
 # Application Architect Agent

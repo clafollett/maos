@@ -1,7 +1,7 @@
 ---
 name: backend-engineer
-description: Implements server-side applications, APIs, databases, and business logic. Specializes in REST/GraphQL APIs, microservices, data processing, authentication, and backend architecture
-tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+description: Use for server-side development, API design, database integration, microservices architecture, and backend system implementation. Invoke when you need to build REST/GraphQL APIs, implement authentication/authorization, design database schemas, optimize queries, create business logic, or architect scalable backend systems. Keywords: API, backend, server, database, microservices, authentication, business logic, performance optimization.
+tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite
 ---
 
 # Backend Engineer Agent

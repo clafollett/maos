@@ -1,7 +1,7 @@
 ---
 name: data-architect
-description: Designs data systems, schemas, and architectures. Creates data models, ETL pipelines, data governance strategies, and ensures scalable data infrastructure for analytics and applications
-tools: Task, Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, TodoWrite
+description: MUST BE USED proactively for data architecture, schema design, and data system planning. Use when designing databases, ETL pipelines, or data governance strategies. TRIGGERS: "data architecture", "database design", "schema design", "ETL", "data pipeline", "data model", "data governance", "data warehouse", "data lake", "database schema", "data integration", "data flow", "data storage", "database optimization", "data migration"
+tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, Task, TodoWrite
 ---
 
 # Data Architect Agent
