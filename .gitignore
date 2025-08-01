@@ -112,5 +112,6 @@ target/
 
 # MAOS temporary workspace
 .maos/
+worktrees/
 
 
