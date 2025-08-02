@@ -191,7 +191,7 @@ class LockCoordinator:
             existing_lock = locks[file_path]
             # Check if lock is stale (>5 minutes old)
             lock_time = datetime.fromisoformat(existing_lock["locked_at"])
-            if (datetime.now() - lock_time).total_seconds() > 300:
+            if (datetime.now(lock_time.tzinfo) - lock_time).total_seconds() > 300:
                 # Stale lock, can override
                 pass
             else:

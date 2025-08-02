@@ -126,12 +126,13 @@ def _handle_existing_branch(self, agent_type, session_id, workspace, branch):
         worktree_list = self.run_git_command(["worktree", "list", "--porcelain"])
         if worktree_list.returncode == 0:
             # Parse worktree list to check if branch is already checked out
-            for line in worktree_list.stdout.split('\n'):
-                if line.startswith('branch ') and branch in line:
-                    raise RuntimeError(
-                        f"Branch '{branch}' is already checked out in another worktree. "
-                        f"Please remove the existing worktree first."
-                    )
+            if worktree_list.stdout is not None:
+                for line in worktree_list.stdout.split('\n'):
+                    if line.startswith('branch ') and branch in line:
+                        raise RuntimeError(
+                            f"Branch '{branch}' is already checked out in another worktree. "
+                            f"Please remove the existing worktree first."
+                        )
     except subprocess.CalledProcessError as e:
         print(f"Warning: Could not check existing worktrees: {e}")
     

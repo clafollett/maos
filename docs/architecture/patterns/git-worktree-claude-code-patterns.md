@@ -76,7 +76,7 @@ def create_agent_worktree(agent_role, issue_id, task_description, base_branch='m
     metadata = {
         "agent": agent_role,
         "issue": issue_id,
-        "task": task_desc,
+        "task": task_description,
         "created": datetime.utcnow().isoformat() + "Z",
         "status": "in_progress"
     }
@@ -339,7 +339,7 @@ import sys
 from pathlib import Path
 import re
 
-def launch_claude_agent(agent_role, issue_id, task_desc):
+def launch_claude_agent(agent_role, issue_id, task_description):
     """Launch a Claude Code agent in a dedicated worktree."""
     
     # Create worktree
@@ -350,13 +350,13 @@ def launch_claude_agent(agent_role, issue_id, task_desc):
     # Create the worktree
     subprocess.run([
         sys.executable, "create_agent_worktree.py",
-        agent_role, issue_id, task_desc
+        agent_role, issue_id, task_description
     ])
     
     # Create agent prompt file
     prompt_content = f"""You are a {agent_role} agent working on issue #{issue_id}.
 
-Task: {task_desc}
+Task: {task_description}
 
 Working directory: {worktree_path}
 Branch: {branch_name}
