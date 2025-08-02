@@ -1,179 +1,193 @@
 # MAOS - Multi-Agent Orchestration System
 
-**An intelligent MCP server that orchestrates specialized AI agents for complex software development workflows.**
+**Backend orchestration for Claude Code's native sub-agent capabilities through hooks and git worktree isolation.**
 
-## Overview
+## What is MAOS?
 
-MAOS (Multi-Agent Orchestration System) is a sophisticated orchestration platform that coordinates multiple specialized AI agents to tackle complex software development projects. Instead of relying on a single generalist AI, MAOS spawns and coordinates teams of specialist agents, each optimized for specific domains like architecture, engineering, security, and data modeling.
+MAOS (Multi-Agent Orchestration System) is a lightweight backend system that enhances Claude Code's ability to work with multiple AI agents in parallel. It operates entirely through Claude Code's hook system, providing automatic workspace isolation and coordination for sub-agents.
 
-## Quick Start
+**Key Point**: MAOS is invisible to end users. They simply use Claude Code normally, and MAOS handles the backend orchestration automatically.
 
-### 🚀 **Automated Development Environment**
+## How It Works
 
-MAOS includes a fully automated development environment that ensures consistency across all contributors and CI environments:
+1. **User** talks to Claude Code: *"Build me a complete authentication system"*
+2. **Claude Code** decides to use multiple agents for parallel work
+3. **MAOS hooks** automatically:
+   - Create isolated git worktrees for each agent
+   - Prevent file conflicts between agents
+   - Track progress and coordinate work
+   - Clean up when complete
+4. **Results** are seamlessly integrated back
+
+No new commands to learn. No complex setup. Just better parallel AI development.
+
+## Architecture
+
+```
+User → Claude Code → Hooks → Backend Orchestration
+                       ↓
+              ┌────────┴────────┐
+              │   MAOS Hooks    │
+              │ • pre_tool_use  │
+              │ • post_tool_use │
+              └────────┬────────┘
+                       ↓
+         ┌─────────────┴─────────────┐
+         │     Git Worktrees         │
+         │ • backend-engineer/       │
+         │ • frontend-engineer/      │
+         │ • qa-engineer/           │
+         └───────────────────────────┘
+```
+
+## For MAOS Developers
+
+If you're contributing to MAOS itself:
+
+### Prerequisites
+
+- Python 3.8+
+- Git 2.5+ (for worktree support)
+- Claude Code installed
+
+### Development Setup
 
 ```bash
-# 1. Clone the repository
+# Clone the repository
 git clone https://github.com/clafollett/maos.git
 cd maos
 
-# 2. Install just task runner (one-time setup)
-cargo install just
+# Set up hooks (make them executable)
+chmod +x .claude/hooks/*.py
 
-# 3. One-command setup (installs everything automatically)
-source stack.env && just dev-setup
+# Test the setup
+just check-hooks
 ```
 
-**What this does automatically:**
-- ✅ Validates required Rust toolchain versions
-- ✅ Installs all development dependencies  
-- ✅ Sets up git hooks for quality enforcement
-- ✅ Runs full quality pipeline (format, lint, test, security audit)
-- ✅ Configures VS Code with optimal Rust settings
+### Testing Hooks
 
-**Enforced Standards:**
-- 🔧 **Rust Toolchain**: Automatically pinned via `rust-toolchain.toml`
-- 📝 **Code Formatting**: `rustfmt` with MAOS configuration  
-- 🔍 **Code Quality**: `clippy` with strict warnings-as-errors
-- 🧪 **Testing**: Full test suite with coverage tracking
-- 🔒 **Security**: Automated vulnerability scanning
-- 🪝 **Git Hooks**: Pre-commit validation of all quality gates
+To test MAOS hooks with Claude Code:
 
-### 🛠️ **Development Workflow**
+1. Make a request that would spawn multiple agents
+2. Check that worktrees are created automatically
+3. Monitor coordination files in `.maos/`
 
 ```bash
-# All development commands via 'just' task runner
-just                # List all available commands
-just ci             # Run full CI pipeline locally  
-just pre-commit     # Run all quality checks
-just test           # Run tests
-just format         # Format code
-just lint           # Run clippy lints
-just audit          # Security audit
+# Debug commands
+just worktree-list    # List active worktrees
+just session-info     # Show current session
+just watch-maos       # Monitor coordination files
 ```
-
-**CI/CD Integration**: Our GitHub Actions automatically enforce the same environment standards, ensuring "no surprises" between local development and CI.
-
-## Architecture Philosophy
-
-### Specialized Agent Teams
-MAOS embraces the "best of breed" approach with **20 specialized agent roles**:
-
-- **1 Meta-Role**: Orchestrator agent for intelligent workflow coordination
-- **5 Architect Specialists**: Solution, Application, Data, API, and Security architects
-- **3 Engineer Specialists**: Backend, Frontend, and Mobile engineers  
-- **11 Domain Specialists**: Researchers, QA, DevOps, Data Scientists, UX Designers, and more
-
-### Adaptive Phase-Based Orchestration
-Rather than attempting to plan entire projects upfront, MAOS uses adaptive phase-based orchestration:
-
-- **Discovery-First**: Always begins with research and analysis phases
-- **Incremental Planning**: Plans 1-2 phases ahead based on current knowledge
-- **Adaptive Evolution**: Modifies plans based on actual phase outputs and discoveries
-- **Intelligent Coordination**: The Orchestrator agent continuously refines strategy
-
-### Claude 4 Optimized
-MAOS leverages the latest Claude 4 models strategically:
-
-- **Claude 4 Opus**: Ultimate reasoning for Orchestrator and complex architecture decisions
-- **Claude 4 Sonnet**: Advanced technical work for implementation and design
 
 ## Key Features
 
-### 🎯 **Domain Expertise**
-Each agent role is optimized for specific expertise areas with tailored prompts, capabilities, and resource allocations.
+### 🔒 **Automatic Isolation**
+Each agent works in its own git worktree, preventing conflicts and enabling true parallel development.
 
-### 🔄 **Adaptive Planning**
-The Orchestrator learns from each phase completion, adapting subsequent phases based on discovered complexity and requirements.
+### 📁 **File-Based Coordination**
+Simple JSON files track agent state, locks, and progress. No database needed.
 
-### 🏗️ **File-Based Communication**
-Agents communicate through structured file systems, enabling persistence, debugging, and integration with any CLI tool.
+### 🪝 **Hook-Based Design**
+Integrates seamlessly with Claude Code's existing hook system. No new APIs to learn.
 
-### 📊 **Session Management**
-Comprehensive state tracking with recovery capabilities, allowing orchestrations to survive interruptions and resume seamlessly.
+### 🐍 **Python Only**
+Pure Python implementation avoids shell script permission issues.
 
-### 🔧 **MCP Integration**
-Built as an MCP (Model Context Protocol) server, MAOS integrates natively with Claude Code and other MCP-compatible tools.
-
-## Architecture Decisions
-
-MAOS is built on a foundation of carefully considered architectural decisions:
-
-- **[ADR-01](docs/architecture/decisions/01-use-ddd-architecture.md)**: Domain-Driven Design Architecture
-- **[ADR-02](docs/architecture/decisions/02-hybrid-storage-strategy.md)**: Hybrid Storage Strategy (SQLite + File System)
-- **[ADR-03](docs/architecture/decisions/03-session-management.md)**: Session Orchestration and State Management
-- **[ADR-10](docs/architecture/decisions/10-mcp-server-architecture.md)**: MCP Server Architecture
-- **[ADR-11](docs/architecture/decisions/11-adaptive-phase-based-orchestration.md)**: Adaptive Phase-Based Orchestration
-
-[View all architectural decisions →](docs/architecture/decisions/)
+### 👻 **Invisible to Users**
+Users just talk to Claude normally. MAOS works behind the scenes.
 
 ## Documentation
 
-### 📚 **Comprehensive Architecture**
-- **[Agent Roles Reference](docs/architecture/references/agent-roles.md)**: Complete guide to all 20 specialist roles
-- **[Model Selection Guide](docs/architecture/references/model-selection-guide.md)**: Strategic Claude model selection for optimal performance
-- **[Phase Patterns](docs/architecture/references/phase-patterns.md)**: Proven orchestration patterns for different project types
-- **[Orchestrator Specification](docs/architecture/references/orchestrator-specification.md)**: Deep dive into the meta-orchestration agent
+### Core Architecture
+- **[True Architecture](docs/architecture/MAOS-True-Architecture.md)**: How MAOS really works
+- **[Implementation Guide](docs/architecture/MAOS-Implementation-Guide.md)**: Step-by-step implementation
+- **[Worktree System](docs/guides/worktree-quick-start.md)**: Git worktree management details
 
-### 🛠️ **Implementation Guides**
-- **[Role Templates](docs/architecture/references/role-templates/)**: Detailed prompt templates for each specialist role
-- **[MCP Tools](docs/architecture/references/mcp-tools.md)**: MCP server tool definitions and usage
-- **[Agent Integration Strategy](docs/AGENT_INTEGRATION_STRATEGY.md)**: Practical implementation approaches
+### Research & Design
+- **[Hook-Based Orchestration](docs/architecture/research/hook-based-orchestration.md)**: Hook system design
+- **[Git Worktree Integration](docs/architecture/research/git-worktree-integration-design.md)**: Worktree patterns
+- **[Local Orchestration Patterns](docs/architecture/research/local-orchestration-patterns.md)**: Coordination strategies
 
-## Development Status
+## Implementation Status
 
-MAOS is currently in the **architecture and design phase**. The comprehensive documentation and architectural decisions have been finalized, establishing the foundation for implementation.
+### ✅ Completed
+- Complete hook-based orchestration system
+- Git worktree management for agent isolation
+- Session-based coordination through JSON files
+- Pre/post tool use hooks with full interception
+- File locking and conflict prevention
+- Agent-specific configurations in `.claude/agents/`
+- Comprehensive path utilities for reliable operation
+- Security controls for dangerous operations
+- Test suite for integration validation
 
-### ✅ **Completed**
-- Complete architectural design and ADR documentation
-- 20 specialized agent role definitions with detailed templates
-- Model selection optimization for Claude 4 generation
-- Phase-based orchestration patterns and strategies
-- MCP server architecture specification
+### 🚧 In Progress
+- Improving worktree creation reliability
+- Performance optimization for large agent swarms
+- Enhanced session security features
 
-### 🚧 **In Progress**
-- Core MCP server implementation
-- Agent lifecycle management system
-- Session orchestration engine
-- File-based communication infrastructure
+### 📋 Next Steps
+1. Add comprehensive test coverage for all hooks
+2. Create user documentation and examples
+3. Performance profiling and optimization
+4. Build monitoring and debugging tools
 
 ## Why MAOS?
 
-### **Beyond Single-Agent Limitations**
-Traditional AI development tools rely on a single generalist agent. MAOS recognizes that complex software projects benefit from specialized expertise, just like human development teams.
+### **Prevent Agent Conflicts**
+When Claude Code spawns multiple agents, they might edit the same files simultaneously. MAOS prevents this through automatic worktree isolation and file locking.
 
-### **Proven Orchestration Patterns**
-MAOS codifies proven software development workflows into reusable orchestration patterns, from simple sequential tasks to complex parallel architectures.
+### **Enable True Parallelism**
+Each agent gets its own complete workspace (git worktree), allowing them to work on different features without stepping on each other.
 
-### **Enterprise-Ready Architecture**
-Built with enterprise requirements in mind: session persistence, state recovery, audit trails, and comprehensive error handling.
+### **Zero User Friction**
+Users don't need to learn new commands or change their workflow. MAOS operates invisibly through Claude Code's hook system.
 
-### **Tool Integration**
-Designed to work with existing development tools and workflows through file-based communication and MCP protocol integration.
+### **Simple & Reliable**
+No complex infrastructure. Just Python scripts, git commands, and JSON files. Easy to debug and understand.
 
 ## Project Structure
 
 ```
 maos/
-├── docs/                         # Comprehensive architecture documentation
-│   ├── architecture/
-│   │   ├── decisions/            # Architectural Decision Records (ADRs)
-│   │   └── references/           # Reference documentation
-│   │       ├── role-templates/   # Detailed agent role templates
-│   │       └── *.md              # Architecture guides and patterns
-│   └── *.md                      # Integration and strategy documentation
-├── maos-poc/                     # Proof of concept implementations
-└── README.md                     # This file
+├── .claude/
+│   ├── agents/                   # Agent configurations
+│   │   ├── backend-engineer.md
+│   │   ├── frontend-engineer.md
+│   │   ├── maos-architect.md
+│   │   └── ...
+│   └── hooks/                    # Claude Code hooks
+│       ├── pre_tool_use.py       # Intercepts operations
+│       ├── post_tool_use.py      # Cleanup and tracking
+│       ├── utils/                # Shared utilities
+│       │   └── path_utils.py     # Path resolution
+│       └── maos/                 # MAOS backend
+│           ├── backend.py        # Core orchestration
+│           └── handlers.py       # Tool handlers
+├── docs/
+│   └── architecture/             # Technical documentation
+├── worktrees/                    # Auto-created agent workspaces
+└── .maos/                        # Coordination files
+    └── sessions/
+        └── {session_id}/
+            ├── activity.json
+            ├── locks.json
+            └── progress.json
 ```
 
 ## Contributing
 
-MAOS is being developed as an open architecture for multi-agent orchestration. The current focus is on completing the core implementation based on the established architectural foundation.
+MAOS is open source and welcomes contributions. Key principles:
+
+1. **Keep it invisible** - Users should never know MAOS exists
+2. **Python only** - No shell scripts that require chmod
+3. **Simple is better** - File-based coordination, no databases
+4. **Hook-first design** - Everything happens through Claude Code hooks
 
 ## License
 
-[License to be determined]
+MIT License
 
 ---
 
-*MAOS represents a new paradigm in AI-assisted software development, moving from single-agent limitations to coordinated specialist teams that mirror how human development teams operate most effectively.*
+*MAOS: Making Claude Code's sub-agents work better together, invisibly.*

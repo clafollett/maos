@@ -1,9 +1,0 @@
-[workspace.metadata.release]
-# Ensure all workspace members are versioned together
-shared-version = true
-consolidate-commits = true
-pre-release-commit-message = "chore(release): v{{version}}"
-tag-prefix = "v"
-tag-message = "Release version {{version}}"
-# Don't push tags automatically, let CI handle it
-push = false
