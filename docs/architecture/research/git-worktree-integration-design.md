@@ -40,13 +40,13 @@ maos/                                    # Main repository root
 ### Branch Naming Convention
 
 ```
-Pattern: wrktr/issue-<issue-num>/<agent-role>-<issue-summary>
+Pattern: agent/issue-<issue-num>/<agent-role>-<issue-summary>
 
 Examples:
-- wrktr/issue-42/architect-microservices
-- wrktr/issue-42/backend-engineer-auth
-- wrktr/issue-42/frontend-engineer-login
-- wrktr/issue-42/tester-integration
+- agent/issue-42/architect-microservices
+- agent/issue-42/backend-engineer-auth
+- agent/issue-42/frontend-engineer-login
+- agent/issue-42/tester-integration
 ```
 
 ## Worktree Lifecycle Management
@@ -72,7 +72,7 @@ def create_agent_worktree(agent_role, issue_id, task_desc, base_branch='main'):
     safe_task_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_desc)[:30]
     
     # Generate branch and worktree names
-    branch_name = f"wrktr/issue-{issue_id}/{agent_role}-{safe_task_desc}"
+    branch_name = f"agent/issue-{issue_id}/{agent_role}-{safe_task_desc}"
     worktree_dir = f"worktrees/{agent_role}-issue-{issue_id}-{safe_task_desc}"
     
     # Check for conflicts before creation

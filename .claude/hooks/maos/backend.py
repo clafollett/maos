@@ -112,7 +112,7 @@ class MAOSBackend:
     def prepare_workspace(self, agent_type: str, session_id: str) -> str:
         """Create git worktree for agent"""
         workspace = self.worktrees_dir / f"{agent_type}-{session_id}"
-        branch = f"wrktr/session-{session_id}/{agent_type}"
+        branch = f"agent/session-{session_id}/{agent_type}"
         
         try:
             # Create worktree using our git wrapper
@@ -143,7 +143,7 @@ class MAOSBackend:
                 # Fall back to unique naming
                 timestamp = int(time.time())
                 workspace = self.worktrees_dir / f"{agent_type}-{session_id}-{timestamp}"
-                branch = f"wrktr/session-{session_id}/{agent_type}-{timestamp}"
+                branch = f"agent/session-{session_id}/{agent_type}-{timestamp}"
                 
                 result = run_git_command([
                     "worktree", "add", "-b", branch, str(workspace)

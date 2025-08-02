@@ -54,7 +54,7 @@ if tool_name == "Task" and tool_input.get('subagent_type'):
 def prepare_workspace(self, agent_type, issue_num, issue_summary):
     safe_summary = issue_summary.lower().replace(' ', '-')[:20]
     workspace = f"worktrees/{agent_type}-issue-{issue_num}-{safe_summary}"
-    branch = f"wrktr/issue-{issue_num}/{agent_type}-{safe_summary}"
+    branch = f"agent/issue-{issue_num}/{agent_type}-{safe_summary}"
     
     # Create worktree
     subprocess.run([
@@ -133,7 +133,7 @@ MAOS uses simple JSON files for coordination:
     "issue_num": "42",
     "issue_summary": "auth-system",
     "workspace": "worktrees/backend-issue-42-auth-system",
-    "branch": "wrktr/issue-42/backend-auth-system",
+    "branch": "agent/issue-42/backend-auth-system",
     "created": "2024-01-30T10:00:00Z",
     "status": "active"
   }

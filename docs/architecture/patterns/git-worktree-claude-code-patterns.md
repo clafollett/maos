@@ -26,15 +26,15 @@ maos/                           # Root directory
 ### 2. Branch Naming Convention for Multi-Agent Work
 
 ```
-# Pattern: wrktr/issue-<issue-num>/<agent-role>-<issue-summary>
-wrktr/issue-42/architect-microservices
-wrktr/issue-42/engineer-api
-wrktr/issue-42/tester-integration
-wrktr/issue-43/researcher-performance
+# Pattern: agent/issue-<issue-num>/<agent-role>-<issue-summary>
+agent/issue-42/architect-microservices
+agent/issue-42/engineer-api
+agent/issue-42/tester-integration
+agent/issue-43/researcher-performance
 
 # For parallel sub-tasks
-wrktr/issue-42/engineer-auth
-wrktr/issue-42/engineer-data
+agent/issue-42/engineer-auth
+agent/issue-42/engineer-data
 ```
 
 ### 3. Worktree Creation Pattern
@@ -55,7 +55,7 @@ def create_agent_worktree(agent_role, issue_id, task_desc, base_branch='main'):
     
     # Generate safe branch name
     safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_desc)[:20]
-    branch_name = f"wrktr/issue-{issue_id}/{agent_role}-{safe_desc}"
+    branch_name = f"agent/issue-{issue_id}/{agent_role}-{safe_desc}"
     worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{safe_desc}"
     
     # Create worktree
@@ -102,7 +102,7 @@ if __name__ == "__main__":
     {
       "id": "architect-001",
       "worktree": "worktrees/architect-issue-42-microservices",
-      "branch": "wrktr/issue-42/architect-microservices",
+      "branch": "agent/issue-42/architect-microservices",
       "files_modified": ["src/architecture/", "docs/design/"],
       "status": "active",
       "started": "2024-01-27T10:00:00Z"
@@ -110,7 +110,7 @@ if __name__ == "__main__":
     {
       "id": "engineer-001",
       "worktree": "worktrees/engineer-issue-42-api",
-      "branch": "wrktr/issue-42/engineer-api",
+      "branch": "agent/issue-42/engineer-api",
       "files_modified": ["src/api/", "tests/api/"],
       "status": "active",
       "started": "2024-01-27T10:05:00Z"
@@ -341,7 +341,7 @@ def launch_claude_agent(agent_role, issue_id, task_desc):
     
     # Create worktree
     safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_desc)[:20]
-    branch_name = f"wrktr/issue-{issue_id}/{agent_role}-{safe_desc}"
+    branch_name = f"agent/issue-{issue_id}/{agent_role}-{safe_desc}"
     worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{safe_desc}"
     
     # Create the worktree
