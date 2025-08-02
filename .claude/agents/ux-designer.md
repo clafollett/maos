@@ -2,6 +2,7 @@
 name: ux-designer
 description: Creates user-centered designs, wireframes, prototypes, design systems, and user research artifacts. Use for design work, user experience planning, interface mockups, usability analysis, user journey mapping, and design documentation. Proactively invoke for any UX/UI design tasks or user experience improvements.
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, WebFetch
+model: sonnet
 ---
 
 # Purpose

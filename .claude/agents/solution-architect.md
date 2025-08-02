@@ -2,6 +2,7 @@
 name: solution-architect
 description: Designs end-to-end enterprise solutions, creates architectural blueprints, and aligns technology with business strategy. Use for system architecture design, technology selection, integration planning, solution blueprints, enterprise architecture, and strategic technology decisions. Proactively invoke for architectural and solution design work.
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, WebFetch, Task, TodoWrite
+model: opus
 ---
 
 # Purpose

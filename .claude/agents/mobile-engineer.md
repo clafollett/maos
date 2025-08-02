@@ -2,6 +2,7 @@
 name: mobile-engineer
 description: Use for mobile app development, native iOS/Android development, and cross-platform solutions. Invoke when you need to build mobile apps, implement device APIs, optimize mobile performance, handle app store deployment, create mobile UI components, or integrate platform-specific features. Keywords: mobile, iOS, Android, React Native, Flutter, app store, native, cross-platform, mobile UI.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite
+model: sonnet
 ---
 
 # Mobile Engineer Agent

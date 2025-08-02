@@ -2,6 +2,7 @@
 name: tech-writer
 description: Creates technical documentation, API docs, user guides, tutorials, and design documentation. Use when needing to document features, write guides, explain complex concepts, create README files, or produce any written content for users or developers. Proactively invoke for documentation tasks, knowledge transfer, and content creation.
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, WebFetch
+model: sonnet
 ---
 
 # Purpose

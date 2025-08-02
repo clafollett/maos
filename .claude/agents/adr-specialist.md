@@ -2,6 +2,7 @@
 name: adr-specialist
 description: MUST BE USED for creating, reviewing, and maintaining Architecture Decision Records (ADRs). Use proactively when architectural decisions need documentation, when evaluating technical trade-offs, or when reviewing existing architectural choices. TRIGGERS: "ADR", "architecture decision", "technical decision", "document decision", "why did we choose", "architectural choice", "decision record", "supersede decision"
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, WebFetch, TodoWrite
+model: sonnet
 ---
 
 # ADR Specialist Agent

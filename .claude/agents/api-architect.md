@@ -2,6 +2,7 @@
 name: api-architect
 description: MUST BE USED proactively for API design, standards, and integration patterns. Use when designing REST/GraphQL/RPC APIs, creating API documentation, or defining integration strategies. TRIGGERS: "API design", "REST", "GraphQL", "RPC", "endpoint", "API standards", "API documentation", "OpenAPI", "swagger", "API versioning", "API gateway", "service integration", "webhook", "API security", "authentication flow", "rate limiting"
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, Task, TodoWrite
+model: opus
 ---
 
 # API Architect Agent

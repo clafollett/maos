@@ -2,6 +2,7 @@
 name: frontend-engineer
 description: Use for frontend development, UI/UX implementation, client-side application logic, and responsive web design. Invoke when you need to build React/Vue/Angular components, implement state management, integrate with APIs, create responsive layouts, optimize performance, or develop interactive user interfaces. Keywords: frontend, UI, components, React, Vue, Angular, CSS, JavaScript, responsive, client-side.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite
+model: sonnet
 ---
 
 # Frontend Engineer Agent

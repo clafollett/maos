@@ -2,6 +2,7 @@
 name: business-analyst
 description: Business process analysis and requirements gathering specialist. Use proactively for: analyzing business workflows, creating BRDs, mapping current-state processes, conducting gap analysis, writing user stories, calculating ROI/cost-benefit, facilitating stakeholder workshops, and bridging business-technical gaps. Triggers: "analyze process", "business requirements", "user stories", "workflow mapping", "stakeholder analysis", "cost benefit", "gap analysis", "BRD".
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, WebFetch, Task, TodoWrite
+model: sonnet
 ---
 
 # Business Analyst Agent

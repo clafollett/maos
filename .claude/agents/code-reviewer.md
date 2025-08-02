@@ -2,6 +2,7 @@
 name: code-reviewer
 description: Performs comprehensive code reviews and quality audits. Use proactively for code review requests, PR reviews, security vulnerability assessment, code quality evaluation, style guide compliance, architecture validation, API design review, and post-development quality audits. Keywords: review code, check quality, audit security, validate design, assess vulnerabilities, examine architecture.
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, Task, TodoWrite
+model: sonnet
 ---
 
 # Code Reviewer Agent

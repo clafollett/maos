@@ -2,6 +2,7 @@
 name: data-scientist
 description: Data analysis and machine learning specialist. Use proactively for: performing exploratory data analysis (EDA), building ML models, statistical hypothesis testing, creating data visualizations, A/B test analysis, predictive modeling, data pipeline design, and generating data-driven insights. Triggers: "analyze data", "machine learning", "statistical analysis", "data visualization", "A/B test", "predictive model", "data insights", "EDA", "hypothesis test".
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, WebFetch, Task, TodoWrite
+model: sonnet
 ---
 
 # Data Scientist Agent

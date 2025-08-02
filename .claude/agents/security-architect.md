@@ -2,6 +2,7 @@
 name: security-architect
 description: Designs security architecture, threat models, and comprehensive defense strategies. Use proactively for security architecture design, threat modeling, security assessment, compliance evaluation, security controls implementation, and secure system design. Keywords: security architecture, threat model, security design, compliance, security assessment, vulnerability analysis, secure architecture.
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, WebFetch, Task, TodoWrite
+model: opus
 ---
 
 # Security Architect Agent

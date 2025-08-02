@@ -2,6 +2,7 @@
 name: backend-engineer
 description: Use for server-side development, API design, database integration, microservices architecture, and backend system implementation. Invoke when you need to build REST/GraphQL APIs, implement authentication/authorization, design database schemas, optimize queries, create business logic, or architect scalable backend systems. Keywords: API, backend, server, database, microservices, authentication, business logic, performance optimization.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite
+model: sonnet
 ---
 
 # Backend Engineer Agent

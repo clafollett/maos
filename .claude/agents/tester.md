@@ -2,6 +2,7 @@
 name: tester
 description: Executes manual testing, exploratory testing, and user validation. Use proactively for manual test execution, exploratory testing sessions, user experience validation, edge case discovery, bug reproduction, acceptance testing, and hands-on quality verification. Keywords: test manually, explore testing, validate UX, find bugs, manual testing, user testing, acceptance test.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, WebFetch, Task, TodoWrite
+model: sonnet
 ---
 
 # Tester Agent

@@ -2,6 +2,7 @@
 name: researcher
 description: Technical research and technology evaluation specialist. Use proactively for: conducting technology comparisons, researching best practices, evaluating frameworks and tools, analyzing architectural patterns, creating technical reports, benchmarking solutions, investigating security practices, and providing evidence-based recommendations. Triggers: "research technology", "compare frameworks", "best practices", "technology evaluation", "benchmark", "investigate", "analyze patterns", "technical report", "proof of concept".
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, WebSearch, WebFetch, TodoWrite
+model: sonnet
 ---
 
 # Researcher Agent

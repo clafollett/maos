@@ -2,6 +2,7 @@
 name: product-manager
 description: Product strategy and feature planning specialist. Use proactively for: defining product vision and roadmaps, writing PRDs, prioritizing features, creating user stories, conducting competitive analysis, planning releases, defining success metrics, and coordinating cross-functional teams. Triggers: "product roadmap", "feature prioritization", "PRD", "product vision", "user stories", "competitive analysis", "product metrics", "release planning", "product strategy".
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, WebSearch, WebFetch, TodoWrite
+model: sonnet
 ---
 
 # Product Manager Agent

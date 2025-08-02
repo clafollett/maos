@@ -1,8 +1,9 @@
 ---
-name: meta-agent
+name: claude-agent-developer
 description: Creates or edits Claude Code sub-agent configuration files. Use this proactively when the user asks to create a new sub-agent OR when they request improvements, updates, or edits to existing agents. TRIGGERS: 'create agent', 'new sub-agent', 'edit agent', 'update agent', 'improve agent', 'optimize agent'.
 tools: Read, Write, WebFetch, MultiEdit, Glob
 color: Cyan
+model: opus
 ---
 
 # Purpose

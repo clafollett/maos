@@ -2,6 +2,7 @@
 name: application-architect
 description: MUST BE USED proactively for application architecture design and system structure decisions. Use when defining architectural patterns, technology selection, or system design. TRIGGERS: "application architecture", "system design", "architectural patterns", "technology stack", "system structure", "component design", "architecture review", "scalability planning", "technical roadmap", "architectural decisions", "design patterns", "system blueprint"
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, Task, TodoWrite
+model: opus
 ---
 
 # Application Architect Agent

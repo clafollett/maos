@@ -2,6 +2,7 @@
 name: prd-specialist
 description: Creates and reviews Product Requirements Documents (PRDs), translating business needs into detailed technical specifications. Use for writing PRDs, reviewing requirements, creating product specifications, defining user stories, validating feature completeness, and ensuring stakeholder alignment. Proactively invoke for any product requirements work.
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, WebFetch
+model: sonnet
 ---
 
 # Purpose

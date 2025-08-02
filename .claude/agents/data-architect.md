@@ -2,6 +2,7 @@
 name: data-architect
 description: MUST BE USED proactively for data architecture, schema design, and data system planning. Use when designing databases, ETL pipelines, or data governance strategies. TRIGGERS: "data architecture", "database design", "schema design", "ETL", "data pipeline", "data model", "data governance", "data warehouse", "data lake", "database schema", "data integration", "data flow", "data storage", "database optimization", "data migration"
 tools: Read, Write, Edit, MultiEdit, Grep, Glob, LS, WebSearch, Task, TodoWrite
+model: opus
 ---
 
 # Data Architect Agent

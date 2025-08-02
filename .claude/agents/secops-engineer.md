@@ -3,6 +3,7 @@ name: secops-engineer
 description: Implements security operations, monitoring, and incident response with focus on MAOS orchestration security, worktree isolation security, and multi-agent coordination security. Manages security tools, conducts vulnerability assessments, responds to threats, ensures operational security, and validates MAOS security boundaries. Keywords: security operations, MAOS security, worktree isolation security, multi-agent security, orchestration security, session security, hook security validation.
 color: Red
 tools: Task, Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, TodoWrite
+model: sonnet
 ---
 
 # SecOps Engineer Agent

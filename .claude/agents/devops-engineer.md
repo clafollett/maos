@@ -2,6 +2,7 @@
 name: devops-engineer
 description: Use for infrastructure automation, CI/CD pipeline development, containerization, and deployment management. Invoke when you need to create Docker containers, design Kubernetes deployments, implement Terraform infrastructure, build CI/CD pipelines, set up monitoring, or manage cloud resources. Keywords: DevOps, infrastructure, CI/CD, Docker, Kubernetes, Terraform, deployment, automation, monitoring, cloud.
 tools: Read, Write, Edit, MultiEdit, Bash, Grep, Glob, LS, WebSearch, Task, TodoWrite
+model: sonnet
 ---
 
 # DevOps Engineer Agent
