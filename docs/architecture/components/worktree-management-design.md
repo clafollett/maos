@@ -37,6 +37,7 @@ The main orchestration class that manages worktrees for agents:
 import json
 import subprocess
 import time
+import logging
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Optional, Any
@@ -116,10 +117,10 @@ def _handle_existing_branch(self, agent_type, session_id, workspace, branch):
             return str(workspace)
         else:
             # Log specific error for debugging
-            print(f"Failed to add worktree to existing branch: {result.stderr}")
+            logging.error(f"Failed to add worktree to existing branch: {result.stderr}")
             
     except subprocess.CalledProcessError as e:
-        print(f"Error adding worktree to existing branch {branch}: {e}")
+        logging.error(f"Error adding worktree to existing branch {branch}: {e}")
     
     # Strategy 2: Check if worktree already exists for this branch
     try:
@@ -134,7 +135,7 @@ def _handle_existing_branch(self, agent_type, session_id, workspace, branch):
                             f"Please remove the existing worktree first."
                         )
     except subprocess.CalledProcessError as e:
-        print(f"Warning: Could not check existing worktrees: {e}")
+        logging.warning(f"Could not check existing worktrees: {e}")
     
     # Strategy 3: Create unique branch name with timestamp
     timestamp = int(time.time())
@@ -313,10 +314,10 @@ def safe_prepare_workspace(self, agent_type: str, session_id: str) -> Optional[s
     try:
         return self.prepare_workspace(agent_type, session_id)
     except subprocess.CalledProcessError as e:
-        print(f"Git error creating worktree: {e.stderr}")
+        logging.error(f"Git error creating worktree: {e.stderr}")
         return None
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        logging.error(f"Unexpected error: {e}")
         return None
 ```
 

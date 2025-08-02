@@ -87,10 +87,14 @@ def main():
         # Simple workspace creation
         timestamp = int(time.time())
         workspace = f"worktrees/{agent_type}-{timestamp}"
-        subprocess.run([
-            "git", "worktree", "add", "-b", 
-            f"wrktr/session-{timestamp}/{agent_type}", workspace
-        ])
+        try:
+            subprocess.run([
+                "git", "worktree", "add", "-b", 
+                f"wrktr/session-{timestamp}/{agent_type}", workspace
+            ], check=True)
+        except subprocess.CalledProcessError as e:
+            print(f"Error: Failed to create git worktree: {e}", file=sys.stderr)
+            sys.exit(1)
         
         # Append workspace to prompt
         tool_input['prompt'] += f"\n\nWork in: {workspace}/"

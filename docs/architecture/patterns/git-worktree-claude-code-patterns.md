@@ -339,6 +339,9 @@ import sys
 from pathlib import Path
 import re
 
+# Constants
+MAX_DESC_LENGTH = 20
+
 def launch_claude_agent(agent_role, issue_id, task_description):
     """Launch a Claude Code agent in a dedicated worktree."""
     
