@@ -4,6 +4,17 @@
 
 MAOS (Multi-Agent Orchestration System) is a **backend orchestration system** that enhances Claude Code's native sub-agent capabilities through hooks and git worktree isolation. It is **NOT** a user-facing tool.
 
+## System Requirements
+
+- **Python**: 3.8 or higher (uses pathlib, json, subprocess, typing)
+- **Git**: 2.5+ (for worktree support)
+- **Claude Code**: Latest version with hook support
+- **Dependencies**: None - uses only Python standard library
+- **Operating Systems**: 
+  - Linux (native)
+  - macOS (native)
+  - Windows (via WSL or Git Bash)
+
 ## Key Principle: MAOS is Invisible
 
 Users never interact with MAOS directly. They simply:
