@@ -72,6 +72,7 @@ This guide shows how to implement MAOS as a backend orchestration system for Cla
 import json
 import sys
 import subprocess
+import time
 from pathlib import Path
 
 def main():
@@ -324,6 +325,10 @@ if __name__ == '__main__':
 
 ```python
 # .claude/hooks/utils/status.py
+import json
+import time
+from pathlib import Path
+
 def update_agent_progress(agent_type, status, session_id, details=None):
     """Update agent progress in session-specific coordination files"""
     session_dir = Path(f".maos/sessions/{session_id}")

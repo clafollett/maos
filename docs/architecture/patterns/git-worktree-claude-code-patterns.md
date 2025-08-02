@@ -50,11 +50,14 @@ from datetime import datetime
 from pathlib import Path
 import re
 
-def create_agent_worktree(agent_role, issue_id, task_desc, base_branch='main'):
+# Constants
+MAX_DESC_LENGTH = 20
+
+def create_agent_worktree(agent_role, issue_id, task_description, base_branch='main'):
     """Create a git worktree for a Claude Code agent."""
     
     # Generate safe branch name
-    safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_desc)[:20]
+    safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_description)[:MAX_DESC_LENGTH]
     branch_name = f"agent/issue-{issue_id}/{agent_role}-{safe_desc}"
     worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{safe_desc}"
     
@@ -340,7 +343,7 @@ def launch_claude_agent(agent_role, issue_id, task_desc):
     """Launch a Claude Code agent in a dedicated worktree."""
     
     # Create worktree
-    safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_desc)[:20]
+    safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_description)[:MAX_DESC_LENGTH]
     branch_name = f"agent/issue-{issue_id}/{agent_role}-{safe_desc}"
     worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{safe_desc}"
     

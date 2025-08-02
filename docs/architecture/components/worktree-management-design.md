@@ -101,31 +101,65 @@ def prepare_workspace(self, agent_type: str, session_id: str) -> str:
         )
 
 def _handle_existing_branch(self, agent_type, session_id, workspace, branch):
-    """Handle case where branch already exists"""
+    """Handle case where branch already exists
+    
+    This method provides robust error handling for git worktree creation failures.
+    It attempts multiple strategies to create a worktree when the branch exists.
+    """
     try:
-        # Try without -b flag
+        # Strategy 1: Try to add worktree to existing branch
         result = self.run_git_command([
             "worktree", "add", str(workspace), branch
         ])
         if result.returncode == 0:
             self.register_agent(agent_type, session_id, str(workspace))
             return str(workspace)
-    except subprocess.CalledProcessError:
-        pass
+        else:
+            # Log specific error for debugging
+            print(f"Failed to add worktree to existing branch: {result.stderr}")
+            
+    except subprocess.CalledProcessError as e:
+        print(f"Error adding worktree to existing branch {branch}: {e}")
     
-    # Fall back to unique naming
+    # Strategy 2: Check if worktree already exists for this branch
+    try:
+        worktree_list = self.run_git_command(["worktree", "list", "--porcelain"])
+        if worktree_list.returncode == 0:
+            # Parse worktree list to check if branch is already checked out
+            for line in worktree_list.stdout.split('\n'):
+                if line.startswith('branch ') and branch in line:
+                    raise RuntimeError(
+                        f"Branch '{branch}' is already checked out in another worktree. "
+                        f"Please remove the existing worktree first."
+                    )
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: Could not check existing worktrees: {e}")
+    
+    # Strategy 3: Create unique branch name with timestamp
     timestamp = int(time.time())
-    workspace = self.worktrees_dir / f"{agent_type}-{session_id}-{timestamp}"
-    branch = f"agent/session-{session_id}/{agent_type}-{timestamp}"
+    unique_workspace = self.worktrees_dir / f"{agent_type}-{session_id}-{timestamp}"
+    unique_branch = f"agent/session-{session_id}/{agent_type}-{timestamp}"
     
-    result = self.run_git_command([
-        "worktree", "add", "-b", branch, str(workspace)
-    ])
-    if result.returncode != 0:
-        raise RuntimeError(f"Failed to create worktree: {result.stderr}")
-    
-    self.register_agent(agent_type, session_id, str(workspace))
-    return str(workspace)
+    try:
+        result = self.run_git_command([
+            "worktree", "add", "-b", unique_branch, str(unique_workspace)
+        ])
+        if result.returncode != 0:
+            raise RuntimeError(
+                f"Failed to create worktree with unique branch '{unique_branch}': "
+                f"{result.stderr}\n"
+                f"This might indicate a git configuration issue or disk space problem."
+            )
+        
+        self.register_agent(agent_type, session_id, str(unique_workspace))
+        return str(unique_workspace)
+        
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"All worktree creation strategies failed for agent '{agent_type}' "
+            f"in session '{session_id}'. Last error: {e}\n"
+            f"Please check git configuration and disk space."
+        )
 ```
 
 ### 3. Agent Registration

@@ -49,6 +49,14 @@ from pathlib import Path
 from datetime import datetime
 from typing import Dict, List, Optional
 
+# Status constants
+STATUS_ACTIVE = "active"
+STATUS_COMPLETED = "completed"
+STATUS_IN_PROGRESS = "in_progress"
+STATUS_FAILED = "failed"
+STATUS_PENDING = "pending"
+STATUS_BLOCKED = "blocked"
+
 class SessionCoordinator:
     """Manages MAOS session lifecycle and metadata"""
     
@@ -67,7 +75,7 @@ class SessionCoordinator:
             "id": session_id,
             "created": datetime.now().isoformat(),
             "metadata": metadata or {},
-            "status": "active"
+            "status": STATUS_ACTIVE
         }
         
         # Initialize coordination files
@@ -95,7 +103,7 @@ class SessionCoordinator:
         if session_file.exists():
             with open(session_file, 'r+') as f:
                 data = json.load(f)
-                data["status"] = "completed"
+                data["status"] = STATUS_COMPLETED
                 data["ended"] = datetime.now().isoformat()
                 f.seek(0)
                 json.dump(data, f, indent=2)
@@ -123,7 +131,7 @@ class AgentCoordinator:
             "type": agent_type,
             "workspace": workspace,
             "registered": datetime.now().isoformat(),
-            "status": "active",
+            "status": STATUS_ACTIVE,
             "last_heartbeat": datetime.now().isoformat()
         }
         
@@ -147,7 +155,7 @@ class AgentCoordinator:
     def get_active_agents(self) -> List[Dict]:
         """Get all active agents"""
         agents = self._load_agents()
-        return [a for a in agents if a["status"] == "active"]
+        return [a for a in agents if a["status"] == STATUS_ACTIVE]
     
     def _load_agents(self) -> List[Dict]:
         """Load agents from file"""
@@ -183,7 +191,7 @@ class LockCoordinator:
             existing_lock = locks[file_path]
             # Check if lock is stale (>5 minutes old)
             lock_time = datetime.fromisoformat(existing_lock["locked_at"])
-            if (datetime.now() - lock_time).seconds > 300:
+            if (datetime.now() - lock_time).total_seconds() > 300:
                 # Stale lock, can override
                 pass
             else:
@@ -268,7 +276,7 @@ class ProgressCoordinator:
         
         summary = {
             "total_agents": len(progress),
-            "by_status": {"completed": 0, "in_progress": 0, "failed": 0, "pending": 0}
+            "by_status": {STATUS_COMPLETED: 0, STATUS_IN_PROGRESS: 0, STATUS_FAILED: 0, STATUS_PENDING: 0}
         }
         
         for agent_id, tasks in progress.items():
@@ -298,7 +306,45 @@ Ties all coordinators together:
 
 ```python
 class CoordinationService:
-    """Main coordination service that orchestrates all coordinators"""
+    """Main coordination service that orchestrates all coordinators
+    
+    The CoordinationService provides a unified interface for managing multi-agent
+    coordination in MAOS. It handles session lifecycle, agent registration,
+    file locking, and progress tracking through a file-based coordination system.
+    
+    Purpose:
+    - Coordinate multiple Claude Code agents working in parallel
+    - Prevent file conflicts through lock management
+    - Track agent progress and session status
+    - Provide visibility into multi-agent workflows
+    
+    Responsibilities:
+    - Session management (creation, tracking, cleanup)
+    - Agent coordination (registration, status, workspaces)
+    - File lock management (acquisition, release, conflict prevention)
+    - Progress tracking (task status, completion metrics)
+    
+    Usage:
+        # Initialize the service
+        coord_service = CoordinationService(project_root)
+        
+        # Start a new session
+        session_id = coord_service.start_session({"task": "Build feature"})
+        
+        # Get coordinators for the session
+        coords = coord_service.get_coordinators(session_id)
+        
+        # Coordinate file operations
+        if coord_service.coordinate_file_edit(agent_id, file_path):
+            # Perform file edit
+            coord_service.release_file(agent_id, file_path)
+    
+    Architecture:
+    - Uses JSON files for all coordination data
+    - Stores data in .maos/sessions/{session_id}/ directory
+    - Each session has agents.json, locks.json, progress.json files
+    - Designed for simplicity and transparency (no database required)
+    """
     
     def __init__(self, project_root: Path):
         self.project_root = project_root
@@ -335,13 +381,13 @@ class CoordinationService:
         # Try to acquire lock
         if coords["lock"].acquire_lock(file_path, agent_id):
             coords["progress"].update_progress(
-                agent_id, f"edit_{file_path}", "in_progress", 
+                agent_id, f"edit_{file_path}", STATUS_IN_PROGRESS, 
                 f"Editing {file_path}"
             )
             return True
         else:
             coords["progress"].update_progress(
-                agent_id, f"edit_{file_path}", "blocked", 
+                agent_id, f"edit_{file_path}", STATUS_BLOCKED, 
                 f"Waiting for lock on {file_path}"
             )
             return False
@@ -352,7 +398,7 @@ class CoordinationService:
         
         if coords["lock"].release_lock(file_path, agent_id):
             coords["progress"].update_progress(
-                agent_id, f"edit_{file_path}", "completed", 
+                agent_id, f"edit_{file_path}", STATUS_COMPLETED, 
                 f"Finished editing {file_path}"
             )
             return True
