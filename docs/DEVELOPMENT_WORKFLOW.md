@@ -29,10 +29,10 @@ Before any major implementation:
 
 ```markdown
 docs/architecture/decisions/
-├── 001-use-ddd-architecture.md
-├── 002-sqlite-over-redis.md
-├── 003-capnproto-for-ipc.md
-└── 004-event-sourcing-pattern.md
+├── 001-use-hook-based-orchestration.md
+├── 002-json-over-sqlite.md
+├── 003-git-worktree-isolation.md
+└── 004-session-based-coordination.md
 ```
 
 **ADR Template:**
@@ -55,32 +55,33 @@ What are the positive and negative outcomes?
 What other options did we evaluate?
 ```
 
-### 2. Domain Model Documentation
+### 2. Hook System Documentation
 
 ```markdown
-docs/domain-model/
-├── aggregates/
-│   ├── agent.md
-│   ├── task.md
-│   └── orchestration.md
-├── value-objects/
-│   ├── agent-id.md
-│   └── capability.md
-├── domain-events.md
-└── ubiquitous-language.md
+docs/hooks/
+├── lifecycle/
+│   ├── pre_tool_use.md
+│   ├── post_tool_use.md
+│   └── session_management.md
+├── patterns/
+│   ├── tool-interception.md
+│   ├── agent-isolation.md
+│   └── error-handling.md
+└── security/
+    └── dangerous-operations.md
 ```
 
 ### 3. Technical Specifications
 
 ```markdown
 docs/specifications/
-├── api/
-│   ├── cli-commands.md
-│   └── mcp-protocol.md
-├── persistence/
-│   └── database-schema.md
-└── messaging/
-    └── ipc-protocol.md
+├── hooks/
+│   ├── hook-api.md
+│   └── tool-handlers.md
+├── coordination/
+│   └── session-files.md
+└── agents/
+    └── agent-definitions.md
 ```
 
 ## GitHub Project Setup
@@ -105,10 +106,10 @@ docs/specifications/
 - `type:chore` - Maintenance
 
 **Component Labels:**
-- `component:domain` - Domain layer
-- `component:application` - Application layer
-- `component:infrastructure` - Infrastructure layer
-- `component:cli` - Presentation layer
+- `component:hooks` - Hook system
+- `component:agents` - Agent definitions
+- `component:orchestration` - Orchestration logic
+- `component:testing` - Test infrastructure
 
 **Priority Labels:**
 - `priority:critical` - Must have
@@ -124,22 +125,22 @@ docs/specifications/
 ### 3. Milestones
 
 ```
-v0.1.0 - Domain Foundation
-├── Agent Aggregate
-├── Task Aggregate
-├── Basic Event System
-└── Domain Tests
+v0.1.0 - Hook Foundation
+├── Basic hook system
+├── Tool interception
+├── Session management
+└── Integration tests
 
-v0.2.0 - Application Layer
-├── Use Cases
-├── Command/Query Handlers
-└── Application Tests
+v0.2.0 - Agent Orchestration
+├── Worktree isolation
+├── Multi-agent coordination
+└── Lock management
 
-v0.3.0 - Infrastructure
-├── SQLite Persistence
-├── IPC Messaging
-├── Agent Adapters
-└── Infrastructure Tests
+v0.3.0 - Production Ready
+├── Performance optimization
+├── Comprehensive testing
+├── Documentation
+└── Error recovery
 ```
 
 ## Issue Creation Standards
@@ -151,7 +152,7 @@ v0.3.0 - Infrastructure
 name: Development Task
 about: Standard template for development tasks
 title: '[Component] Brief description'
-labels: 'type:feature, component:domain, priority:high'
+labels: 'type:feature, component:hooks, priority:high'
 assignees: ''
 ---
 
@@ -161,48 +162,44 @@ Brief description of what needs to be implemented.
 ## Acceptance Criteria
 - [ ] Specific, measurable outcome 1
 - [ ] Specific, measurable outcome 2
-- [ ] All tests pass with >90% coverage
+- [ ] All tests pass
 - [ ] Documentation updated
 
 ## Technical Specification
 
-### Domain Model (if applicable)
-```rust
-// Example aggregate structure
-pub struct Agent {
-    id: AgentId,
-    name: String,
-    capabilities: Vec<Capability>,
-    status: AgentStatus,
-}
+### Hook Implementation (if applicable)
+```python
+def pre_tool_use(tool_name, tool_args):
+    """Intercept tool before execution"""
+    # Implementation details
 ```
 
-### API Design (if applicable)
-```rust
-// Public API
-impl Agent {
-    pub fn register(id: AgentId, name: String, capabilities: Vec<Capability>) -> Self;
-    pub fn assign_task(&mut self, task: &Task) -> Result<(), DomainError>;
+### Coordination Files (if applicable)
+```json
+{
+  "session_id": "sess-123",
+  "agents": [],
+  "locks": {}
 }
 ```
 
 ### Test Scenarios
 1. **Happy Path**
-   - Test: Agent can be registered with valid data
-   - Expected: Agent created with Ready status
+   - Test: Hook intercepts tool correctly
+   - Expected: Tool modified as intended
 
 2. **Error Cases**
-   - Test: Cannot register agent with empty name
-   - Expected: Returns validation error
+   - Test: Invalid tool arguments
+   - Expected: Graceful error handling
 
 3. **Edge Cases**
-   - Test: Agent with no capabilities
-   - Expected: Valid but cannot accept tasks
+   - Test: Concurrent hook execution
+   - Expected: Thread-safe operation
 
 ## Implementation Notes
-- Follow DDD principles
-- Use TDD Red/Green/Refactor cycle
-- Consider event sourcing for state changes
+- Follow Python best practices
+- Use TDD approach
+- Consider concurrency implications
 
 ## Dependencies
 - Blocked by: #[issue number]
@@ -237,11 +234,11 @@ Why are we building this?
 How will we implement it?
 
 ## Child Issues
-- [ ] #1 - Setup domain model
-- [ ] #2 - Implement use cases
-- [ ] #3 - Add persistence
-- [ ] #4 - Create CLI commands
-- [ ] #5 - Integration tests
+- [ ] #1 - Setup hook infrastructure
+- [ ] #2 - Implement tool handlers
+- [ ] #3 - Add session management
+- [ ] #4 - Create integration tests
+- [ ] #5 - Write documentation
 
 ## Acceptance Criteria
 - [ ] All child issues complete
@@ -279,8 +276,8 @@ graph LR
 Format: `<type>/issue-<number>/<brief-description>`
 
 Examples:
-- `feature/issue-1/agent-aggregate`
-- `fix/issue-23/task-assignment`
+- `feature/issue-1/hook-interception`
+- `fix/issue-23/worktree-cleanup`
 - `docs/issue-45/api-specification`
 
 ### 4. Commit Standards
@@ -291,64 +288,37 @@ Use semantic commit messages with GitHub issue linking:
 **Format:** `<type>: <description> (#<issue_number>)`
 
 **Types:**
-- `feat:` - New features (minor version: 0.1.0 → 0.2.0)
-- `fix:` - Bug fixes (patch version: 0.1.0 → 0.1.1)
-- `chore:` - Maintenance tasks (no version bump)
-- `docs:` - Documentation updates (no version bump)
-- `refactor:` - Code refactoring (no version bump)
-- `test:` - Adding/updating tests (no version bump)
-- `ci:` - CI/CD pipeline changes (no version bump)
-- `perf:` - Performance improvements (patch version)
-- `style:` - Code formatting/style changes (no version bump)
-- `build:` - Build system changes (no version bump)
+- `feat:` - New features
+- `fix:` - Bug fixes
+- `chore:` - Maintenance tasks
+- `docs:` - Documentation updates
+- `refactor:` - Code refactoring
+- `test:` - Adding/updating tests
+- `perf:` - Performance improvements
+- `style:` - Code formatting/style changes
 
-**Breaking Changes:** Add `BREAKING CHANGE:` in commit body for major version bumps (0.1.0 → 1.0.0)
+**Breaking Changes:** Add `BREAKING CHANGE:` in commit body for major changes
 
 > **Note:** Only use automatic closing keywords (e.g., `Closes #57`) in the *final* commit or pull-request description when the issue is *fully resolved*. For intermediate work, reference the issue without closing it, e.g., `Relates to #57`, `Refs #57`, or simply `(#57)`.
 
 **Examples:**
-- `feat: implement agent registration system (#15)`
-- `fix: resolve task assignment race condition (#23)`
-- `chore: update dependencies to latest versions (#8)`
-- `docs: add API documentation for orchestration (#42)`
-
-#### Commit Requirements
-Every commit must:
-1. **Reference the issue**: Include issue number in commit message
-2. **Pass all tests**: Run pre-commit checks before committing
-3. **Include relevant documentation updates**: Keep docs in sync with code changes
-4. **Be atomic**: Each commit should represent a single logical change
-5. **Have clear description**: Explain what and why, not just what changed
+- `feat: implement pre_tool_use hook (#15)`
+- `fix: resolve worktree creation race condition (#23)`
+- `chore: update dependencies (#8)`
+- `docs: add hook documentation (#42)`
 
 ### 5. Branch Protection Rules
 
 **Repository Protection Settings:**
 - **No direct pushes** - All changes via pull requests
-- **Required status checks (blocking):**
-  - `Test Suite (ubuntu-latest, stable)`
-  - `Test Suite (macos-latest, stable)`
-  - `Linting`
-  - `Security Audit`
+- **Required status checks:**
+  - `Python Tests`
+  - `Integration Tests`
+  - `Linting (flake8/black)`
   
-  All other checks must pass but are non-blocking.
 - **Required reviews** - At least 1 approving review
 - **Dismiss stale reviews** - Re-approval required after new commits
 - **Require conversation resolution** - All review comments must be resolved
-
-### 6. Release Process (Automated)
-
-**Automated Release Pipeline:**
-1. **Commit with conventional messages** during development
-2. **Push to any branch** → `release-plz` creates/updates Release PR automatically
-3. **Merge Release PR into `main`** → tag created, release job runs
-4. **GitHub Actions** builds cross-platform binaries automatically
-5. **Binaries published** to GitHub Releases with checksums
-
-**Release Artifacts:**
-- Cross-platform binaries (Linux, macOS, Windows)
-- SHA256 checksums for verification
-- Automated changelog generation
-- Docker images (future consideration)
 
 ## Code Review Process
 
@@ -370,13 +340,13 @@ Closes #[issue number]
 ## Testing
 - [ ] Unit tests pass
 - [ ] Integration tests pass
-- [ ] Coverage >90%
+- [ ] Manual testing completed
 
 ## Checklist
-- [ ] Code follows DDD principles
+- [ ] Code follows Python conventions
 - [ ] Tests follow TDD approach
 - [ ] Documentation updated
-- [ ] No direct domain dependencies
+- [ ] No hardcoded paths
 - [ ] Logging added appropriately
 
 ## Screenshots (if applicable)
@@ -389,57 +359,53 @@ Closes #[issue number]
 - All CI/CD checks pass
 - Test coverage maintained
 - No linting errors
-- Security scan clean
 
 **Manual Review Points:**
-- DDD principles followed
-- Clean architecture maintained
-- Tests comprehensive
-- Code idiomatic
+- Clean code principles followed
+- Error handling comprehensive
+- Tests meaningful
 - Documentation clear
 
 ### 3. Review Assignment
 
 - Primary developer: Implements the issue
-- Code reviewer: Different agent (e.g., o3 high reasoning)
+- Code reviewer: Different agent
 - Final approval: Repository owner
 
 ## Documentation Requirements
 
 ### 1. Code Documentation
 
-```rust
-/// Registers a new agent in the system.
-/// 
-/// # Arguments
-/// * `id` - Unique identifier for the agent
-/// * `name` - Human-readable name
-/// * `capabilities` - List of agent capabilities
-/// 
-/// # Returns
-/// * `Self` - The newly created agent
-/// 
-/// # Example
-/// ```
-/// let agent = Agent::register(
-///     AgentId::new(),
-///     "claude-1".to_string(),
-///     vec![Capability::CodeGeneration]
-/// );
-/// assert_eq!(agent.status(), AgentStatus::Ready);
-/// ```
-pub fn register(id: AgentId, name: String, capabilities: Vec<Capability>) -> Self {
-    // Implementation
-}
+```python
+def register_agent(session_id: str, agent_name: str, worktree_path: str) -> dict:
+    """
+    Register a new agent in the session.
+    
+    Args:
+        session_id: Unique session identifier
+        agent_name: Name of the agent to register
+        worktree_path: Path to agent's git worktree
+        
+    Returns:
+        dict: Agent registration details
+        
+    Raises:
+        ValueError: If agent already registered
+        
+    Example:
+        >>> register_agent("sess-123", "backend-engineer", "/tmp/worktrees/backend")
+        {'agent_id': 'backend-engineer', 'status': 'active'}
+    """
+    # Implementation
 ```
 
 ### 2. Architecture Documentation
 
 Each component must have:
 - README.md explaining purpose
-- Architecture diagram
-- API documentation
-- Example usage
+- Architecture diagram (if complex)
+- Usage examples
+- Configuration options
 
 ### 3. Decision Documentation
 
@@ -463,7 +429,7 @@ Issue is ready for development when:
 
 Issue is complete when:
 - [ ] All acceptance criteria met
-- [ ] Tests written and passing (>90% coverage)
+- [ ] Tests written and passing
 - [ ] Documentation updated
 - [ ] Code reviewed and approved
 - [ ] CI/CD checks pass
@@ -479,226 +445,79 @@ Version is ready for release when:
 - [ ] CHANGELOG updated
 - [ ] Release notes prepared
 
-## Planning Documents
+## Python Development Standards
 
-### Required Plans Before Coding
+### File Organization
+```python
+# 1. Standard library
+import json
+import os
+from pathlib import Path
 
-1. **Project Roadmap** (`docs/ROADMAP.md`)
-   - Milestone definitions
-   - Timeline estimates
-   - Dependency mapping
+# 2. Third-party imports (if any)
+import pytest
 
-2. **Technical Architecture** (`docs/ARCHITECTURE.md`)
-   - System design
-   - Component interactions
-   - Technology choices
-
-3. **API Specification** (`docs/API.md`)
-   - Command structure
-   - Input/output formats
-   - Error handling
-
-4. **Testing Strategy** (`docs/TESTING.md`)
-   - Test types and coverage
-   - Testing tools
-   - Performance benchmarks
-
-## Workflow Integration
-
-This workflow integrates with [AGENT_INSTRUCTIONS.md](./AGENT_INSTRUCTIONS.md) by:
-
-1. **Enforcing TDD** - Tests required before implementation
-2. **Maintaining DDD** - Clear separation of concerns
-3. **Following Git Flow** - Structured branching and merging
-4. **Ensuring Quality** - Multiple review checkpoints
-
-## Architecture & Design Principles
-
-### Domain-Driven Design & Clean Architecture
-
-#### Core Principles (Big Blue Book - Eric Evans)
-- **Domain Model First** - Business logic drives the design
-- **Ubiquitous Language** - Same terms used by domain experts and code
-- **Bounded Context** - Clear boundaries between different domains
-- **Entities** - Objects with identity and lifecycle (own their state)
-- **Value Objects** - Immutable objects representing concepts
-- **Domain Services** - Stateless operations that don't belong to entities
-
-#### Clean Architecture Layers
-```
-┌─────────────────┐
-│   Presentation  │ ← CLI, Web UI (main.rs, handlers)
-├─────────────────┤
-│   Application   │ ← Use cases, orchestration
-├─────────────────┤
-│     Domain      │ ← Business logic, entities, value objects
-├─────────────────┤
-│ Infrastructure  │ ← External services, databases, transport
-└─────────────────┘
+# 3. Local imports
+from .utils import get_project_root
+from .handlers import ToolHandler
 ```
 
-**Rules:**
-- **Domain layer** has NO dependencies on outer layers
-- **Entities** manage their own state and lifecycle  
-- **No anemic domain models** - behavior belongs with data
-- **Dependency inversion** - abstractions don't depend on details
+### Testing Standards
 
-#### TDD for Domain Modeling
-1. **RED**: Write failing test describing domain behavior
-2. **GREEN**: Implement minimal domain model to pass test
-3. **REFACTOR**: Extract value objects, improve domain design
-4. **Domain Test Structure**:
-   ```rust
-   #[cfg(test)]
-   mod domain_tests {
-       use super::*;
-       
-       #[tokio::test]
-       async fn test_entity_lifecycle() { /* Test state transitions */ }
-       
-       #[tokio::test] 
-       async fn test_business_invariants() { /* Test domain rules */ }
-       
-       #[tokio::test]
-       async fn test_value_object_immutability() { /* Test value objects */ }
-   }
-   ```
-
-### Architecture Overview
-
-MAOS is a multi-agent orchestration system built with Domain-Driven Design principles, supporting various AI agents (Claude, GPT, Ollama, custom) with persistent task management and high-performance IPC.
-
-#### Core Flow
-```
-Agent Registration → Task Creation → Capability Matching → Task Assignment → Execution → Result Collection
-```
-
-#### Key Components
-- **Domain Layer** - Pure business logic (aggregates, value objects, domain services)
-- **Application Layer** - Use cases and orchestration logic
-- **Infrastructure Layer** - Persistence, messaging, agent adapters
-- **Presentation Layer** - CLI interface
-
-#### Project Structure
-- `crates/maos-domain/` - Domain models and business logic
-- `crates/maos-app/` - Use cases and application services
-- `crates/maos-io/` - Technical implementations (I/O operations)
-- `crates/maos/` - Main binary (CLI and MCP server)
-
-## Coding Standards
-
-### Test-First Development (TDD)
-- **MUST** Write failing tests before implementation
-- **MUST** Implement simplest solution to pass tests
-- **MUST** Refactor to make code idiomatic
-- **MUST** Cover: happy path, errors, edge cases
-- **MUST** Mock external services
-- **MUST** Keep tests in the same module as the code under test
-
-### Rust Coding Standards
-
-#### File Organization
-```rust
-// 1. Standard library
-use std::collections::HashMap;
-
-// 2. Crate-local
-use crate::config::ApiConfig;
-
-// 3. External crates (alphabetized)
-use axum::{extract::State, http::StatusCode};
-use serde::{Deserialize, Serialize};
-```
-
-#### Naming Conventions
-- `snake_case` - functions, variables
-- `CamelCase` - types, structs, enums
-- `SCREAMING_SNAKE_CASE` - constants
-
-#### String Formatting (Rust 1.88.0+)
-**MUST use inline format strings** for improved performance and readability:
-```rust
-// Good - Rust 1.88.0+ style (required by clippy::uninlined_format_args)
-println!("Would orchestrate task: {task}");
-info!("Processing agent: {agent_id}");
-error!("Failed to connect to {endpoint}");
-
-// Bad - Legacy format string style (deprecated)
-println!("Would orchestrate task: {}", task);
-info!("Processing agent: {}", agent_id);
-error!("Failed to connect to {}", endpoint);
-```
-
-**Clippy Rule:** This is enforced by `clippy::uninlined_format_args` which became a default warning in Rust 1.88.0. Our CI treats clippy warnings as errors (`-D warnings`), so this style is mandatory.
-
-#### Logging Standards
-- **ALWAYS use the `tracing` crate** for all logging
-- **NEVER use `println!`, `eprintln!`, or `dbg!`** in production code
-- **Log levels:**
-  - `error!` - Errors that need immediate attention
-  - `warn!` - Important warnings that don't stop execution
-  - `info!` - High-level operational information
-  - `debug!` - Detailed information for debugging
-  - `trace!` - Very detailed trace information
-- **Include context** in log messages with structured fields:
-  ```rust
-  use tracing::{debug, error, info, warn};
-  
-  // Good - structured logging with context
-  info!(template_path = %path.display(), "Loading template");
-  error!(error = %e, file = ?file_path, "Failed to read template");
-  
-  // Bad - no context, uses println
-  println!("Loading template");
-  eprintln!("Error: {}", e);
-  ```
-
-#### Method Organization
-**Public methods:** 
-- Place immediately after struct/impl declaration
-- Order alphabetically 
-- Full documentation with examples, arguments, returns, errors
-
-**Private methods:**
-- Place at bottom of impl block
-- Order alphabetically
-- Simple summary comments only (single line preferred)
-
-**Example structure:**
-```rust
-impl MyStruct {
-    // Public methods (alphabetical)
-    pub fn create() -> Self { ... }
-    pub fn process(&self) -> Result<()> { ... }
-    pub fn validate(&self) -> bool { ... }
+#### Test Structure
+```python
+class TestHookSystem:
+    """Test hook system functionality"""
     
-    // Private methods (alphabetical)  
-    fn extract_data(&self) -> Vec<Data> { ... }
-    fn parse_input(&self, input: &str) -> Result<Value> { ... }
-    fn sanitize_output(&self, data: &Data) -> String { ... }
-}
+    def test_tool_interception(self):
+        """Test that tools are intercepted correctly"""
+        # Given
+        tool_name = "Task"
+        tool_args = {"subagent_type": "backend-engineer"}
+        
+        # When
+        result = pre_tool_use(tool_name, tool_args)
+        
+        # Then
+        assert result["intercepted"] is True
+        assert "worktree" in result
+    
+    def test_error_handling(self):
+        """Test graceful error handling"""
+        # Test implementation
+```
+
+### Logging Standards
+```python
+import logging
+
+logger = logging.getLogger(__name__)
+
+# Good - structured logging with context
+logger.info("Loading hook configuration", extra={"hook": "pre_tool_use"})
+logger.error("Failed to create worktree", exc_info=True, extra={"agent": agent_name})
+
+# Bad - no context
+print("Loading configuration")
 ```
 
 ## Development Commands
 
 ### Quick Commands Reference
 ```bash
-# Pre-commit check
-cargo fmt --all -- --check && cargo clippy --all-targets --all-features -- -D warnings && cargo test
+# Run tests
+python -m pytest tests/
+python -m pytest tests/test_hooks.py -v
 
-# Builds
-cargo build             # Debug build
-cargo build --release   # Release build
+# Linting
+black .
+flake8 .
 
-# Tests
-cargo test --all-features --lib     # Unit tests
-cargo test --all-features --doc     # Doc tests
-cargo test --test integration   # Integration tests
+# Integration tests
+./test_integration.py
 
-# Run MAOS
-cargo run -- agent register     # Register a new agent
-cargo run -- task create        # Create a new task
-cargo run -- orchestrate        # Start orchestration
+# Manual testing
+python .claude/hooks/pre_tool_use.py
 ```
 
 ## Getting Started
