@@ -14,7 +14,7 @@ graph TB
         MO --> AM[Agent Manager]
         MO --> WM[Worktree Manager]
         MO --> CS[Coordination Service]
-        MO --> SH[Security Hooks<br/>Rust]
+        MO --> SH[Security Hooks<br/>Python]
     end
     
     subgraph "Execution Layer"
@@ -109,8 +109,8 @@ graph LR
     end
     
     subgraph "Hook System"
-        IV --> PRE[PreTool Hooks<br/>Rust]
-        TU --> POST[PostTool Hooks<br/>Rust]
+        IV --> PRE[PreTool Hooks<br/>Python]
+        TU --> POST[PostTool Hooks<br/>Python]
         
         PRE --> PE[Policy Engine]
         PE --> PC[Policy Cache]
@@ -297,7 +297,7 @@ graph TB
 graph LR
     subgraph "Fast Path Components"
         FP[Fast Path]
-        RH[Rust Hooks<br/>~1-5ms]
+        RH[Python Hooks<br/>~5-20ms]
         MC[Memory Cache<br/>~0.1ms]
         ZC[Zero-Copy JSON<br/>~1ms]
         
