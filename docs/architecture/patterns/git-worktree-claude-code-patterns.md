@@ -51,15 +51,17 @@ from pathlib import Path
 import re
 
 # Constants
+# Limit task description in branch/worktree names to 20 characters for readability and to
+# avoid overly long filesystem paths.
 MAX_DESC_LENGTH = 20
 
 def create_agent_worktree(agent_role, issue_id, task_description, base_branch='main'):
     """Create a git worktree for a Claude Code agent."""
     
     # Generate safe branch name
-    safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_description)[:MAX_DESC_LENGTH]
-    branch_name = f"agent/issue-{issue_id}/{agent_role}-{safe_desc}"
-    worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{safe_desc}"
+    sanitized_description = re.sub(r'[^a-zA-Z0-9-]', '-', task_description)[:MAX_DESC_LENGTH]
+    branch_name = f"agent/issue-{issue_id}/{agent_role}-{sanitized_description}"
+    worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{sanitized_description}"
     
     # Create worktree
     subprocess.run([
@@ -346,9 +348,9 @@ def launch_claude_agent(agent_role, issue_id, task_description):
     """Launch a Claude Code agent in a dedicated worktree."""
     
     # Create worktree
-    safe_desc = re.sub(r'[^a-zA-Z0-9-]', '-', task_description)[:MAX_DESC_LENGTH]
-    branch_name = f"agent/issue-{issue_id}/{agent_role}-{safe_desc}"
-    worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{safe_desc}"
+    sanitized_description = re.sub(r'[^a-zA-Z0-9-]', '-', task_description)[:MAX_DESC_LENGTH]
+    branch_name = f"agent/issue-{issue_id}/{agent_role}-{sanitized_description}"
+    worktree_path = f"./worktrees/{agent_role}-issue-{issue_id}-{sanitized_description}"
     
     # Create the worktree
     subprocess.run([

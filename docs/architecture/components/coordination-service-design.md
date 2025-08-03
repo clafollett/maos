@@ -57,6 +57,9 @@ STATUS_FAILED = "failed"
 STATUS_PENDING = "pending"
 STATUS_BLOCKED = "blocked"
 
+# Lock timeout constant
+STALE_LOCK_TIMEOUT_SECONDS = 300  # 5 minutes
+
 class SessionCoordinator:
     """Manages MAOS session lifecycle and metadata"""
     
@@ -178,7 +181,7 @@ Manages file locks to prevent conflicts:
 class LockCoordinator:
     """Manages file locks between agents"""
     
-    def __init__(self, session_dir: Path, stale_lock_seconds: int = 300):
+    def __init__(self, session_dir: Path, stale_lock_seconds: int = STALE_LOCK_TIMEOUT_SECONDS):
         self.session_dir = session_dir
         self.locks_file = session_dir / "locks.json"
         self.stale_lock_seconds = stale_lock_seconds  # Default 5 minutes
@@ -191,8 +194,14 @@ class LockCoordinator:
         if file_path in locks:
             existing_lock = locks[file_path]
             # Check if lock is stale (>stale_lock_seconds old)
-            lock_time = datetime.fromisoformat(existing_lock["locked_at"])
-            if (datetime.now(lock_time.tzinfo) - lock_time).total_seconds() > self.stale_lock_seconds:
+            try:
+                lock_time = datetime.fromisoformat(existing_lock["locked_at"])
+                is_stale = (datetime.now(lock_time.tzinfo) - lock_time).total_seconds() > self.stale_lock_seconds
+            except (ValueError, TypeError) as e:
+                logging.warning(f"Invalid lock timestamp for {file_path}: {existing_lock.get('locked_at')!r} ({e}). Treating as stale lock.")
+                is_stale = True
+            
+            if is_stale:
                 # Stale lock, can override
                 pass
             else:

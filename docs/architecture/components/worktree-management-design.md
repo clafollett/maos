@@ -147,9 +147,10 @@ def _handle_existing_branch(self, agent_type, session_id, workspace, branch):
             "worktree", "add", "-b", unique_branch, str(unique_workspace)
         ])
         if result.returncode != 0:
+            stderr_msg = result.stderr if result.stderr else "No error output from git."
             raise RuntimeError(
                 f"Failed to create worktree with unique branch '{unique_branch}': "
-                f"{result.stderr}\n"
+                f"{stderr_msg}\n"
                 f"This might indicate a git configuration issue or disk space problem."
             )
         
