@@ -317,10 +317,13 @@ def weekly_maintenance(days_old=14):
             
             # Remove old worktrees
             if created:
-                created_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
-                if created_date < cutoff_date:
-                    print(f"    → Removing old worktree (older than {days_old} days)")
-                    subprocess.run(["git", "worktree", "remove", worktree_path])
+                try:
+                    created_date = datetime.fromisoformat(created.replace('Z', '+00:00'))
+                    if created_date < cutoff_date:
+                        print(f"    → Removing old worktree (older than {days_old} days)")
+                        subprocess.run(["git", "worktree", "remove", worktree_path])
+                except (ValueError, TypeError) as e:
+                    print(f"    → Warning: Invalid timestamp format: {created} - {e}")
 
 if __name__ == "__main__":
     import sys

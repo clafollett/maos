@@ -290,7 +290,7 @@ def main():
     elif tool_name in ["Edit", "Write", "MultiEdit"]:
         file_path = tool_input.get('file_path', '')
         lock = coordinator.check_file_lock(file_path)
-        if lock and lock['agent'] != os.environ.get('CLAUDE_AGENT_ID'):
+        if isinstance(lock, dict) and 'agent' in lock and lock['agent'] != os.environ.get('CLAUDE_AGENT_ID'):
             print(f"⚠️  {file_path} is being edited by {lock['agent']}", 
                   file=sys.stderr)
     

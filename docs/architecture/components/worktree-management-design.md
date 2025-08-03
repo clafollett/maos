@@ -129,11 +129,13 @@ def _handle_existing_branch(self, agent_type, session_id, workspace, branch):
             # Parse worktree list to check if branch is already checked out
             if worktree_list.stdout is not None:
                 for line in worktree_list.stdout.split('\n'):
-                    if line.startswith('branch ') and branch in line:
-                        raise RuntimeError(
-                            f"Branch '{branch}' is already checked out in another worktree. "
-                            f"Please remove the existing worktree first."
-                        )
+                    if line.startswith('branch refs/heads/'):
+                        branch_name = line[len('branch refs/heads/'):].strip()
+                        if branch_name == branch:
+                            raise RuntimeError(
+                                f"Branch '{branch}' is already checked out in another worktree. "
+                                f"Please remove the existing worktree first."
+                            )
     except subprocess.CalledProcessError as e:
         logging.warning(f"Could not check existing worktrees: {e}")
     

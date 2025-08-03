@@ -46,7 +46,7 @@ Manages session lifecycle and metadata:
 import json
 import time
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 # Status constants
@@ -196,9 +196,15 @@ class LockCoordinator:
             # Check if lock is stale (>stale_lock_seconds old)
             try:
                 lock_time = datetime.fromisoformat(existing_lock["locked_at"])
-                is_stale = (datetime.now(lock_time.tzinfo) - lock_time).total_seconds() > self.stale_lock_seconds
-            except (ValueError, TypeError) as e:
-                logging.warning(f"Invalid lock timestamp for {file_path}: {existing_lock.get('locked_at')!r} ({e}). Treating as stale lock.")
+                if lock_time.tzinfo is None:
+                    # Assume UTC if no timezone info
+                    lock_time = lock_time.replace(tzinfo=timezone.utc)
+                is_stale = (datetime.now(timezone.utc) - lock_time).total_seconds() > self.stale_lock_seconds
+            except ValueError as e:
+                logging.warning(f"Malformed lock timestamp for {file_path}: {existing_lock.get('locked_at')!r} ({e}). Treating as stale lock.")
+                is_stale = True
+            except TypeError as e:
+                logging.warning(f"Lock timestamp for {file_path} has wrong type: {existing_lock.get('locked_at')!r} ({e}). Treating as stale lock.")
                 is_stale = True
             
             if is_stale:
