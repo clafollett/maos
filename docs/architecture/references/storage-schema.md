@@ -9,7 +9,7 @@ This document consolidates all storage-related schemas and file system structure
 MAOS uses two SQLite databases:
 
 1. **Global Instance Database** (`~/.maos/instances.db`) - Tracks all running MAOS instances
-2. **Project Database** (`~/.maos/projects/{workspace-hash}/project.db`) - Project-specific data
+2. **Project Database** (`~/.maos/projects/{workspace-slug}/project.db`) - Project-specific data
 
 ### Global Instance Database Schema
 
@@ -130,9 +130,9 @@ CREATE INDEX idx_events_session_time ON session_events(session_id, timestamp);
 ~/.maos/
 ├── instances.db                 # Global instance tracking database
 ├── instances/
-│   └── {workspace-hash}-{instance-id}.lock  # Unique lock per MCP server instance
+│   └── {workspace-slug}-{instance-id}.lock  # Unique lock per MCP server instance
 ├── projects/
-│   ├── {workspace-hash}/        # Hash of project path for uniqueness
+│   ├── {workspace-slug}/        # Hash of project path for uniqueness
 │   │   ├── project.db          # Project-specific SQLite database
 │   │   ├── config.json         # Project-specific settings
 │   │   ├── sessions/
@@ -232,7 +232,7 @@ Inter-agent messages follow this structure:
 
 1. **Database Locations**:
    - Global instance DB: `~/.maos/instances.db`
-   - Project DB: `~/.maos/projects/{workspace-hash}/project.db`
+   - Project DB: `~/.maos/projects/{workspace-slug}/project.db`
 
 2. **Workspace Isolation**:
    - Each agent gets its own workspace directory
