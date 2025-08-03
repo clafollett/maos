@@ -1,12 +1,58 @@
 # MAOS - Multi-Agent Orchestration System
 
-**Backend orchestration for Claude Code's native sub-agent capabilities through hooks and git worktree isolation.**
+**A high-performance Rust CLI that enhances Claude Code with parallel AI development capabilities.**
 
 ## What is MAOS?
 
-MAOS (Multi-Agent Orchestration System) is a lightweight backend system that enhances Claude Code's ability to work with multiple AI agents in parallel. It operates entirely through Claude Code's hook system, providing automatic workspace isolation and coordination for sub-agents.
+MAOS is a compiled Rust binary that replaces fragile Python hook scripts with a fast, reliable CLI. It enhances Claude Code's ability to work with multiple AI agents in parallel through automatic workspace isolation and intelligent coordination.
 
-**Key Point**: MAOS is invisible to end users. They simply use Claude Code normally, and MAOS handles the backend orchestration automatically.
+**Key Features**:
+- 🚀 **Blazing Fast**: Target <10ms execution (currently ~50-200ms with Python bootstrap)
+- 🔒 **Rock Solid**: Compiled binary that can't be accidentally broken
+- 📦 **Easy Install**: `npx @maos/cli` or `brew install maos` (coming soon)
+- 👻 **Invisible**: Users interact with Claude Code normally
+
+> **Bootstrap Phase**: MAOS currently uses Python scripts to implement all features while we build the Rust CLI. This means you can use MAOS today! The Python implementation in `.claude/hooks/` provides full functionality and will be replaced by the `maos` binary with the same features but better performance. See our [Bootstrap Phase Guide](docs/guides/bootstrap-phase-explained.md) for details.
+
+## Quick Start
+
+### Installation (Coming Soon)
+
+The MAOS Rust CLI will be available through:
+
+```bash
+# Via NPX (recommended) - COMING SOON
+npx @maos/cli setup
+
+# Via Homebrew - COMING SOON
+brew install maos
+
+# Direct download - COMING SOON
+curl -sSL https://raw.githubusercontent.com/clafollett/maos/main/scripts/install.sh | sh
+```
+
+### Current Development Setup
+
+During the bootstrap phase, MAOS uses Python hooks. See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup.
+
+### Future Configuration
+
+When complete, update your Claude Code `settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [{
+      "command": "maos pre-tool-use"  // Currently: uv run script.py
+    }],
+    "PostToolUse": [{
+      "command": "maos post-tool-use"
+    }]
+  }
+}
+```
+
+That's it! MAOS now handles all orchestration automatically.
 
 ## How It Works
 
@@ -24,31 +70,74 @@ No new commands to learn. No complex setup. Just better parallel AI development.
 ## Architecture
 
 ```
-User → Claude Code → Hooks → Backend Orchestration
-                       ↓
-              ┌────────┴────────┐
-              │   MAOS Hooks    │
-              │ • pre_tool_use  │
-              │ • post_tool_use │
-              └────────┬────────┘
-                       ↓
-         ┌─────────────┴─────────────┐
-         │     Git Worktrees         │
-         │ • backend-engineer/       │
-         │ • frontend-engineer/      │
-         │ • qa-engineer/           │
-         └───────────────────────────┘
+User → Claude Code → settings.json → MAOS CLI
+                                       ↓
+                              ┌────────┴────────┐
+                              │   Rust Binary   │
+                              │ • Security      │
+                              │ • Orchestration │
+                              │ • TTS & Notify  │
+                              └────────┬────────┘
+                                       ↓
+                         ┌─────────────┴─────────────┐
+                         │     Git Worktrees         │
+                         │ • backend-engineer/       │
+                         │ • frontend-engineer/      │
+                         │ • qa-engineer/            │
+                         └───────────────────────────┘
 ```
 
-## For MAOS Developers
+## CLI Commands
 
-If you're contributing to MAOS itself:
+```bash
+# Core hooks
+maos pre-tool-use      # Security checks + orchestration
+maos post-tool-use     # Cleanup + logging
+
+# Notifications
+maos notify            # Smart TTS notifications
+maos stop              # Session end with TTS
+maos subagent-stop     # Sub-agent cleanup
+
+# Monitoring
+maos prompt-submit     # Log user prompts
+maos session-info      # Current session status
+maos worktree-list     # Active worktrees
+```
+
+## Key Features in Detail
+
+### 🔒 **Security First**
+- Blocks dangerous `rm -rf` commands before execution
+- Prevents access to `.env` files containing secrets
+- Validates all paths to prevent directory traversal
+- Compiled binary ensures tamper-proof operation
+
+### 🚀 **Performance** (Target)
+- Written in Rust for maximum speed
+- Zero Python interpreter overhead (when complete)
+- Sub-10ms hook execution (vs current ~50-200ms)
+- Handles hundreds of tool calls efficiently
+
+### 🎙️ **Smart Notifications**
+- Multi-provider TTS support (ElevenLabs, OpenAI, macOS, pyttsx3)
+- Automatic provider selection based on API keys
+- Configurable voices and text limits
+- Session completion announcements
+
+### 🔧 **Professional Distribution** (Coming Soon)
+- NPX for Node.js users: `npx @maos/cli`
+- Homebrew for macOS: `brew install maos`
+- Direct binaries for all platforms
+- No Rust toolchain needed for users
+
+## For MAOS Contributors
 
 ### Prerequisites
 
-- Python 3.8+
+- Rust stable toolchain
 - Git 2.5+ (for worktree support)
-- Claude Code installed
+- Just task runner
 
 ### Development Setup
 
@@ -57,137 +146,153 @@ If you're contributing to MAOS itself:
 git clone https://github.com/clafollett/maos.git
 cd maos
 
-# Set up hooks (make them executable)
-chmod +x .claude/hooks/*.py
+# Install Rust (if needed)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
-# Test the setup
-just check-hooks
+# Build the project
+cargo build --release
+
+# Run tests
+cargo test
+
+# Install locally for testing
+cargo install --path .
 ```
 
-### Testing Hooks
+## Architecture Overview
 
-To test MAOS hooks with Claude Code:
+### Multi-Agent Orchestration
+- **Automatic Isolation**: Each agent works in its own git worktree
+- **Conflict Prevention**: File locking prevents simultaneous edits
+- **Session Management**: Tracks multi-agent workflows seamlessly
+- **Progress Tracking**: Real-time visibility into agent activities
 
-1. Make a request that would spawn multiple agents
-2. Check that worktrees are created automatically
-3. Monitor coordination files in `.maos/`
-
-```bash
-# Debug commands
-just worktree-list    # List active worktrees
-just session-info     # Show current session
-just watch-maos       # Monitor coordination files
-```
-
-## Key Features
-
-### 🔒 **Automatic Isolation**
-Each agent works in its own git worktree, preventing conflicts and enabling true parallel development.
-
-### 📁 **File-Based Coordination**
-Simple JSON files track agent state, locks, and progress. No database needed.
-
-### 🪝 **Hook-Based Design**
-Integrates seamlessly with Claude Code's existing hook system. No new APIs to learn.
-
-### 🐍 **Python Only**
-Pure Python implementation avoids shell script permission issues.
-
-### 👻 **Invisible to Users**
-Users just talk to Claude normally. MAOS works behind the scenes.
+### Implementation Details
+- **Rust CLI**: Fast, reliable, single binary distribution
+- **File-Based Coordination**: JSON files for state management
+- **Hook Integration**: Works through Claude Code's settings.json
+- **Git Worktrees**: Complete workspace isolation per agent
 
 ## Documentation
 
-### Core Architecture
-- **[True Architecture](docs/architecture/MAOS-True-Architecture.md)**: How MAOS really works
-- **[Implementation Guide](docs/architecture/MAOS-Implementation-Guide.md)**: Step-by-step implementation
-- **[Worktree System](docs/guides/worktree-quick-start.md)**: Git worktree management details
+### For Users
+- **[Installation Guide](docs/cli/installation.md)**: NPX, Homebrew, and binary installation
+- **[CLI Reference](docs/cli/commands.md)**: Complete command documentation
+- **[Configuration](docs/cli/configuration.md)**: settings.json and config options
+- **[Migration Guide](docs/cli/migration.md)**: Moving from Python hooks to MAOS CLI
 
-### Research & Design
-- **[Hook-Based Orchestration](docs/architecture/research/hook-based-orchestration.md)**: Hook system design
-- **[Git Worktree Integration](docs/architecture/research/git-worktree-integration-design.md)**: Worktree patterns
-- **[Local Orchestration Patterns](docs/architecture/research/local-orchestration-patterns.md)**: Coordination strategies
+### For Contributors
+- **[Architecture Overview](ARCHITECTURE.md)**: Rust crate structure and design
+- **[Development Setup](docs/development/setup.md)**: Building from source
+- **[Testing Guide](docs/development/testing.md)**: Test strategy and execution
+- **[Release Process](docs/development/release.md)**: Binary distribution
 
-## Implementation Status
+## Roadmap
 
-### ✅ Completed
-- Complete hook-based orchestration system
-- Git worktree management for agent isolation
-- Session-based coordination through JSON files
-- Pre/post tool use hooks with full interception
-- File locking and conflict prevention
-- Agent-specific configurations in `.claude/agents/`
-- Comprehensive path utilities for reliable operation
-- Security controls for dangerous operations
-- Test suite for integration validation
+### Phase 1: Rust CLI Development (Current)
+- [ ] Core CLI structure with clap
+- [ ] Security features (rm -rf blocking, .env protection)
+- [ ] MAOS orchestration (worktrees, sessions, locks)
+- [ ] TTS integration (multi-provider support)
+- [ ] Configuration management
+- [ ] Comprehensive test suite
 
-### 🚧 In Progress
-- Improving worktree creation reliability
-- Performance optimization for large agent swarms
-- Enhanced session security features
+### Phase 2: Distribution
+- [ ] NPM package for npx distribution
+- [ ] Homebrew formula
+- [ ] GitHub releases with binaries
+- [ ] Installation scripts
+- [ ] Auto-update mechanism
 
-### 📋 Next Steps
-1. Add comprehensive test coverage for all hooks
-2. Create user documentation and examples
-3. Performance profiling and optimization
-4. Build monitoring and debugging tools
+### Phase 3: Enhanced Features
+- [ ] Performance profiling and optimization
+- [ ] Advanced debugging commands
+- [ ] Plugin system for custom hooks
+- [ ] Web dashboard for monitoring
+- [ ] Integration with more Claude Code features
 
-## Why MAOS?
+## Why Choose MAOS?
 
-### **Prevent Agent Conflicts**
-When Claude Code spawns multiple agents, they might edit the same files simultaneously. MAOS prevents this through automatic worktree isolation and file locking.
+### **Performance Matters**
+- Eliminate Python startup overhead on every tool call
+- Handle hundreds of operations without slowdown
+- Near-instant execution for all commands
 
-### **Enable True Parallelism**
-Each agent gets its own complete workspace (git worktree), allowing them to work on different features without stepping on each other.
+### **Professional Software**
+- Compiled binary that can't be accidentally modified
+- Consistent behavior across all environments
+- Enterprise-ready security and reliability
 
-### **Zero User Friction**
-Users don't need to learn new commands or change their workflow. MAOS operates invisibly through Claude Code's hook system.
+### **Developer Experience**
+- Simple installation via familiar tools (NPX, Homebrew)
+- Clean configuration in settings.json
+- Comprehensive documentation and support
 
-### **Simple & Reliable**
-No complex infrastructure. Just Python scripts, git commands, and JSON files. Easy to debug and understand.
+### **Future-Proof**
+- Written in Rust for long-term maintainability
+- Extensible architecture for new features
+- Active development and community
 
 ## Project Structure
 
 ```
 maos/
+├── Cargo.toml                    # Workspace configuration
+├── crates/
+│   ├── maos-cli/                 # Main CLI application
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── main.rs           # CLI entry point
+│   │       └── commands/         # Subcommand implementations
+│   ├── maos-core/                # Core orchestration logic
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       ├── session.rs        # Session management
+│   │       └── worktree.rs       # Git worktree operations
+│   ├── maos-security/            # Security features
+│   │   ├── Cargo.toml
+│   │   └── src/
+│   │       ├── lib.rs
+│   │       └── validators.rs     # Path and command validation
+│   └── maos-tts/                 # TTS provider integration
+│       ├── Cargo.toml
+│       └── src/
+│           ├── lib.rs
+│           └── providers/        # ElevenLabs, OpenAI, etc.
 ├── .claude/
 │   ├── agents/                   # Agent configurations
-│   │   ├── backend-engineer.md
-│   │   ├── frontend-engineer.md
-│   │   ├── maos-architect.md
-│   │   └── ...
-│   └── hooks/                    # Claude Code hooks
-│       ├── pre_tool_use.py       # Intercepts operations
-│       ├── post_tool_use.py      # Cleanup and tracking
-│       ├── utils/                # Shared utilities
-│       │   └── path_utils.py     # Path resolution
-│       └── maos/                 # MAOS backend
-│           ├── backend.py        # Core orchestration
-│           └── handlers.py       # Tool handlers
+│   └── config.example.json       # Example configuration
 ├── docs/
-│   └── architecture/             # Technical documentation
-├── worktrees/                    # Auto-created agent workspaces
-└── .maos/                        # Coordination files
-    └── sessions/
-        └── {session_id}/
-            ├── activity.json
-            ├── locks.json
-            └── progress.json
+│   ├── cli/                      # User documentation
+│   └── development/              # Contributor guides
+└── scripts/
+    ├── install.sh                # Installation script
+    └── release.sh                # Release automation
 ```
 
 ## Contributing
 
-MAOS is open source and welcomes contributions. Key principles:
+We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
 
-1. **Keep it invisible** - Users should never know MAOS exists
-2. **Python only** - No shell scripts that require chmod
-3. **Simple is better** - File-based coordination, no databases
-4. **Hook-first design** - Everything happens through Claude Code hooks
+### Key Development Principles
+
+1. **Performance First** - Every millisecond counts in hook execution
+2. **Type Safety** - Leverage Rust's type system for reliability
+3. **User Experience** - Installation and usage must be effortless
+4. **Backward Compatible** - Smooth migration from Python hooks
+5. **Well Tested** - Comprehensive test coverage required
+
+## Support
+
+- **Documentation**: [GitHub Wiki](https://github.com/clafollett/maos/wiki)
+- **Issues**: [GitHub Issues](https://github.com/clafollett/maos/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/clafollett/maos/discussions)
 
 ## License
 
-MIT License
+MIT License - see [LICENSE](LICENSE) for details.
 
 ---
 
-*MAOS: Making Claude Code's sub-agents work better together, invisibly.*
+*MAOS: Professional multi-agent orchestration for Claude Code. Fast. Reliable. Invisible.*

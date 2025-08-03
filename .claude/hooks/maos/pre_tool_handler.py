@@ -37,7 +37,7 @@ class MAOSCoordinator:
         return self._session_id
     
     def handle_subagent_spawning(self, tool_input):
-        """Handle Task tool for sub-agent spawning"""
+        """Handle Task tool for sub-agent spawning with lazy workspace creation"""
         if not self.backend:
             print("MAOS backend not available, skipping orchestration", file=sys.stderr)
             return
@@ -48,27 +48,40 @@ class MAOSCoordinator:
         
         try:
             session_id = self.get_session_id()
-            workspace = self.backend.prepare_workspace(agent_type, session_id)
             
-            # Modify the prompt to include workspace path - use absolute path
+            # Register agent for lazy workspace creation (don't create worktree yet)
+            agent_id = self.backend.register_pending_agent(agent_type, session_id)
+            
+            # Modify the prompt to include conditional workspace instruction
             original_prompt = tool_input.get('prompt', '')
-            workspace_abs = Path(workspace).resolve()
-            workspace_instruction = f"\n\nIMPORTANT: Work exclusively in the workspace: {workspace_abs}/\n" \
-                                  f"All file operations (Read, Write, Edit, MultiEdit) must use absolute paths starting with: {workspace_abs}/\n" \
-                                  f"Never use relative paths or change directories - always use: {workspace_abs}/[filename]\n"
+            workspace_path = f"{PROJECT_ROOT}/worktrees/{agent_type}-{session_id}"
+            
+            workspace_instruction = f"""
+
+WORKSPACE MANAGEMENT:
+Your workspace will be created automatically when you first perform file operations.
+When using Read, Write, Edit, or MultiEdit tools, the system will:
+1. Create your isolated workspace at: {workspace_path}/
+2. All subsequent file operations must use paths within this workspace
+3. Use absolute paths starting with your workspace directory
+
+Note: The workspace is created on-demand to save resources. Don't manually create directories - let the system handle workspace setup when you first need it."""
             
             tool_input['prompt'] = original_prompt + workspace_instruction
             
-            print(f"🚀 MAOS: Created isolated workspace for {agent_type}: {workspace}", file=sys.stderr)
-            print(f"📋 Session: {session_id}", file=sys.stderr)
+            # Set agent type in environment for later identification
+            os.environ['CLAUDE_AGENT_TYPE'] = agent_type
+            
+            print(f"🚀 MAOS: Registered {agent_type} for lazy workspace creation", file=sys.stderr)
+            print(f"📋 Session: {session_id}, Agent ID: {agent_id}", file=sys.stderr)
             
         except Exception as e:
             # Don't block the operation, just log the error
-            print(f"⚠️  MAOS workspace creation failed: {e}", file=sys.stderr)
+            print(f"⚠️  MAOS agent registration failed: {e}", file=sys.stderr)
             print("Continuing without workspace isolation", file=sys.stderr)
     
     def handle_file_operations(self, tool_name, tool_input):
-        """Handle file operation conflict checking"""
+        """Handle file operation with lazy workspace creation"""
         if not self.backend:
             return
         
@@ -79,6 +92,30 @@ class MAOSCoordinator:
         try:
             session_id = self.get_session_id()
             agent_id = extract_agent_id_from_environment()
+            
+            # Check if this agent needs a workspace created
+            # Try to find agent info by checking pending agents
+            session_dir = Path(PROJECT_ROOT) / ".maos" / "sessions" / session_id
+            pending_file = session_dir / "pending_agents.json"
+            
+            if pending_file.exists():
+                # Look for matching pending agent
+                pending_agents = json.load(open(pending_file))
+                for pid, agent_info in pending_agents.items():
+                    # Check if this is our agent (match by type in environment)
+                    agent_type_env = os.environ.get('CLAUDE_AGENT_TYPE', '')
+                    if agent_type_env and agent_info.get('type') == agent_type_env:
+                        # Create workspace if needed
+                        if not agent_info.get('workspace_created'):
+                            workspace_path = self.backend.create_workspace_if_needed(pid, session_id)
+                            if workspace_path:
+                                print(f"🏗️  MAOS: Created workspace for {agent_type_env} at {workspace_path}", file=sys.stderr)
+                                # Enforce workspace usage
+                                self.enforce_workspace_path(tool_name, file_path, workspace_path)
+                        elif agent_info.get('workspace_path'):
+                            # Workspace exists, enforce its usage
+                            self.enforce_workspace_path(tool_name, file_path, agent_info['workspace_path'])
+                        break
             
             # Check for existing lock
             lock_info = self.backend.check_file_lock(file_path, session_id)
@@ -93,7 +130,7 @@ class MAOSCoordinator:
             
         except Exception as e:
             # Non-blocking error
-            print(f"⚠️  MAOS lock check failed: {e}", file=sys.stderr)
+            print(f"⚠️  MAOS file operation handling failed: {e}", file=sys.stderr)
     
     def update_progress(self, tool_name, tool_input):
         """Update progress tracking"""
@@ -119,6 +156,34 @@ class MAOSCoordinator:
         except Exception as e:
             # Non-blocking error
             pass
+    
+    def enforce_workspace_path(self, tool_name, file_path, workspace_path):
+        """Enforce that file operations use the assigned workspace"""
+        # Convert to Path objects for comparison
+        file_path_obj = Path(file_path)
+        workspace_path_obj = Path(workspace_path)
+        
+        # Check if file path is absolute and outside workspace
+        if file_path_obj.is_absolute():
+            try:
+                # Resolve paths for accurate comparison
+                file_resolved = file_path_obj.resolve()
+                workspace_resolved = workspace_path_obj.resolve()
+                
+                if not str(file_resolved).startswith(str(workspace_resolved)):
+                    # Block the operation
+                    print(f"\n❌ BLOCKED: File operations must use assigned workspace", file=sys.stderr)
+                    print(f"   Attempted: {file_path}", file=sys.stderr)
+                    print(f"   ✅ Use instead: {workspace_path}/{file_path_obj.name}", file=sys.stderr)
+                    print(f"\n   Your workspace: {workspace_path}/", file=sys.stderr)
+                    print(f"   All file operations MUST use paths within this directory\n", file=sys.stderr)
+                    sys.exit(2)  # Exit code 2 blocks the operation
+            except Exception:
+                # If we can't resolve paths, be conservative and block
+                if not file_path.startswith(workspace_path):
+                    print(f"\n❌ BLOCKED: File operations must use assigned workspace", file=sys.stderr)
+                    print(f"   Your workspace: {workspace_path}/\n", file=sys.stderr)
+                    sys.exit(2)
 
 
 def handle_maos_pre_tool(tool_name: str, tool_input: Dict, hook_metadata: Optional[Dict] = None):

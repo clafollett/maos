@@ -61,6 +61,23 @@ Our development environment is defined in `stack.env` to ensure consistency acro
 - **Rust**: Stable toolchain (defined in `rust-toolchain.toml`)
 - **Just**: Task runner for development workflows
 - **cargo-audit**: Security vulnerability scanner (auto-installed via `just dev-setup`)
+- **Git 2.5+**: For worktree support in multi-agent orchestration
+
+### Rust Toolchain Setup
+
+If you don't have Rust installed:
+
+```bash
+# Install Rust (stable toolchain)
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+source ~/.cargo/env
+
+# Verify installation
+rustc --version
+cargo --version
+```
+
+**Important**: Users don't need Rust - only contributors. The CLI distributes as compiled binaries via NPX, Homebrew, etc.
 
 ### Stack Validation
 
@@ -118,11 +135,13 @@ gh pr create --title "Feature: Description" --body "Closes #X"
 
 All code must pass these quality gates:
 
-- ✅ **Formatting**: `just format-check`
-- ✅ **Linting**: `just lint` (zero warnings with `-D warnings`)
+- ✅ **Formatting**: `just format-check` (rustfmt with project config)
+- ✅ **Linting**: `just lint` (clippy with `-D warnings`, zero warnings policy)
 - ✅ **Tests**: `just test` (all tests pass, >90% coverage goal)
-- ✅ **Security**: `just audit` (no known vulnerabilities)
-- ✅ **Compilation**: `just build` (clean build)
+- ✅ **Security**: `just audit` (cargo-audit, no known vulnerabilities)
+- ✅ **Compilation**: `just build` (clean release build)
+- ✅ **Performance**: Commands execute in <10ms
+- ✅ **Binary Size**: Single binary under reasonable size limits
 
 ### 5. Git Hooks
 
@@ -143,25 +162,34 @@ The git hooks will automatically run `just pre-commit` before each commit, ensur
 
 ## 🏗️ Architecture Guidelines
 
-MAOS follows Domain-Driven Design (DDD) principles with Clean Architecture:
+MAOS follows a modular multi-crate workspace architecture with security-first design:
 
-### Project Structure
+### Multi-Crate Workspace Structure
 
 ```
 crates/
-├── maos/           # Main binary (CLI + MCP server)
-├── maos-domain/    # Domain models and business logic
-├── maos-app/       # Use cases and application services  
-└── maos-io/        # Technical implementations (I/O)
+├── maos-cli/       # Main CLI application (entry point)
+├── maos-core/      # Core orchestration logic (sessions, worktrees)
+├── maos-security/  # Security features (rm -rf blocking, .env protection)
+├── maos-tts/       # Text-to-speech provider integration
+└── maos-config/    # Configuration management (JSON, env vars)
 ```
+
+### Benefits of Multi-Crate Architecture
+
+- **Parallel Compilation**: Crates build independently
+- **Clear Separation**: Each crate has focused responsibility
+- **Modular Testing**: Test individual components in isolation
+- **Type Safety**: Strong compile-time guarantees across boundaries
 
 ### Coding Standards
 
-1. **Test-First Development**: Write failing tests before implementation
-2. **Domain-Driven Design**: Keep business logic in the domain layer
-3. **Clean Architecture**: Dependencies point inward to domain
-4. **Modern Rust**: Use Rust 2024 edition with latest idioms
-5. **Documentation**: Document public APIs with examples
+1. **Test-First Development**: Write failing tests before implementation (TDD)
+2. **Security-First Design**: All inputs validated, dangerous operations blocked
+3. **Performance-First**: Target <10ms startup time for any command
+4. **Modern Rust**: Use latest stable features and idioms
+5. **Documentation**: Document public APIs with examples and usage patterns
+6. **Single Binary**: Compile to standalone binary with zero runtime dependencies
 
 ### String Formatting (Rust 1.88.0+)
 
@@ -180,7 +208,7 @@ println!("Processing agent: {}", agent_id);
 error!("Failed to connect to {}", endpoint);
 ```
 
-## 🧪 Testing
+## 🧪 Testing Strategy
 
 ### Test Organization
 
@@ -188,30 +216,52 @@ error!("Failed to connect to {}", endpoint);
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tempfile::TempDir;
 
-    #[tokio::test]
-    async fn test_happy_path() {
-        // Test the main success scenario
+    #[test]
+    fn test_security_validation() {
+        // Test dangerous command detection
+        let result = validate_command("rm -rf /");
+        assert!(result.is_err());
     }
 
-    #[tokio::test]
-    async fn test_error_cases() {
-        // Test error conditions
+    #[test]
+    fn test_worktree_creation() {
+        // Test git worktree operations
+        let temp_dir = TempDir::new().unwrap();
+        // Test implementation
     }
 
-    #[tokio::test]
-    async fn test_edge_cases() {
-        // Test boundary conditions
+    #[test]
+    fn test_config_parsing() {
+        // Test configuration management
     }
 }
 ```
 
+### Testing Types
+
+1. **Unit Tests**: Each crate has comprehensive unit tests
+2. **Integration Tests**: Full CLI command execution tests
+3. **Security Tests**: Validate all security features work correctly
+4. **Performance Tests**: Benchmark startup time and command execution
+
 ### Running Tests
 
 ```bash
-just test           # All tests
-just test-coverage  # With coverage report (requires cargo-tarpaulin)
-cargo test specific_test  # Single test
+just test              # All tests across workspace
+just test-crate maos-security  # Single crate tests
+just test-coverage     # With coverage report (requires cargo-tarpaulin)
+just test-integration  # Integration tests with real git repos
+cargo test specific_test  # Single test by name
+```
+
+### Performance Testing
+
+```bash
+just bench            # Run benchmarks
+just profile-startup  # Profile command startup time
+just test-perf        # Performance regression tests
 ```
 
 ## 📝 Commit Standards
@@ -323,13 +373,191 @@ All editors should be configured to:
 2. Run rustfmt on save with our rustfmt.toml
 3. Show clippy lints inline with `-D warnings`
 4. Exclude target/ directory from file watching
+5. Enable Rust 2024 edition features
+6. Configure for workspace development (multiple crates)
+
+## 🚀 CLI Development Guidelines
+
+### Command Structure
+
+All MAOS commands follow a consistent pattern:
+
+```rust
+// Example command implementation
+use clap::{Args, Subcommand};
+
+#[derive(Args)]
+pub struct PreToolUseArgs {
+    #[arg(long)]
+    tool_name: String,
+    
+    #[arg(long)]
+    session_id: Option<String>,
+    
+    #[arg(long, short)]
+    verbose: bool,
+}
+
+pub fn execute(args: PreToolUseArgs) -> Result<(), Box<dyn std::error::Error>> {
+    // 1. Validate input
+    // 2. Apply security checks
+    // 3. Execute core logic
+    // 4. Return structured result
+    Ok(())
+}
+```
+
+### Error Handling Standards
+
+```rust
+// Use custom error types for clear error reporting
+#[derive(Debug, thiserror::Error)]
+pub enum MaosError {
+    #[error("Security violation: {0}")]
+    SecurityViolation(String),
+    
+    #[error("Git operation failed: {0}")]
+    GitError(String),
+    
+    #[error("Configuration error: {0}")]
+    ConfigError(String),
+}
+
+// Always provide helpful error messages
+pub fn validate_session(session_id: &str) -> Result<Session, MaosError> {
+    if session_id.is_empty() {
+        return Err(MaosError::ConfigError(
+            "Session ID cannot be empty. Run 'maos session-info' to see current session.".into()
+        ));
+    }
+    // ...
+}
+```
+
+### CLI Testing
+
+```rust
+// Use assert_cmd for CLI testing
+#[cfg(test)]
+mod cli_tests {
+    use assert_cmd::Command;
+    use predicates::prelude::*;
+
+    #[test]
+    fn test_pre_tool_use_command() {
+        let mut cmd = Command::cargo_bin("maos").unwrap();
+        cmd.arg("pre-tool-use")
+           .arg("--tool-name")
+           .arg("Task")
+           .assert()
+           .success()
+           .stdout(predicate::str::contains("Tool validated"));
+    }
+
+    #[test]
+    fn test_security_validation() {
+        let mut cmd = Command::cargo_bin("maos").unwrap();
+        cmd.arg("pre-tool-use")
+           .arg("--tool-name")
+           .arg("Bash")
+           .arg("--command")
+           .arg("rm -rf /")
+           .assert()
+           .failure()
+           .stderr(predicate::str::contains("Security violation"));
+    }
+}
+```
+
+## 📦 Distribution Development
+
+### Building Release Binaries
+
+```bash
+# Build optimized release binary
+just build-release
+
+# Build for all target platforms
+just build-all-targets
+
+# Test binary size and performance
+just check-binary-size
+just benchmark-startup
+```
+
+### NPX Package Development
+
+For contributors working on NPX distribution:
+
+```bash
+# Setup NPX package structure
+just setup-npm-package
+
+# Test NPX installation locally
+npm pack
+npx ./maos-cli-1.0.0.tgz --help
+
+# Validate package.json and binary paths
+just validate-npm-package
+```
+
+### Testing Distribution
+
+```bash
+# Test different installation methods
+just test-homebrew-install
+just test-npm-install
+just test-direct-download
+
+# Verify binary works across platforms
+just test-cross-platform
+```
+
+### Rust-Specific Performance Guidelines
+
+```rust
+// ✅ Good - Efficient string handling
+fn format_session_path(session_id: &str, agent: &str) -> PathBuf {
+    PathBuf::from(format!(".maos/sessions/{session_id}/{agent}"))
+}
+
+// ✅ Good - Zero-allocation where possible
+fn is_dangerous_command(cmd: &str) -> bool {
+    cmd.contains("rm -rf") || cmd.starts_with("sudo rm")
+}
+
+// ✅ Good - Use owned strings only when necessary
+fn validate_path(path: &Path) -> Result<(), SecurityError> {
+    // Path validation without allocation
+}
+```
+
+### Security Implementation Guidelines
+
+```rust
+// Security validation must be comprehensive
+pub fn validate_tool_execution(tool: &ToolInput) -> Result<(), SecurityError> {
+    // 1. Block dangerous commands
+    security::validate_command(&tool.command)?;
+    
+    // 2. Protect sensitive files
+    security::validate_file_access(&tool.file_paths)?;
+    
+    // 3. Sanitize paths
+    security::validate_path_traversal(&tool.working_dir)?;
+    
+    Ok(())
+}
+```
 
 ## 📚 Additional Resources
 
 - [Development Workflow](docs/DEVELOPMENT_WORKFLOW.md) - Detailed development process
-- [Architecture Decisions](docs/architecture/decisions/) - ADR documents
-- [Domain Model](docs/domain-model/) - Business logic documentation
-- [API Specifications](docs/specifications/) - Technical specifications
+- [Architecture Overview](ARCHITECTURE.md) - Rust crate structure and design
+- [Security Model](docs/security/) - Security features and threat model
+- [CLI Reference](docs/cli/) - Command documentation and usage
+- [Performance Guidelines](docs/performance/) - Optimization strategies
+- [Distribution](docs/distribution/) - NPX, Homebrew, and binary release process
 
 ---
 
