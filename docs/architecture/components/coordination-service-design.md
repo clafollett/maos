@@ -44,6 +44,7 @@ Manages session lifecycle and metadata:
 
 ```python
 import json
+import logging
 import time
 from pathlib import Path
 from datetime import datetime, timezone
@@ -189,6 +190,7 @@ class LockCoordinator:
     def acquire_lock(self, file_path: str, agent_id: str) -> bool:
         """Attempt to acquire a lock on a file"""
         locks = self._load_locks()
+        now = datetime.now(timezone.utc)  # Cache current time
         
         # Check if file is already locked
         if file_path in locks:
@@ -199,7 +201,7 @@ class LockCoordinator:
                 if lock_time.tzinfo is None:
                     # Assume UTC if no timezone info
                     lock_time = lock_time.replace(tzinfo=timezone.utc)
-                is_stale = (datetime.now(timezone.utc) - lock_time).total_seconds() > self.stale_lock_seconds
+                is_stale = (now - lock_time).total_seconds() > self.stale_lock_seconds
             except ValueError as e:
                 logging.warning(f"Malformed lock timestamp for {file_path}: {existing_lock.get('locked_at')!r} ({e}). Treating as stale lock.")
                 is_stale = True

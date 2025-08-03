@@ -53,6 +53,11 @@ import re
 # Constants
 # Limit task description in branch/worktree names to 20 characters for readability and to
 # avoid overly long filesystem paths.
+# Rationale: 20 characters was chosen as a balance between descriptive branch/worktree names and
+# the need to keep filesystem paths short to avoid issues on filesystems with path length limits
+# (e.g., 255 characters on many systems). This also helps keep branch names readable in Git tools.
+# Adjust this value if your workflow requires longer descriptions, but be mindful of the total
+# path length (including parent directories and filenames) and any organizational naming conventions.
 MAX_DESC_LENGTH = 20
 
 def create_agent_worktree(agent_role, issue_id, task_description, base_branch='main'):
@@ -252,7 +257,7 @@ if __name__ == "__main__":
 import json
 import subprocess
 from pathlib import Path
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 def cleanup_completed():
     """Clean up completed worktrees."""
@@ -303,7 +308,7 @@ def weekly_maintenance(days_old=14):
             worktrees[current_key]['branch'] = line.split(' ', 1)[1].replace('refs/heads/', '')
     
     # Check age and display info
-    cutoff_date = datetime.now() - timedelta(days=days_old)
+    cutoff_date = datetime.now(timezone.utc) - timedelta(days=days_old)
     
     for worktree_path, info in worktrees.items():
         metadata_path = Path(worktree_path) / ".agent-metadata.json"

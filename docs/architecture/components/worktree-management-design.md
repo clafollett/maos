@@ -160,11 +160,13 @@ def _handle_existing_branch(self, agent_type, session_id, workspace, branch):
         return str(unique_workspace)
         
     except subprocess.CalledProcessError as e:
-        raise RuntimeError(
+        error_msg = (
             f"All worktree creation strategies failed for agent '{agent_type}' "
-            f"in session '{session_id}'. Last error: {e}\n"
+            f"in session '{session_id}'.\n"
+            f"Last error: {e}\n"
             f"Please check git configuration and disk space."
         )
+        raise RuntimeError(error_msg)
 ```
 
 ### 3. Agent Registration
