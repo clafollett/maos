@@ -6,6 +6,8 @@ MAOS provides comprehensive logging for debugging, auditing, and performance mon
 
 ## Log Structure
 
+The logging system is implemented in [`maos-cli/logging.rs`](../architecture/rust-cli-architecture.md#maos-cli):
+
 ```
 .maos/
 ├── logs/

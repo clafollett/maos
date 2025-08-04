@@ -286,6 +286,9 @@ With detailed metrics:
 
 ### From Python Hooks (Current)
 
+> **⚠️ Legacy Example - For Reference Only**  
+> The Python implementation is being replaced by the Rust CLI. Use this only during the bootstrap phase.
+
 ```json
 {
   "hooks": {
@@ -311,6 +314,9 @@ With detailed metrics:
 ```
 
 ### Gradual Migration
+
+> **⚠️ Legacy Example - For Reference Only**  
+> This shows transition strategy but Python hooks will be removed once Rust CLI is complete.
 
 Running both during transition:
 

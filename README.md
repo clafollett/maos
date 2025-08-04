@@ -184,6 +184,14 @@ cargo install --path .
 - **Hook Integration**: Works through Claude Code's settings.json
 - **Git Worktrees**: Complete workspace isolation per agent
 
+## Documentation Index
+
+### Quick Links
+- **[Quick Start Guide](docs/QUICK_START.md)** - Get running in 5 minutes! ⚡
+- **[Installation](docs/cli/installation.md)** - All installation methods
+- **[Architecture](docs/architecture/rust-cli-architecture.md)** - Technical design
+- **[Development Workflow](docs/DEVELOPMENT_WORKFLOW.md)** - Contribution standards
+
 ## Documentation
 
 ### For Users

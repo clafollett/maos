@@ -156,7 +156,7 @@ Add project-specific security patterns:
 
 ### Rust Security Module
 
-The security validation is implemented in the `maos-security` crate:
+The security validation is implemented in the [`maos-security`](../architecture/rust-cli-architecture.md#maos-security) crate:
 
 ```rust
 pub fn validate_command(cmd: &str) -> Result<(), SecurityError> {

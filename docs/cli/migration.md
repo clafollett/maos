@@ -24,21 +24,24 @@ Manual migration is also possible if preferred:
 ```json
 {
   "hooks": {
-    "PreToolUse": [{
-      "command": "uv run \"$(git rev-parse --show-toplevel)/.claude/hooks/pre_tool_use.py\""
-    }],
-    "PostToolUse": [{
-      "command": "uv run \"$(git rev-parse --show-toplevel)/.claude/hooks/post_tool_use.py\""
-    }],
-    "Notification": [{
-      "command": "uv run \"$(git rev-parse --show-toplevel)/.claude/hooks/notification.py\""
-    }],
-    "Stop": [{
-      "command": "uv run \"$(git rev-parse --show-toplevel)/.claude/hooks/stop.py\""
-    }],
-    "UserPromptSubmit": [{
-      "command": "uv run \"$(git rev-parse --show-toplevel)/.claude/hooks/user_prompt_submit.py\""
-    }]
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": "uv run \"$(git rev-parse --show-toplevel)/.claude/hooks/pre_tool_use.py\""
+        }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": "uv run \"$(git rev-parse --show-toplevel)/.claude/hooks/post_tool_use.py\""
+        }]
+      }
+    ]
   }
 }
 ```
@@ -47,24 +50,33 @@ Manual migration is also possible if preferred:
 ```json
 {
   "hooks": {
-    "PreToolUse": [{
-      "command": "maos pre-tool-use"
-    }],
-    "PostToolUse": [{
-      "command": "maos post-tool-use"
-    }],
-    "Notification": [{
-      "command": "maos notify"
-    }],
-    "Stop": [{
-      "command": "maos stop"
-    }],
-    "UserPromptSubmit": [{
-      "command": "maos user-prompt-submit"
-    }]
+    "PreToolUse": [
+      {
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": "maos pre-tool-use"
+        }]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "",
+        "hooks": [{
+          "type": "command",
+          "command": "maos post-tool-use"
+        }]
+      }
+    ]
   }
 }
 ```
+
+### Automatic Backup
+
+The installer creates a backup before modifying your settings:
+- Backup location: `.claude/settings.json.backup-{timestamp}`
+- To rollback: `cp .claude/settings.json.backup-* .claude/settings.json`
 
 ## Feature Parity
 

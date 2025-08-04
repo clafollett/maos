@@ -169,6 +169,9 @@ Brief description of what needs to be implemented.
 
 ### Hook Implementation (if applicable)
 ```rust
+use maos_security::SecurityValidator;
+use serde_json::Value;
+
 pub fn pre_tool_use(tool_name: &str, tool_args: &Value) -> Result<HookResponse> {
     // Intercept tool before execution
     match tool_name {
@@ -320,7 +323,7 @@ Use semantic commit messages with GitHub issue linking:
 - **No direct pushes** - All changes via pull requests
 - **Required status checks:**
   - `Rust Tests (cargo test)`
-  - `Clippy Lints`
+  - `Clippy Lints` (see [Linting Guide](features/linting.md))
   - `Format Check (cargo fmt)`
   
 - **Required reviews** - At least 1 approving review
@@ -556,6 +559,7 @@ cargo test --workspace
 # Formatting and linting
 cargo fmt
 cargo clippy -- -D warnings
+cargo clippy --fix -Z unstable-options  # Auto-fix clippy warnings
 cargo check
 
 # Build and run

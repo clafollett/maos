@@ -115,7 +115,7 @@ When enabled, MAOS can read Claude's responses:
 
 ### TTS Module Architecture
 
-The `maos-tts` crate provides a unified interface:
+The [`maos-tts`](../architecture/rust-cli-architecture.md#maos-tts) crate provides a unified interface:
 
 ```rust
 pub trait TtsProvider {

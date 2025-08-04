@@ -320,6 +320,9 @@ crates/maos-common/src/
 ### Pre-Tool-Use Command
 
 ```rust
+use maos_security::SecurityValidator;
+use maos_core::{Session, WorktreeManager};
+
 // Flow: CLI → Core → Security → Worktree → Session
 async fn execute_pre_tool_use(args: PreToolUseArgs) -> Result<()> {
     // 1. Parse tool call from stdin or args
@@ -401,7 +404,7 @@ Claude Code → settings.json → maos CLI → Hook Processing
 ### State Management
 
 ```
-.maos/
+.maos/                       # Default location (override with $MAOS_SESSION_DIR)
 ├── config.json              # Global configuration
 ├── active_session.json      # Current session pointer
 └── sessions/
@@ -413,6 +416,11 @@ Claude Code → settings.json → maos CLI → Hook Processing
         ├── timeline.json    # Event log
         └── metrics.json     # Performance data
 ```
+
+**Session Directory Configuration:**
+- Default: `.maos/sessions/` in project root
+- Override: `export MAOS_SESSION_DIR=/custom/path/sessions`
+- Shared sessions: Point multiple projects to same session directory
 
 ## Performance Optimization Strategy
 
@@ -637,3 +645,26 @@ This architecture provides a solid foundation for the MAOS Rust CLI that:
 5. **Ensures security and reliability** through comprehensive validation
 
 The modular crate structure allows for independent development and testing while maintaining clear boundaries between concerns. The performance-first design ensures minimal impact on Claude Code's operation while providing powerful orchestration capabilities.
+
+## Try It Now
+
+To verify the workspace builds and explore the CLI:
+
+```bash
+# Clone and build
+git clone https://github.com/clafollett/maos.git
+cd maos
+cargo build
+
+# Run help to see available commands
+cargo run --bin maos -- --help
+
+# Test pre-tool-use command
+echo '{"tool":"Bash","params":{"command":"ls"}}' | cargo run --bin maos -- pre-tool-use
+
+# Run tests
+cargo test --workspace
+
+# Generate documentation
+cargo doc --open
+```
