@@ -9,156 +9,88 @@ on:
     branches: [ main ]
   pull_request:
 
+env:
+  CARGO_TERM_COLOR: always
+
 jobs:
   # Validate development environment standards
-  validate-environment:
-    name: Validate Environment
+  validate-stack:
+    name: Validate Stack Environment
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install just
         uses: extractions/setup-just@v2
+      - name: Validate rust-toolchain.toml exists
+        run: test -f rust-toolchain.toml
       - name: Validate stack.env exists  
         run: test -f stack.env
       - name: Validate justfile exists
         run: test -f justfile
-      - name: Validate hook files exist
+      - name: Source stack.env and validate
         run: |
-          test -f .claude/hooks/pre_tool_use.py
-          test -f .claude/hooks/post_tool_use.py
-      - name: Check hook permissions
-        run: |
-          test -x .claude/hooks/pre_tool_use.py
-          test -x .claude/hooks/post_tool_use.py
+          source stack.env
+          echo "RUST_TOOLCHAIN: $RUST_TOOLCHAIN"
+          echo "BUILD_FLAGS: $BUILD_FLAGS"
+          test -n "$RUST_TOOLCHAIN"
+          test -n "$BUILD_FLAGS"
 
-  lint:
-    name: Lint Python Code
+  check:
+    name: Check
     runs-on: ubuntu-latest
-    needs: validate-environment
+    needs: validate-stack
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
         with:
-          python-version: '3.8'
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install black flake8 mypy
-      - name: Run black
-        run: black --check .claude/hooks/
-      - name: Run flake8
-        run: flake8 .claude/hooks/ --max-line-length=88 --extend-ignore=E203
-      - name: Run mypy
-        run: mypy .claude/hooks/ --ignore-missing-imports || true
+          # Cache key includes Cargo.toml hash for dependency changes
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Run check via just
+        run: just check
 
-  test:
-    name: Test Python Code
+  # Use just for all CI tasks to ensure consistency with local development
+  ci-pipeline:
+    name: Full CI Pipeline via Just
+    runs-on: ubuntu-latest
+    needs: validate-stack
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install development dependencies
+        run: just install-deps
+      - name: Source stack.env and run full CI pipeline
+        run: |
+          source stack.env
+          just ci
+
+  # Cross-platform testing to ensure our setup works everywhere
+  cross-platform-test:
+    name: Cross-Platform Test
     runs-on: ${{ matrix.os }}
-    needs: validate-environment
+    needs: validate-stack
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.8', '3.9', '3.10', '3.11']
     steps:
       - uses: actions/checkout@v4
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v5
+      - name: Install just
+        uses: extractions/setup-just@v2
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+      - uses: Swatinem/rust-cache@v2
         with:
-          python-version: ${{ matrix.python-version }}
-      - name: Install dependencies
+          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
+      - name: Install development dependencies
+        run: just install-deps
+      - name: Test development environment setup
         run: |
-          python -m pip install --upgrade pip
-          pip install pytest pytest-cov
-      - name: Run unit tests
-        run: |
-          python -m pytest tests/ -v --cov=.claude/hooks --cov-report=term-missing || true
-      - name: Run integration tests
-        run: |
-          chmod +x .claude/hooks/maos/test_integration.py
-          .claude/hooks/maos/test_integration.py || true
-
-  hook-validation:
-    name: Validate Hook System
-    runs-on: ubuntu-latest
-    needs: [lint, test]
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.8'
-      - name: Test hook imports
-        run: |
-          python -c "import sys; sys.path.append('.claude/hooks'); import pre_tool_use"
-          python -c "import sys; sys.path.append('.claude/hooks'); import post_tool_use"
-      - name: Test hook execution
-        run: |
-          # Test that hooks can be executed directly
-          python .claude/hooks/pre_tool_use.py --help || true
-          python .claude/hooks/post_tool_use.py --help || true
-
-  agent-validation:
-    name: Validate Agent Definitions
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.8'
-      - name: Validate agent frontmatter
-        run: |
-          python -c "
-import os
-import re
-
-errors = []
-for filename in os.listdir('.claude/agents'):
-    if not filename.endswith('.md'):
-        continue
-    
-    with open(f'.claude/agents/{filename}', 'r') as f:
-        content = f.read()
-    
-    # Check for required frontmatter fields
-    if not re.search(r'^name:', content, re.MULTILINE):
-        errors.append(f'{filename}: missing name field')
-    if not re.search(r'^description:', content, re.MULTILINE):
-        errors.append(f'{filename}: missing description field')
-    if not re.search(r'^tools:', content, re.MULTILINE):
-        errors.append(f'{filename}: missing tools field')
-    if not re.search(r'^model:', content, re.MULTILINE):
-        errors.append(f'{filename}: missing model field')
-
-if errors:
-    print('\\n'.join(errors))
-    exit(1)
-else:
-    print('All agents have valid frontmatter')
-"
-
-  documentation:
-    name: Validate Documentation
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - name: Check documentation files
-        run: |
-          test -f README.md
-          test -f CLAUDE.md
-          test -f docs/DEVELOPMENT_WORKFLOW.md
-      - name: Check for broken links
-        run: |
-          # Simple check for broken internal links
-          find . -name "*.md" -type f -exec grep -l "\[.*\](\..*)" {} \; | while read file; do
-            echo "Checking links in $file"
-            grep -o "\[.*\](\..*)" "$file" | sed 's/.*](\(.*\))/\1/' | while read link; do
-              # Remove anchors
-              link_file=$(echo "$link" | cut -d'#' -f1)
-              if [ ! -f "$link_file" ]; then
-                echo "Broken link in $file: $link"
-                exit 1
-              fi
-            done
-          done
+          source stack.env
+          just validate-stack
+          just pre-commit

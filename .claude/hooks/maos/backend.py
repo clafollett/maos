@@ -99,6 +99,9 @@ class MAOSBackend:
         with open(session_dir / "agents.json", 'w') as f:
             json.dump([], f, indent=2)
         
+        with open(session_dir / "pending_agents.json", 'w') as f:
+            json.dump({}, f, indent=2)
+        
         with open(session_dir / "locks.json", 'w') as f:
             json.dump({}, f, indent=2)
         
@@ -108,6 +111,101 @@ class MAOSBackend:
         # Update active session pointer
         with open(self.maos_dir / "active_session.json", 'w') as f:
             json.dump({"session_id": session_id}, f, indent=2)
+    
+    def register_pending_agent(self, agent_type: str, session_id: str) -> str:
+        """Register an agent for lazy workspace creation"""
+        agent_id = f"{agent_type}-{session_id}-{int(time.time())}"
+        
+        # Store pending agent info in session
+        session_dir = self.sessions_dir / session_id
+        pending_file = session_dir / "pending_agents.json"
+        
+        # Load existing pending agents
+        pending_agents = {}
+        if pending_file.exists():
+            try:
+                with open(pending_file) as f:
+                    pending_agents = json.load(f)
+            except (json.JSONDecodeError, FileNotFoundError):
+                pending_agents = {}
+        
+        # Add new pending agent
+        pending_agents[agent_id] = {
+            "type": agent_type,
+            "session": session_id,
+            "registered_at": datetime.now().isoformat(),
+            "workspace_created": False,
+            "workspace_path": None
+        }
+        
+        # Save updated pending agents
+        with open(pending_file, 'w') as f:
+            json.dump(pending_agents, f, indent=2)
+        
+        return agent_id
+    
+    def get_agent_info(self, agent_id: str, session_id: str) -> Optional[Dict]:
+        """Get information about a pending or active agent"""
+        session_dir = self.sessions_dir / session_id
+        
+        # Check pending agents first
+        pending_file = session_dir / "pending_agents.json"
+        if pending_file.exists():
+            try:
+                with open(pending_file) as f:
+                    pending_agents = json.load(f)
+                    if agent_id in pending_agents:
+                        return pending_agents[agent_id]
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+        
+        # Check active agents
+        agents_file = session_dir / "agents.json"
+        if agents_file.exists():
+            try:
+                with open(agents_file) as f:
+                    agents = json.load(f)
+                    for agent in agents:
+                        if agent.get("id") == agent_id:
+                            return agent
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+        
+        return None
+    
+    def create_workspace_if_needed(self, agent_id: str, session_id: str) -> Optional[str]:
+        """Create workspace for agent if not already created"""
+        agent_info = self.get_agent_info(agent_id, session_id)
+        if not agent_info:
+            return None
+        
+        # If workspace already created, return its path
+        if agent_info.get("workspace_created") and agent_info.get("workspace_path"):
+            return agent_info["workspace_path"]
+        
+        # Create workspace
+        agent_type = agent_info["type"]
+        workspace_path = self.prepare_workspace(agent_type, session_id)
+        
+        # Update pending agent to mark workspace as created
+        session_dir = self.sessions_dir / session_id
+        pending_file = session_dir / "pending_agents.json"
+        
+        if pending_file.exists():
+            try:
+                with open(pending_file) as f:
+                    pending_agents = json.load(f)
+                
+                if agent_id in pending_agents:
+                    pending_agents[agent_id]["workspace_created"] = True
+                    pending_agents[agent_id]["workspace_path"] = workspace_path
+                    
+                    with open(pending_file, 'w') as f:
+                        json.dump(pending_agents, f, indent=2)
+            except (json.JSONDecodeError, FileNotFoundError):
+                pass
+        
+        return workspace_path
     
     def prepare_workspace(self, agent_type: str, session_id: str) -> str:
         """Create git worktree for agent"""
@@ -168,8 +266,12 @@ class MAOSBackend:
             except (json.JSONDecodeError, FileNotFoundError):
                 agents = []
         
+        # Generate agent ID
+        agent_id = f"{agent_type}-{session_id}-{int(time.time())}"
+        
         # Add new agent
         agent_data = {
+            "id": agent_id,
             "type": agent_type,
             "session": session_id,
             "workspace": workspace,

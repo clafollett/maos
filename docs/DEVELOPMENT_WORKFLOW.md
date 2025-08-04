@@ -168,10 +168,18 @@ Brief description of what needs to be implemented.
 ## Technical Specification
 
 ### Hook Implementation (if applicable)
-```python
-def pre_tool_use(tool_name, tool_args):
-    """Intercept tool before execution"""
-    # Implementation details
+```rust
+use maos_security::SecurityValidator;
+use serde_json::Value;
+
+pub fn pre_tool_use(tool_name: &str, tool_args: &Value) -> Result<HookResponse> {
+    // Intercept tool before execution
+    match tool_name {
+        "Task" => handle_task_spawn(tool_args),
+        "Edit" | "Write" => enforce_workspace(tool_args),
+        _ => Ok(HookResponse::allow()),
+    }
+}
 ```
 
 ### Coordination Files (if applicable)
@@ -197,9 +205,11 @@ def pre_tool_use(tool_name, tool_args):
    - Expected: Thread-safe operation
 
 ## Implementation Notes
-- Follow Python best practices
-- Use TDD approach
-- Consider concurrency implications
+- Follow Rust best practices and idioms
+- Use TDD approach with `cargo test --watch`
+- Consider memory safety and ownership
+- Handle errors with Result<T, E> types
+- Use async/await for concurrent operations
 
 ## Dependencies
 - Blocked by: #[issue number]
@@ -290,12 +300,12 @@ Use semantic commit messages with GitHub issue linking:
 **Types:**
 - `feat:` - New features
 - `fix:` - Bug fixes
-- `chore:` - Maintenance tasks
+- `chore:` - Maintenance tasks (Cargo.toml updates, dependencies)
 - `docs:` - Documentation updates
 - `refactor:` - Code refactoring
 - `test:` - Adding/updating tests
 - `perf:` - Performance improvements
-- `style:` - Code formatting/style changes
+- `style:` - Code formatting (cargo fmt)
 
 **Breaking Changes:** Add `BREAKING CHANGE:` in commit body for major changes
 
@@ -312,9 +322,9 @@ Use semantic commit messages with GitHub issue linking:
 **Repository Protection Settings:**
 - **No direct pushes** - All changes via pull requests
 - **Required status checks:**
-  - `Python Tests`
-  - `Integration Tests`
-  - `Linting (flake8/black)`
+  - `Rust Tests (cargo test)`
+  - `Clippy Lints` (see [Linting Guide](features/linting.md))
+  - `Format Check (cargo fmt)`
   
 - **Required reviews** - At least 1 approving review
 - **Dismiss stale reviews** - Re-approval required after new commits
@@ -343,11 +353,12 @@ Closes #[issue number]
 - [ ] Manual testing completed
 
 ## Checklist
-- [ ] Code follows Python conventions
+- [ ] Code follows Rust conventions
 - [ ] Tests follow TDD approach
 - [ ] Documentation updated
 - [ ] No hardcoded paths
-- [ ] Logging added appropriately
+- [ ] Error handling uses Result<T, E>
+- [ ] No unwrap() in production code
 
 ## Screenshots (if applicable)
 [Add any relevant screenshots]
@@ -376,27 +387,36 @@ Closes #[issue number]
 
 ### 1. Code Documentation
 
-```python
-def register_agent(session_id: str, agent_name: str, worktree_path: str) -> dict:
-    """
-    Register a new agent in the session.
-    
-    Args:
-        session_id: Unique session identifier
-        agent_name: Name of the agent to register
-        worktree_path: Path to agent's git worktree
-        
-    Returns:
-        dict: Agent registration details
-        
-    Raises:
-        ValueError: If agent already registered
-        
-    Example:
-        >>> register_agent("sess-123", "backend-engineer", "/tmp/worktrees/backend")
-        {'agent_id': 'backend-engineer', 'status': 'active'}
-    """
-    # Implementation
+```rust
+/// Register a new agent in the session.
+///
+/// # Arguments
+///
+/// * `session_id` - Unique session identifier
+/// * `agent_name` - Name of the agent to register
+/// * `worktree_path` - Path to agent's git worktree
+///
+/// # Returns
+///
+/// Agent registration details
+///
+/// # Errors
+///
+/// Returns an error if the agent is already registered
+///
+/// # Example
+///
+/// ```
+/// let details = register_agent("sess-123", "backend-engineer", "/tmp/worktrees/backend")?;
+/// assert_eq!(details.status, AgentStatus::Active);
+/// ```
+pub fn register_agent(
+    session_id: &str,
+    agent_name: &str,
+    worktree_path: &Path,
+) -> Result<AgentDetails> {
+    // Implementation
+}
 ```
 
 ### 2. Architecture Documentation
@@ -445,60 +465,86 @@ Version is ready for release when:
 - [ ] CHANGELOG updated
 - [ ] Release notes prepared
 
-## Python Development Standards
+## Rust Development Standards
 
-### File Organization
-```python
-# 1. Standard library
-import json
-import os
-from pathlib import Path
+### Module Organization
+```rust
+// 1. External crates
+use anyhow::{anyhow, Result};
+use serde::{Deserialize, Serialize};
+use tokio::runtime::Runtime;
 
-# 2. Third-party imports (if any)
-import pytest
+// 2. Standard library
+use std::fs;
+use std::path::{Path, PathBuf};
+use std::process::Command;
 
-# 3. Local imports
-from .utils import get_project_root
-from .handlers import ToolHandler
+// 3. Local modules
+use crate::config::Config;
+use crate::hooks::HookHandler;
+use crate::orchestration::WorkspaceManager;
 ```
 
 ### Testing Standards
 
 #### Test Structure
-```python
-class TestHookSystem:
-    """Test hook system functionality"""
-    
-    def test_tool_interception(self):
-        """Test that tools are intercepted correctly"""
-        # Given
-        tool_name = "Task"
-        tool_args = {"subagent_type": "backend-engineer"}
+```rust
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_tool_interception() {
+        // Given
+        let tool_name = "Task";
+        let tool_args = json!({
+            "subagent_type": "backend-engineer"
+        });
         
-        # When
-        result = pre_tool_use(tool_name, tool_args)
+        // When
+        let result = pre_tool_use(tool_name, &tool_args).unwrap();
         
-        # Then
-        assert result["intercepted"] is True
-        assert "worktree" in result
+        // Then
+        assert!(result.intercepted);
+        assert!(result.worktree.is_some());
+    }
     
-    def test_error_handling(self):
-        """Test graceful error handling"""
-        # Test implementation
+    #[tokio::test]
+    async fn test_async_operations() {
+        // Test async hook processing
+        let result = process_hook_async().await;
+        assert!(result.is_ok());
+    }
+    
+    #[test]
+    fn test_error_handling() -> Result<()> {
+        // Test graceful error handling
+        let result = risky_operation()?;
+        Ok(())
+    }
+}
 ```
 
 ### Logging Standards
-```python
-import logging
+```rust
+use log::{debug, error, info, warn};
+use tracing::{event, instrument, Level};
 
-logger = logging.getLogger(__name__)
+// Using log crate
+info!("Loading hook configuration for: {}", hook_name);
+error!("Failed to create worktree for agent: {}", agent_name);
 
-# Good - structured logging with context
-logger.info("Loading hook configuration", extra={"hook": "pre_tool_use"})
-logger.error("Failed to create worktree", exc_info=True, extra={"agent": agent_name})
+// Using tracing for structured logging
+#[instrument]
+fn process_hook(hook_name: &str) -> Result<()> {
+    event!(Level::INFO, hook = hook_name, "Processing hook");
+    // Implementation
+    Ok(())
+}
 
-# Bad - no context
-print("Loading configuration")
+// Bad - using println!
+println!("Loading configuration"); // Don't use this
 ```
 
 ## Development Commands
@@ -506,18 +552,27 @@ print("Loading configuration")
 ### Quick Commands Reference
 ```bash
 # Run tests
-python -m pytest tests/
-python -m pytest tests/test_hooks.py -v
+cargo test
+cargo test test_hooks -- --nocapture
+cargo test --workspace
 
-# Linting
-black .
-flake8 .
+# Formatting and linting
+cargo fmt
+cargo clippy -- -D warnings
+cargo clippy --fix -Z unstable-options  # Auto-fix clippy warnings
+cargo check
 
-# Integration tests
-./test_integration.py
+# Build and run
+cargo build --release
+cargo run --bin maos -- pre-tool-use
 
-# Manual testing
-python .claude/hooks/pre_tool_use.py
+# Documentation
+cargo doc --open
+cargo doc --no-deps
+
+# Benchmarks
+cargo bench
+cargo bench -- --save-baseline main
 ```
 
 ## Getting Started
