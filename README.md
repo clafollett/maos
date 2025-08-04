@@ -12,28 +12,39 @@ MAOS is a compiled Rust binary that replaces fragile Python hook scripts with a 
 - 📦 **Easy Install**: `npx @maos/cli` or `brew install maos` (coming soon)
 - 👻 **Invisible**: Users interact with Claude Code normally
 
-> **Bootstrap Phase**: MAOS currently uses Python scripts to implement all features while we build the Rust CLI. This means you can use MAOS today! The Python implementation in `.claude/hooks/` provides full functionality and will be replaced by the `maos` binary with the same features but better performance. See our [Bootstrap Phase Guide](docs/guides/bootstrap-phase-explained.md) for details.
+> **Bootstrap Phase**: MAOS currently uses Python scripts to implement all features while we build the Rust CLI. This means you can use MAOS today! The Python implementation in `.claude/hooks/` provides full functionality and will be replaced by the `maos` binary with the same features but better performance.
 
 ## Quick Start
 
-### Installation (Coming Soon)
+**⚡ See the [Quick Start Guide](docs/QUICK_START.md) to get running in 5 minutes!**
 
-The MAOS Rust CLI will be available through:
+### Current Status: Bootstrap Phase (Python Implementation)
+
+MAOS is currently in bootstrap phase - the Python implementation in `.claude/hooks/` provides full functionality while we build the Rust CLI. 
+
+**Use MAOS Today:**
+1. Clone this repository
+2. Configure your `.claude/settings.json` with Python hooks
+3. Full orchestration features work now!
+
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions.
+
+### Future: Rust CLI Installation (Target: Q2 2024)
+
+When the Rust CLI is released, installation will be simple:
 
 ```bash
-# Via NPX (recommended) - COMING SOON
+# Via NPX (recommended)
 npx @maos/cli setup
 
-# Via Homebrew - COMING SOON
+# Via Homebrew
 brew install maos
 
-# Direct download - COMING SOON
+# Direct download
 curl -sSL https://raw.githubusercontent.com/clafollett/maos/main/scripts/install.sh | sh
 ```
 
-### Current Development Setup
-
-During the bootstrap phase, MAOS uses Python hooks. See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup.
+The Rust CLI will automatically update your `settings.json` hooks during installation!
 
 ### Future Configuration
 
@@ -176,16 +187,17 @@ cargo install --path .
 ## Documentation
 
 ### For Users
+- **[Quick Start Guide](docs/QUICK_START.md)**: Get running in 5 minutes! ⚡
 - **[Installation Guide](docs/cli/installation.md)**: NPX, Homebrew, and binary installation
 - **[CLI Reference](docs/cli/commands.md)**: Complete command documentation
 - **[Configuration](docs/cli/configuration.md)**: settings.json and config options
 - **[Migration Guide](docs/cli/migration.md)**: Moving from Python hooks to MAOS CLI
+- **[Troubleshooting](docs/TROUBLESHOOTING.md)**: Common issues and solutions 🛠️
 
 ### For Contributors
 - **[Architecture Overview](ARCHITECTURE.md)**: Rust crate structure and design
-- **[Development Setup](docs/development/setup.md)**: Building from source
-- **[Testing Guide](docs/development/testing.md)**: Test strategy and execution
-- **[Release Process](docs/development/release.md)**: Binary distribution
+- **[Contributing Guide](CONTRIBUTING.md)**: Development setup and guidelines
+- **[Development Workflow](docs/DEVELOPMENT_WORKFLOW.md)**: Standards and processes
 
 ## Roadmap
 

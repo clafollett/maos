@@ -9,6 +9,12 @@ MAOS will be distributed as a compiled binary with no runtime dependencies. Choo
 npx @maos/cli setup
 ```
 
+This will:
+- Install the MAOS binary
+- Automatically update your `.claude/settings.json`
+- Create backups of existing configuration
+- Migrate Python hooks to Rust commands
+
 ### Homebrew
 ```bash
 brew install maos

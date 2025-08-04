@@ -12,7 +12,13 @@ This guide helps you transition from the current Python hook implementation to t
 
 ## Quick Migration
 
-Once MAOS Rust CLI is installed, update `.claude/settings.json`:
+The MAOS installer automatically updates your `.claude/settings.json` during installation. It intelligently:
+- Finds existing Python hook commands
+- Replaces them with Rust CLI equivalents
+- Preserves any other hooks you have configured
+- Creates backups before making changes
+
+Manual migration is also possible if preferred:
 
 ### Before (Python)
 ```json
