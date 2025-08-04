@@ -1,0 +1,18 @@
+[package]
+name = "maos"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "maos"
+path = "src/main.rs"
+
+[dependencies]
+maos-core = { path = "../maos-core" }
+clap = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }

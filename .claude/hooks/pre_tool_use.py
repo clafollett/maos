@@ -110,20 +110,21 @@ def is_env_file_access(tool_name, tool_input):
         # Check file paths for file-based tools
         if tool_name in ['Read', 'Edit', 'MultiEdit', 'Write']:
             file_path = tool_input.get('file_path', '')
-            if '.env' in file_path and not file_path.endswith('.env.sample'):
+            # Block .env files but allow .env.sample and stack.env
+            if '.env' in file_path and not file_path.endswith('.env.sample') and not file_path.endswith('stack.env'):
                 return True
         
         # Check bash commands for .env file access
         elif tool_name == 'Bash':
             command = tool_input.get('command', '')
-            # Pattern to detect .env file access (but allow .env.sample)
+            # Pattern to detect .env file access (but allow .env.sample and stack.env)
             env_patterns = [
-                r'\b\.env\b(?!\.sample)',  # .env but not .env.sample
-                r'cat\s+.*\.env\b(?!\.sample)',  # cat .env
-                r'echo\s+.*>\s*\.env\b(?!\.sample)',  # echo > .env
-                r'touch\s+.*\.env\b(?!\.sample)',  # touch .env
-                r'cp\s+.*\.env\b(?!\.sample)',  # cp .env
-                r'mv\s+.*\.env\b(?!\.sample)',  # mv .env
+                r'(?<!stack)\.env\b(?!\.sample)',  # .env but not .env.sample or stack.env
+                r'cat\s+.*(?<!stack)\.env\b(?!\.sample)',  # cat .env
+                r'echo\s+.*>\s*(?<!stack)\.env\b(?!\.sample)',  # echo > .env
+                r'touch\s+.*(?<!stack)\.env\b(?!\.sample)',  # touch .env
+                r'cp\s+.*(?<!stack)\.env\b(?!\.sample)',  # cp .env
+                r'mv\s+.*(?<!stack)\.env\b(?!\.sample)',  # mv .env
             ]
             
             for pattern in env_patterns:
