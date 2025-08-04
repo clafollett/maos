@@ -14,7 +14,7 @@ cd maos
 # Source the development stack environment
 source stack.env
 
-# Set up development environment (requires 'just' command runner)
+# Set up development environment (installs git hooks)
 just dev-setup
 ```
 
