@@ -33,12 +33,13 @@
 //! assert!(agent_id.is_valid());
 //! ```
 
-pub mod error;
+#[macro_use]
 pub mod types;
+pub mod error;
 
 // Re-export commonly used types
 pub use types::{
     agent::{AgentCapabilities, AgentId, AgentInfo, AgentStatus, AgentType},
     session::{Session, SessionId, SessionStatus},
-    tool::{ToolCall, ToolResult},
+    tool::{ToolCall, ToolCallId, ToolResult},
 };

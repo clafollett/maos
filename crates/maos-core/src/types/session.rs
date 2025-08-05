@@ -4,14 +4,13 @@
 //! identifiers, session state, and metadata tracking.
 
 use chrono::{DateTime, Utc};
-use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 /// Unique identifier for a MAOS session
 ///
-/// Session IDs follow the format: `sess_{timestamp}_{random}`
-/// where timestamp is YYYYMMDDHHMMss and random is a 6-character nanoid.
+/// Session IDs follow the format: `sess_{uuid}`
+/// where uuid is a v4 UUID.
 ///
 /// # Example
 ///
@@ -23,27 +22,11 @@ use std::path::PathBuf;
 /// assert!(id.as_str().starts_with("sess_"));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct SessionId(String);
 
-impl SessionId {
-    /// Generate a new unique session ID
-    pub fn generate() -> Self {
-        let timestamp = Utc::now().format("%Y%m%d%H%M%S");
-        let random = nanoid!(6); // 6 character random suffix
-        Self(format!("sess_{timestamp}_{random}"))
-    }
-
-    /// Check if the session ID format is valid
-    pub fn is_valid(&self) -> bool {
-        let parts: Vec<&str> = self.0.split('_').collect();
-        parts.len() == 3 && parts[0] == "sess" && !parts[1].is_empty() && !parts[2].is_empty()
-    }
-
-    /// Get the ID as a string slice
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
+// Use the macro to implement common ID functionality
+crate::impl_id_type!(SessionId, "sess");
 
 /// Session metadata and state
 ///
@@ -78,8 +61,8 @@ pub struct Session {
     pub status: SessionStatus,
     /// Root directory for all session workspaces
     pub workspace_root: PathBuf,
-    /// List of active agent IDs (TODO: Will be Vec<AgentInfo> later)
-    pub active_agents: Vec<String>,
+    /// List of active agent IDs in this session
+    pub active_agents: Vec<crate::types::agent::AgentId>,
 }
 
 /// Status of a MAOS session
@@ -112,7 +95,6 @@ mod tests {
 
     #[test]
     fn test_session_id_generation() {
-        // This will fail - no generate() method yet
         let id = SessionId::generate();
         assert!(id.is_valid());
 
@@ -129,28 +111,43 @@ mod tests {
         // Should start with "sess_"
         assert!(id_str.starts_with("sess_"));
 
-        // Should have timestamp and random parts
-        let parts: Vec<&str> = id_str.split('_').collect();
-        assert_eq!(parts.len(), 3);
+        // Should have prefix and UUID parts
+        let parts: Vec<&str> = id_str.splitn(2, '_').collect();
+        assert_eq!(parts.len(), 2);
+        assert_eq!(parts[0], "sess");
+
+        // Validate UUID format
+        assert!(uuid::Uuid::parse_str(parts[1]).is_ok());
     }
 
     #[test]
     fn test_session_id_validation() {
         // Valid ID
-        let valid = SessionId("sess_20240805_abc123".to_string());
+        let valid = SessionId("sess_550e8400-e29b-41d4-a716-446655440000".to_string());
         assert!(valid.is_valid());
 
-        // Invalid IDs
-        let invalid = SessionId("invalid".to_string());
-        assert!(!invalid.is_valid());
+        // Invalid IDs - wrong prefix
+        assert!(!SessionId("invalid".to_string()).is_valid());
+        assert!(!SessionId("session_550e8400-e29b-41d4-a716-446655440000".to_string()).is_valid());
+        assert!(!SessionId("agent_550e8400-e29b-41d4-a716-446655440000".to_string()).is_valid());
 
-        let empty = SessionId("".to_string());
-        assert!(!empty.is_valid());
+        // Invalid IDs - wrong structure
+        assert!(!SessionId("".to_string()).is_valid());
+        assert!(!SessionId("sess".to_string()).is_valid());
+        assert!(!SessionId("sess_".to_string()).is_valid());
+        assert!(!SessionId("sess_invalid-uuid".to_string()).is_valid());
+
+        // Invalid IDs - bad UUID
+        assert!(!SessionId("sess_not-a-uuid".to_string()).is_valid());
+        assert!(!SessionId("sess_550e8400-e29b-41d4-a716".to_string()).is_valid()); // Too short
+        assert!(
+            !SessionId("sess_550e8400-e29b-41d4-a716-446655440000-extra".to_string()).is_valid()
+        ); // Too long
+        assert!(!SessionId("sess_550e8400-e29b-41d4-a716-44665544000g".to_string()).is_valid()); // Invalid char
     }
 
     #[test]
     fn test_session_creation() {
-        // RED: This test will fail - Session doesn't have fields yet
         let session = Session {
             id: SessionId::generate(),
             created_at: Utc::now(),

@@ -16,3 +16,4 @@ thiserror = "2.0"
 anyhow = "1.0"
 clap = { version = "4.0", features = ["derive"] }
 tokio = { version = "1", features = ["rt", "macros"] }
+uuid = { version = "1.11", features = ["v4", "serde"] }

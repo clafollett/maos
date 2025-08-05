@@ -1,5 +1,7 @@
 use chrono::Utc;
-use maos_core::{AgentId, AgentInfo, AgentStatus, Session, SessionId, SessionStatus, ToolCall};
+use maos_core::{
+    AgentId, AgentInfo, AgentStatus, Session, SessionId, SessionStatus, ToolCall, ToolCallId,
+};
 use std::path::PathBuf;
 
 #[test]
@@ -11,7 +13,7 @@ fn test_full_type_integration() {
         last_activity: Utc::now(),
         status: SessionStatus::Active,
         workspace_root: PathBuf::from("/tmp/maos-test"),
-        active_agents: vec!["agent_1".to_string()],
+        active_agents: vec![],
     };
 
     // Create an agent
@@ -27,7 +29,7 @@ fn test_full_type_integration() {
 
     // Create a tool call
     let tool_call = ToolCall {
-        id: "call_123".to_string(),
+        id: ToolCallId::generate(),
         tool_name: "Bash".to_string(),
         parameters: serde_json::json!({ "command": "echo test" }),
         timestamp: Utc::now(),

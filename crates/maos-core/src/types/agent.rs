@@ -11,7 +11,6 @@
 //! "code-reviewer", "test-writer", or any custom type without modifying MAOS.
 
 use chrono::{DateTime, Utc};
-use nanoid::nanoid;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
@@ -33,8 +32,8 @@ pub type AgentType = String;
 
 /// Unique identifier for an agent
 ///
-/// Agent IDs follow the format: `agent_{timestamp}_{random}`
-/// where timestamp is YYYYMMDDHHMMss and random is a 6-character nanoid.
+/// Agent IDs follow the format: `agent_{uuid}`
+/// where uuid is a v4 UUID.
 ///
 /// # Example
 ///
@@ -46,27 +45,11 @@ pub type AgentType = String;
 /// assert!(id.as_str().starts_with("agent_"));
 /// ```
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct AgentId(String);
 
-impl AgentId {
-    /// Generate a new unique agent ID
-    pub fn generate() -> Self {
-        let timestamp = Utc::now().format("%Y%m%d%H%M%S");
-        let random = nanoid!(6);
-        Self(format!("agent_{timestamp}_{random}"))
-    }
-
-    /// Check if the agent ID format is valid
-    pub fn is_valid(&self) -> bool {
-        let parts: Vec<&str> = self.0.split('_').collect();
-        parts.len() == 3 && parts[0] == "agent" && !parts[1].is_empty() && !parts[2].is_empty()
-    }
-
-    /// Get the ID as a string slice
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
+// Use the macro to implement common ID functionality
+crate::impl_id_type!(AgentId, "agent");
 
 /// Agent capabilities configuration (loaded from user config)
 ///
@@ -83,7 +66,7 @@ impl AgentId {
 /// let capabilities = AgentCapabilities {
 ///     agent_type: "database-engineer".to_string(),
 ///     capabilities: vec!["sql".to_string(), "schema-design".to_string()],
-///     tool_restrictions: vec!["Write".to_string()], // Can't use Write tool
+///     tool_denylist: vec!["Write".to_string()], // Can't use Write tool
 ///     workspace_paths: vec![PathBuf::from("/workspace/db")],
 ///     environment_vars: HashMap::from([
 ///         ("DATABASE_URL".to_string(), "postgres://localhost".to_string())
@@ -97,7 +80,7 @@ pub struct AgentCapabilities {
     /// User-defined capability strings (e.g., "database", "testing")
     pub capabilities: Vec<String>,
     /// Tool names this agent cannot use (e.g., "Write", "Bash")
-    pub tool_restrictions: Vec<String>,
+    pub tool_denylist: Vec<String>,
     /// Filesystem paths this agent is allowed to access
     pub workspace_paths: Vec<PathBuf>,
     /// Environment variables to set for this agent
@@ -178,7 +161,6 @@ mod tests {
 
     #[test]
     fn test_agent_id_generation() {
-        // RED: AgentId needs generate() method
         let id = AgentId::generate();
         assert!(id.is_valid());
 
@@ -203,7 +185,7 @@ mod tests {
         let capabilities = AgentCapabilities {
             agent_type: "backend-engineer".to_string(),
             capabilities: vec!["database".to_string(), "api-design".to_string()],
-            tool_restrictions: vec!["Write".to_string()],
+            tool_denylist: vec!["Write".to_string()],
             workspace_paths: vec![PathBuf::from("/workspace/backend")],
             environment_vars: HashMap::from([("NODE_ENV".to_string(), "development".to_string())]),
         };
@@ -245,5 +227,31 @@ mod tests {
             let deserialized: AgentStatus = serde_json::from_str(&json).unwrap();
             assert_eq!(status, deserialized);
         }
+    }
+
+    #[test]
+    fn test_agent_id_validation() {
+        // Valid ID
+        let valid = AgentId("agent_550e8400-e29b-41d4-a716-446655440000".to_string());
+        assert!(valid.is_valid());
+
+        // Invalid IDs - wrong prefix
+        assert!(!AgentId("invalid".to_string()).is_valid());
+        assert!(!AgentId("sess_550e8400-e29b-41d4-a716-446655440000".to_string()).is_valid());
+        assert!(!AgentId("agents_550e8400-e29b-41d4-a716-446655440000".to_string()).is_valid());
+
+        // Invalid IDs - wrong structure
+        assert!(!AgentId("".to_string()).is_valid());
+        assert!(!AgentId("agent".to_string()).is_valid());
+        assert!(!AgentId("agent_".to_string()).is_valid());
+        assert!(!AgentId("agent_invalid-uuid".to_string()).is_valid());
+
+        // Invalid IDs - bad UUID
+        assert!(!AgentId("agent_not-a-uuid".to_string()).is_valid());
+        assert!(!AgentId("agent_550e8400-e29b-41d4-a716".to_string()).is_valid()); // Too short
+        assert!(
+            !AgentId("agent_550e8400-e29b-41d4-a716-446655440000-extra".to_string()).is_valid()
+        ); // Too long
+        assert!(!AgentId("agent_550e8400-e29b-41d4-a716-44665544000g".to_string()).is_valid()); // Invalid char
     }
 }

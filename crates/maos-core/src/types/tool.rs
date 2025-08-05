@@ -9,6 +9,27 @@ use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+/// Unique identifier for a tool call
+///
+/// Tool call IDs follow the format: `tool_{uuid}`
+/// where uuid is a v4 UUID.
+///
+/// # Example
+///
+/// ```
+/// use maos_core::ToolCallId;
+///
+/// let id = ToolCallId::generate();
+/// assert!(id.is_valid());
+/// assert!(id.as_str().starts_with("tool_"));
+/// ```
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct ToolCallId(String);
+
+// Use the macro to implement common ID functionality
+crate::impl_id_type!(ToolCallId, "tool");
+
 /// Tool call metadata from Claude Code hooks
 ///
 /// Represents a request to execute a tool (e.g., Bash, Read, Write) with
@@ -17,12 +38,12 @@ use serde_json::Value;
 /// # Example
 ///
 /// ```
-/// use maos_core::{ToolCall, SessionId, AgentId};
+/// use maos_core::{ToolCall, ToolCallId, SessionId, AgentId};
 /// use chrono::Utc;
 /// use serde_json::json;
 ///
 /// let tool_call = ToolCall {
-///     id: "call_abc123".to_string(),
+///     id: ToolCallId::generate(),
 ///     tool_name: "Bash".to_string(),
 ///     parameters: json!({
 ///         "command": "cargo test",
@@ -36,7 +57,7 @@ use serde_json::Value;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolCall {
     /// Unique identifier for this tool call
-    pub id: String,
+    pub id: ToolCallId,
     /// Name of the tool being called (e.g., "Bash", "Read", "Write")
     pub tool_name: String,
     /// Tool-specific parameters as JSON
@@ -57,11 +78,11 @@ pub struct ToolCall {
 /// # Example
 ///
 /// ```
-/// use maos_core::ToolResult;
+/// use maos_core::{ToolResult, ToolCallId};
 /// use chrono::Utc;
 ///
 /// let result = ToolResult {
-///     tool_call_id: "call_abc123".to_string(),
+///     tool_call_id: ToolCallId::generate(),
 ///     success: true,
 ///     output: Some("Tests passed: 42/42".to_string()),
 ///     error: None,
@@ -72,7 +93,7 @@ pub struct ToolCall {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolResult {
     /// ID of the tool call this result belongs to
-    pub tool_call_id: String,
+    pub tool_call_id: ToolCallId,
     /// Whether the tool execution succeeded
     pub success: bool,
     /// Tool output (stdout for commands, file content for reads, etc.)
@@ -93,7 +114,7 @@ mod tests {
     #[test]
     fn test_tool_call_creation() {
         let tool_call = ToolCall {
-            id: "tool_123".to_string(),
+            id: ToolCallId::generate(),
             tool_name: "Bash".to_string(),
             parameters: serde_json::json!({
                 "command": "ls -la",
@@ -105,13 +126,14 @@ mod tests {
         };
 
         assert_eq!(tool_call.tool_name, "Bash");
-        assert_eq!(tool_call.id, "tool_123");
+        assert!(tool_call.id.is_valid());
     }
 
     #[test]
     fn test_tool_result_creation() {
+        let tool_call_id = ToolCallId::generate();
         let result = ToolResult {
-            tool_call_id: "tool_123".to_string(),
+            tool_call_id: tool_call_id.clone(),
             success: true,
             output: Some("file1.txt\nfile2.txt".to_string()),
             error: None,
@@ -122,12 +144,13 @@ mod tests {
         assert!(result.success);
         assert_eq!(result.execution_time_ms, 150);
         assert!(result.error.is_none());
+        assert_eq!(result.tool_call_id, tool_call_id);
     }
 
     #[test]
     fn test_tool_call_serialization() {
         let tool_call = ToolCall {
-            id: "test_id".to_string(),
+            id: ToolCallId::generate(),
             tool_name: "Read".to_string(),
             parameters: serde_json::json!({
                 "file_path": "/tmp/test.txt"
@@ -142,5 +165,31 @@ mod tests {
 
         assert_eq!(deserialized.id, tool_call.id);
         assert_eq!(deserialized.tool_name, tool_call.tool_name);
+    }
+
+    #[test]
+    fn test_tool_call_id_validation() {
+        // Valid ID
+        let valid = ToolCallId("tool_550e8400-e29b-41d4-a716-446655440000".to_string());
+        assert!(valid.is_valid());
+
+        // Invalid IDs - wrong prefix
+        assert!(!ToolCallId("invalid".to_string()).is_valid());
+        assert!(!ToolCallId("sess_550e8400-e29b-41d4-a716-446655440000".to_string()).is_valid());
+        assert!(!ToolCallId("tools_550e8400-e29b-41d4-a716-446655440000".to_string()).is_valid());
+
+        // Invalid IDs - wrong structure
+        assert!(!ToolCallId("".to_string()).is_valid());
+        assert!(!ToolCallId("tool".to_string()).is_valid());
+        assert!(!ToolCallId("tool_".to_string()).is_valid());
+        assert!(!ToolCallId("tool_invalid-uuid".to_string()).is_valid());
+
+        // Invalid IDs - bad UUID
+        assert!(!ToolCallId("tool_not-a-uuid".to_string()).is_valid());
+        assert!(!ToolCallId("tool_550e8400-e29b-41d4-a716".to_string()).is_valid()); // Too short
+        assert!(
+            !ToolCallId("tool_550e8400-e29b-41d4-a716-446655440000-extra".to_string()).is_valid()
+        ); // Too long
+        assert!(!ToolCallId("tool_550e8400-e29b-41d4-a716-44665544000g".to_string()).is_valid()); // Invalid char
     }
 }
