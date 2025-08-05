@@ -14,8 +14,24 @@ pub mod tool;
 ///
 /// # Example
 ///
-/// ```ignore
-/// impl_id_type!(SessionId, "sess");
+/// This macro is used internally to implement ID types:
+/// ```
+/// use maos_core::impl_id_type;
+///
+/// #[derive(Debug, Clone, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+/// #[serde(transparent)]
+/// pub struct TestId(String);
+///
+/// impl_id_type!(TestId, "test");
+/// ```
+///
+/// The resulting type can be used like:
+/// ```
+/// use maos_core::SessionId;
+///
+/// let id = SessionId::generate();
+/// assert!(id.is_valid());
+/// assert!(id.as_str().starts_with("sess_"));
 /// ```
 #[macro_export]
 macro_rules! impl_id_type {
