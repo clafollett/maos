@@ -139,19 +139,24 @@ pub struct TaskSpawnRecommendation {
 }
 
 impl ToolParameterModifier {
-    /// Modify tool parameters to enable task spawning
+    /// Modify tool parameters based on agent capabilities and rules
     pub fn modify_for_task_spawn(
         &self,
         original_params: &serde_json::Value,
         spawn_rec: &TaskSpawnRecommendation,
+        agent_config: &AgentCapabilities,
+        modification_rules: &[ModificationRule],
     ) -> Result<serde_json::Value, ModificationError> {
-        match spawn_rec.agent_type.as_str() {
-            "code-reviewer" => self.modify_for_code_review(original_params, spawn_rec),
-            "test-engineer" | "qa-engineer" => self.modify_for_testing(original_params, spawn_rec),
-            "tech-writer" | "documentation" => self.modify_for_documentation(original_params, spawn_rec),
-            "data-scientist" | "researcher" => self.modify_for_analysis(original_params, spawn_rec),
-            _ => Ok(original_params.clone()),
+        // Apply rules based on agent capabilities, not hardcoded types
+        let mut modified_params = original_params.clone();
+        
+        for rule in modification_rules {
+            if rule.matches_capabilities(&agent_config.capabilities) {
+                modified_params = rule.apply_modifications(&modified_params, spawn_rec)?;
+            }
         }
+        
+        Ok(modified_params)
     }
     
     /// Inject workspace path constraints into tool parameters
@@ -612,9 +617,141 @@ impl HookIOProcessor {
 }
 ```
 
-### 3. Tool Parameter Modification System
+### 3. Capability-Based Rule System
 
-#### 3.1 Parameter Analysis Engine
+Define rules for hook operations based on agent capabilities, not hardcoded types.
+
+```rust
+/// Rule for modifying tool parameters based on agent capabilities
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModificationRule {
+    pub name: String,
+    pub description: String,
+    pub required_capabilities: Vec<String>,  // ALL must match
+    pub optional_capabilities: Vec<String>,  // ANY can match
+    pub conditions: Vec<RuleCondition>,
+    pub actions: Vec<RuleAction>,
+    pub priority: i32,  // Higher priority rules apply first
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RuleCondition {
+    ToolNameMatches(String),
+    ParameterExists(String),
+    ParameterValueMatches { param: String, pattern: String },
+    ContextMatches(String),
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum RuleAction {
+    ModifyParameter { name: String, value: serde_json::Value },
+    AddParameter { name: String, value: serde_json::Value },
+    RemoveParameter(String),
+    TransformParameter { name: String, transform: ParameterTransform },
+}
+
+impl ModificationRule {
+    pub fn matches_capabilities(&self, agent_capabilities: &[String]) -> bool {
+        // Check all required capabilities are present
+        let has_required = self.required_capabilities.iter()
+            .all(|cap| agent_capabilities.contains(cap));
+        
+        // Check at least one optional capability if specified
+        let has_optional = self.optional_capabilities.is_empty() ||
+            self.optional_capabilities.iter()
+                .any(|cap| agent_capabilities.contains(cap));
+        
+        has_required && has_optional
+    }
+    
+    pub fn apply_modifications(
+        &self,
+        params: &serde_json::Value,
+        context: &TaskSpawnRecommendation,
+    ) -> Result<serde_json::Value, ModificationError> {
+        // Check conditions
+        for condition in &self.conditions {
+            if !self.check_condition(condition, params, context)? {
+                return Ok(params.clone());
+            }
+        }
+        
+        // Apply actions
+        let mut modified = params.clone();
+        for action in &self.actions {
+            modified = self.apply_action(action, modified)?;
+        }
+        
+        Ok(modified)
+    }
+}
+
+/// Load rules from user configuration
+pub fn load_modification_rules() -> Result<Vec<ModificationRule>, ConfigError> {
+    // Load from .maos/config/rules.toml or similar
+    // Users define their own rules for their agents
+    let config_path = dirs::config_dir()
+        .ok_or(ConfigError::NoConfigDir)?
+        .join("maos")
+        .join("rules.toml");
+    
+    if !config_path.exists() {
+        return Ok(Vec::new()); // No rules defined
+    }
+    
+    let content = std::fs::read_to_string(&config_path)?;
+    toml::from_str(&content).map_err(ConfigError::ParseError)
+}
+```
+
+#### Example User Configuration (.maos/config/rules.toml)
+
+```toml
+# User-defined rules for agent behavior
+# No hardcoded agent types - users define capabilities
+
+[[rules]]
+name = "code-analysis-delegation"
+description = "Delegate code analysis tasks to agents with analysis capabilities"
+required_capabilities = ["code-analysis", "file-reading"]
+optional_capabilities = ["ast-parsing", "security-scanning"]
+priority = 10
+
+[[rules.conditions]]
+type = "ToolNameMatches"
+value = "Task"
+
+[[rules.conditions]]
+type = "ParameterValueMatches"
+param = "description"
+pattern = "analyze|review|scan|audit"
+
+[[rules.actions]]
+type = "AddParameter"
+name = "workspace_constraints"
+value = { paths = ["src/", "lib/"], read_only = true }
+
+[[rules]]
+name = "test-execution-delegation"
+description = "Delegate test execution to agents with testing capabilities"
+required_capabilities = ["test-execution"]
+optional_capabilities = ["coverage-analysis", "performance-testing"]
+priority = 15
+
+[[rules.conditions]]
+type = "ParameterValueMatches"
+param = "prompt"
+pattern = "test|spec|coverage"
+
+[[rules.actions]]
+type = "ModifyParameter"
+name = "subagent_type"
+value = "${agent_with_capabilities}"  # Dynamic resolution
+```
+
+### 4. Tool Parameter Modification System
+
+#### 4.1 Parameter Analysis Engine
 ```rust
 /// Tool parameter analysis for intelligent modification
 pub struct ParameterAnalyzer {

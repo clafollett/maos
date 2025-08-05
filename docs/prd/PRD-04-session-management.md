@@ -805,27 +805,44 @@ mod tests {
 mod integration_tests {
     use super::*;
     
+    // Test utilities to be implemented during development
+    async fn create_test_session() -> Session {
+        // Create a test session with temporary directories
+        unimplemented!("Test utility")
+    }
+    
+    async fn spawn_test_agent(session: &Session, agent_type: &str) -> AgentInfo {
+        // Spawn a test agent in the session
+        unimplemented!("Test utility")
+    }
+    
+    async fn simulate_agent_work(agent: &AgentInfo, workspace: &str) -> Result<(), SessionError> {
+        // Simulate agent performing work
+        unimplemented!("Test utility")
+    }
+    
     #[tokio::test]
     async fn test_multi_agent_session_workflow() {
         let session = create_test_session().await;
         
         // Spawn multiple agents
-        let backend_agent = spawn_test_agent(&session, "backend-engineer").await;
-        let frontend_agent = spawn_test_agent(&session, "frontend-engineer").await;
-        let qa_agent = spawn_test_agent(&session, "test-engineer").await;
+        // Note: spawn_test_agent is a test utility to be implemented
+        let agent1 = spawn_test_agent(&session, "user-defined-agent-1").await;
+        let agent2 = spawn_test_agent(&session, "user-defined-agent-2").await;
+        let agent3 = spawn_test_agent(&session, "user-defined-agent-3").await;
         
         // Agents work concurrently
-        let backend_work = simulate_agent_work(&backend_agent, "backend_files/");
-        let frontend_work = simulate_agent_work(&frontend_agent, "frontend_files/");
-        let qa_work = simulate_agent_work(&qa_agent, "test_files/");
+        let work1 = simulate_agent_work(&agent1, "workspace1/");
+        let work2 = simulate_agent_work(&agent2, "workspace2/");
+        let work3 = simulate_agent_work(&agent3, "workspace3/");
         
         // Wait for all agents to complete
-        let (backend_result, frontend_result, qa_result) = 
-            tokio::join!(backend_work, frontend_work, qa_work);
+        let (result1, result2, result3) = 
+            tokio::join!(work1, work2, work3);
             
-        assert!(backend_result.is_ok());
-        assert!(frontend_result.is_ok());
-        assert!(qa_result.is_ok());
+        assert!(result1.is_ok());
+        assert!(result2.is_ok());
+        assert!(result3.is_ok());
         
         // Verify session state
         let progress = session.get_progress_summary().await.unwrap();

@@ -86,13 +86,32 @@ pub enum SessionStatus {
 #### 1.2 Agent Management Types
 ```rust
 /// Agent type - flexible string to support any user-defined agent
+/// IMPORTANT: MAOS is agent-agnostic and does not know about specific agent types
+/// Users can create any agent type in Claude Code without MAOS awareness
 pub type AgentType = String;
+
+/// Agent capabilities configuration (loaded from user config)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AgentCapabilities {
+    pub agent_type: AgentType,
+    pub capabilities: Vec<String>,    // User-defined capability strings
+    pub tool_restrictions: Vec<String>, // Tools this agent cannot use
+    pub workspace_paths: Vec<PathBuf>, // Allowed workspace paths
+    pub environment_vars: HashMap<String, String>,
+}
+
+/// Load agent capabilities from user configuration
+/// This allows MAOS to understand agent behavior without hardcoding types
+pub fn load_agent_capabilities() -> Result<HashMap<AgentType, AgentCapabilities>, ConfigError> {
+    // Load from .maos/config/agents.toml
+    // Users define capabilities for their custom agents
+}
 
 /// Agent information and state
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentInfo {
     pub id: AgentId,
-    pub agent_type: AgentType,  // e.g. "code-reviewer", "frontend-engineer", "my-custom-agent"
+    pub agent_type: AgentType,  // User-defined agent type string
     pub session_id: SessionId,
     pub workspace_path: PathBuf,
     pub status: AgentStatus,

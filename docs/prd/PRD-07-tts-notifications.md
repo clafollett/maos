@@ -150,7 +150,7 @@ pub struct OpenAiProvider {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OpenAiConfig {
-    pub model: String,              // Default: "gpt-4o-mini-tts"
+    pub model: String,              // Default: "tts-1"
     pub voice: String,              // Default: "nova"
     pub response_format: String,    // Default: "mp3"
     pub speed: f32,                 // Speech speed (0.25-4.0)
