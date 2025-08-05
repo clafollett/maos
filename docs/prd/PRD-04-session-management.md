@@ -261,17 +261,33 @@ pub enum LockType {
     Workspace,     // Entire workspace lock
 }
 
+/// Strategy for lock acquisition timeout behavior.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum LockTimeoutStrategy {
+    /// Do not wait if the lock is not immediately available.
+    NoWait,
+    /// Wait for the specified duration to acquire the lock.
+    Wait(Duration),
+    /// Wait indefinitely until the lock is acquired.
+    WaitForever,
+}
+
 impl LockManager {
     /// Acquire lock on file or directory
+    ///
+    /// `timeout_strategy` determines how long to wait for the lock:
+    /// - `NoWait`: return immediately if lock is unavailable
+    /// - `Wait(duration)`: wait up to the specified duration
+    /// - `WaitForever`: wait indefinitely until lock is acquired
     pub async fn acquire_lock(
         &self,
         agent_id: &AgentId,
         path: &Path,
         lock_type: LockType,
-        timeout: Option<Duration>,
+        timeout_strategy: LockTimeoutStrategy,
     ) -> MaosResult<LockGuard> {
         // Check for conflicting locks
-        // Wait for conflicts to resolve (if timeout specified)
+        // Wait for conflicts to resolve (according to timeout_strategy)
         // Create lock entry
         // Update locks.json atomically
         // Return lock guard

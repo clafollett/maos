@@ -235,13 +235,16 @@ impl GitCommandExecutor {
     
     /// Validate git command safety before execution
     fn validate_command_safety(&self, args: &[&str]) -> GitResult<()> {
-        // Block dangerous operations
-        let dangerous_commands = ["reset --hard", "clean -fd", "push --force"];
-        let command_str = args.join(" ");
+        // Block dangerous operations by matching exact argument patterns
+        let dangerous_patterns: &[&[&str]] = &[
+            &["reset", "--hard"],
+            &["clean", "-fd"],
+            &["push", "--force"],
+        ];
         
-        for dangerous in &dangerous_commands {
-            if command_str.contains(dangerous) {
-                return Err(GitError::DangerousOperation(command_str));
+        for pattern in dangerous_patterns {
+            if args.len() >= pattern.len() && args[..pattern.len()] == *pattern {
+                return Err(GitError::DangerousOperation(args.join(" ")));
             }
         }
         
