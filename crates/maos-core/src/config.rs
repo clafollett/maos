@@ -435,15 +435,15 @@ impl ConfigLoader {
                         }
                     }
                 }
-                if let Some(val) = logging.get("format") {
-                    if let Some(format) = val.as_str() {
-                        config.logging.format = format.to_string();
-                    }
+                if let Some(val) = logging.get("format")
+                    && let Some(format) = val.as_str()
+                {
+                    config.logging.format = format.to_string();
                 }
-                if let Some(val) = logging.get("output") {
-                    if let Some(output) = val.as_str() {
-                        config.logging.output = output.to_string();
-                    }
+                if let Some(val) = logging.get("output")
+                    && let Some(output) = val.as_str()
+                {
+                    config.logging.output = output.to_string();
                 }
             }
         }
