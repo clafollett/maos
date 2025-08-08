@@ -2,7 +2,7 @@
 # Ensures identical toolchain versions across all environments
 
 [toolchain]
-channel = "stable"
+channel = "1.89.0"
 profile = "default"
 components = ["rustfmt", "clippy", "rust-src"]
 

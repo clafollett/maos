@@ -318,120 +318,120 @@ impl ConfigLoader {
         if let serde_json::Value::Object(map) = value {
             // System config
             if let Some(system) = map.get("system") {
-                if let Some(val) = system.get("max_execution_time_ms") {
-                    if let Some(ms) = val.as_u64() {
-                        config.system.max_execution_time_ms = ms;
-                    }
+                if let Some(val) = system.get("max_execution_time_ms")
+                    && let Some(ms) = val.as_u64()
+                {
+                    config.system.max_execution_time_ms = ms;
                 }
-                if let Some(val) = system.get("workspace_root") {
-                    if let Some(path) = val.as_str() {
-                        config.system.workspace_root = PathBuf::from(path);
-                    }
+                if let Some(val) = system.get("workspace_root")
+                    && let Some(path) = val.as_str()
+                {
+                    config.system.workspace_root = PathBuf::from(path);
                 }
-                if let Some(val) = system.get("enable_metrics") {
-                    if let Some(enabled) = val.as_bool() {
-                        config.system.enable_metrics = enabled;
-                    }
+                if let Some(val) = system.get("enable_metrics")
+                    && let Some(enabled) = val.as_bool()
+                {
+                    config.system.enable_metrics = enabled;
                 }
             }
 
             // Security config
             if let Some(security) = map.get("security") {
-                if let Some(val) = security.get("enable_validation") {
-                    if let Some(enabled) = val.as_bool() {
-                        config.security.enable_validation = enabled;
-                    }
+                if let Some(val) = security.get("enable_validation")
+                    && let Some(enabled) = val.as_bool()
+                {
+                    config.security.enable_validation = enabled;
                 }
-                if let Some(val) = security.get("allowed_tools") {
-                    if let Some(arr) = val.as_array() {
-                        config.security.allowed_tools = arr
-                            .iter()
-                            .filter_map(|v| v.as_str().map(String::from))
-                            .collect();
-                    }
+                if let Some(val) = security.get("allowed_tools")
+                    && let Some(arr) = val.as_array()
+                {
+                    config.security.allowed_tools = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
                 }
-                if let Some(val) = security.get("blocked_paths") {
-                    if let Some(arr) = val.as_array() {
-                        config.security.blocked_paths = arr
-                            .iter()
-                            .filter_map(|v| v.as_str().map(String::from))
-                            .collect();
-                    }
+                if let Some(val) = security.get("blocked_paths")
+                    && let Some(arr) = val.as_array()
+                {
+                    config.security.blocked_paths = arr
+                        .iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect();
                 }
             }
 
             // TTS config
             if let Some(tts) = map.get("tts") {
-                if let Some(val) = tts.get("provider") {
-                    if let Some(provider) = val.as_str() {
-                        config.tts.provider = provider.to_string();
-                    }
+                if let Some(val) = tts.get("provider")
+                    && let Some(provider) = val.as_str()
+                {
+                    config.tts.provider = provider.to_string();
                 }
-                if let Some(val) = tts.get("voice") {
-                    if let Some(voice) = val.as_str() {
-                        config.tts.voice = voice.to_string();
-                    }
+                if let Some(val) = tts.get("voice")
+                    && let Some(voice) = val.as_str()
+                {
+                    config.tts.voice = voice.to_string();
                 }
-                if let Some(val) = tts.get("rate") {
-                    if let Some(rate) = val.as_u64() {
-                        config.tts.rate = rate as u32;
-                    }
+                if let Some(val) = tts.get("rate")
+                    && let Some(rate) = val.as_u64()
+                {
+                    config.tts.rate = rate as u32;
                 }
             }
 
             // Session config
             if let Some(session) = map.get("session") {
-                if let Some(val) = session.get("max_agents") {
-                    if let Some(max) = val.as_u64() {
-                        config.session.max_agents = max as u32;
-                    }
+                if let Some(val) = session.get("max_agents")
+                    && let Some(max) = val.as_u64()
+                {
+                    config.session.max_agents = max as u32;
                 }
-                if let Some(val) = session.get("timeout_minutes") {
-                    if let Some(timeout) = val.as_u64() {
-                        config.session.timeout_minutes = timeout as u32;
-                    }
+                if let Some(val) = session.get("timeout_minutes")
+                    && let Some(timeout) = val.as_u64()
+                {
+                    config.session.timeout_minutes = timeout as u32;
                 }
-                if let Some(val) = session.get("auto_cleanup") {
-                    if let Some(cleanup) = val.as_bool() {
-                        config.session.auto_cleanup = cleanup;
-                    }
+                if let Some(val) = session.get("auto_cleanup")
+                    && let Some(cleanup) = val.as_bool()
+                {
+                    config.session.auto_cleanup = cleanup;
                 }
             }
 
             // Worktree config
             if let Some(worktree) = map.get("worktree") {
-                if let Some(val) = worktree.get("prefix") {
-                    if let Some(prefix) = val.as_str() {
-                        config.worktree.prefix = prefix.to_string();
-                    }
+                if let Some(val) = worktree.get("prefix")
+                    && let Some(prefix) = val.as_str()
+                {
+                    config.worktree.prefix = prefix.to_string();
                 }
-                if let Some(val) = worktree.get("auto_cleanup") {
-                    if let Some(cleanup) = val.as_bool() {
-                        config.worktree.auto_cleanup = cleanup;
-                    }
+                if let Some(val) = worktree.get("auto_cleanup")
+                    && let Some(cleanup) = val.as_bool()
+                {
+                    config.worktree.auto_cleanup = cleanup;
                 }
-                if let Some(val) = worktree.get("max_worktrees") {
-                    if let Some(max) = val.as_u64() {
-                        config.worktree.max_worktrees = max as u32;
-                    }
+                if let Some(val) = worktree.get("max_worktrees")
+                    && let Some(max) = val.as_u64()
+                {
+                    config.worktree.max_worktrees = max as u32;
                 }
             }
 
             // Logging config
             if let Some(logging) = map.get("logging") {
-                if let Some(val) = logging.get("level") {
-                    if let Some(level_str) = val.as_str() {
-                        match level_str.parse::<LogLevel>() {
-                            Ok(level) => config.logging.level = level,
-                            Err(_) => {
-                                return Err(ConfigError::InvalidValue {
-                                    field: "logging.level".into(),
-                                    value: level_str.to_string(),
-                                    reason: "must be one of: trace, debug, info, warn, error"
-                                        .to_string(),
-                                }
-                                .into());
+                if let Some(val) = logging.get("level")
+                    && let Some(level_str) = val.as_str()
+                {
+                    match level_str.parse::<LogLevel>() {
+                        Ok(level) => config.logging.level = level,
+                        Err(_) => {
+                            return Err(ConfigError::InvalidValue {
+                                field: "logging.level".into(),
+                                value: level_str.to_string(),
+                                reason: "must be one of: trace, debug, info, warn, error"
+                                    .to_string(),
                             }
+                            .into());
                         }
                     }
                 }
