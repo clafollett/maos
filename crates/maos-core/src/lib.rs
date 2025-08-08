@@ -36,6 +36,7 @@
 #[macro_use]
 pub mod types;
 pub mod error;
+pub mod config;
 
 // Re-export commonly used types
 pub use types::{
