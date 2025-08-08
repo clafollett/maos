@@ -134,7 +134,7 @@ impl Display for LogLevel {
 }
 
 impl std::str::FromStr for LogLevel {
-    type Err = ();
+    type Err = String;
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         match s.to_ascii_lowercase().as_str() {
             "trace" => Ok(LogLevel::Trace),
@@ -142,7 +142,9 @@ impl std::str::FromStr for LogLevel {
             "info" => Ok(LogLevel::Info),
             "warn" => Ok(LogLevel::Warn),
             "error" => Ok(LogLevel::Error),
-            _ => Err(()),
+            _ => Err(format!(
+                "invalid log level '{s}', expected one of: trace, debug, info, warn, error"
+            )),
         }
     }
 }
@@ -260,14 +262,26 @@ impl ConfigLoader {
         Self::default()
     }
 
+    /// Helper function for parsing environment variables with error mapping
+    fn parse_env_var<T: std::str::FromStr>(val: &str, field: &str, reason: &str) -> Result<T> {
+        val.parse().map_err(|_| {
+            ConfigError::InvalidValue {
+                field: field.into(),
+                value: val.to_string(),
+                reason: reason.into(),
+            }
+            .into()
+        })
+    }
+
     /// Load configuration from a JSON string
     pub fn load_from_str(&self, json: &str) -> Result<MaosConfig> {
-        // Start with defaults
-        let mut config = MaosConfig::default();
+        // Parse JSON into a partial config
+        let partial: MaosConfig = serde_json::from_str(json)?;
 
-        // Parse and merge the JSON
-        let partial: serde_json::Value = serde_json::from_str(json)?;
-        self.merge_json(&mut config, partial)?;
+        // Merge with defaults (simple approach - could be more sophisticated)
+        let mut config = MaosConfig::default();
+        self.merge_configs(&mut config, partial);
 
         // Validate
         config.validate()?;
@@ -277,19 +291,12 @@ impl ConfigLoader {
 
     /// Load configuration from any reader providing JSON bytes
     pub fn load_from_reader<R: Read>(&self, mut reader: R) -> Result<MaosConfig> {
-        // Start with defaults
-        let mut config = MaosConfig::default();
-
         // Read and parse JSON
         let mut buf = String::new();
         reader.read_to_string(&mut buf)?;
-        let partial: serde_json::Value = serde_json::from_str(&buf)?;
-        self.merge_json(&mut config, partial)?;
 
-        // Validate
-        config.validate()?;
-
-        Ok(config)
+        // Use the string loader
+        self.load_from_str(&buf)
     }
 
     /// Load configuration from a file path containing JSON
@@ -312,143 +319,78 @@ impl ConfigLoader {
         Ok(config)
     }
 
-    /// Merge JSON values into config
-    fn merge_json(&self, config: &mut MaosConfig, value: serde_json::Value) -> Result<()> {
-        // This is a simple implementation - could be more sophisticated
-        if let serde_json::Value::Object(map) = value {
-            // System config
-            if let Some(system) = map.get("system") {
-                if let Some(val) = system.get("max_execution_time_ms")
-                    && let Some(ms) = val.as_u64()
-                {
-                    config.system.max_execution_time_ms = ms;
-                }
-                if let Some(val) = system.get("workspace_root")
-                    && let Some(path) = val.as_str()
-                {
-                    config.system.workspace_root = PathBuf::from(path);
-                }
-                if let Some(val) = system.get("enable_metrics")
-                    && let Some(enabled) = val.as_bool()
-                {
-                    config.system.enable_metrics = enabled;
-                }
-            }
+    /// Merge a partial config into a base config
+    /// This replaces only the fields that are present in the partial config
+    fn merge_configs(&self, base: &mut MaosConfig, partial: MaosConfig) {
+        // For now, this is a simple field-by-field replacement
+        // In a more sophisticated implementation, we could check if fields
+        // are "default" and only override non-default values
 
-            // Security config
-            if let Some(security) = map.get("security") {
-                if let Some(val) = security.get("enable_validation")
-                    && let Some(enabled) = val.as_bool()
-                {
-                    config.security.enable_validation = enabled;
-                }
-                if let Some(val) = security.get("allowed_tools")
-                    && let Some(arr) = val.as_array()
-                {
-                    config.security.allowed_tools = arr
-                        .iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect();
-                }
-                if let Some(val) = security.get("blocked_paths")
-                    && let Some(arr) = val.as_array()
-                {
-                    config.security.blocked_paths = arr
-                        .iter()
-                        .filter_map(|v| v.as_str().map(String::from))
-                        .collect();
-                }
-            }
-
-            // TTS config
-            if let Some(tts) = map.get("tts") {
-                if let Some(val) = tts.get("provider")
-                    && let Some(provider) = val.as_str()
-                {
-                    config.tts.provider = provider.to_string();
-                }
-                if let Some(val) = tts.get("voice")
-                    && let Some(voice) = val.as_str()
-                {
-                    config.tts.voice = voice.to_string();
-                }
-                if let Some(val) = tts.get("rate")
-                    && let Some(rate) = val.as_u64()
-                {
-                    config.tts.rate = rate as u32;
-                }
-            }
-
-            // Session config
-            if let Some(session) = map.get("session") {
-                if let Some(val) = session.get("max_agents")
-                    && let Some(max) = val.as_u64()
-                {
-                    config.session.max_agents = max as u32;
-                }
-                if let Some(val) = session.get("timeout_minutes")
-                    && let Some(timeout) = val.as_u64()
-                {
-                    config.session.timeout_minutes = timeout as u32;
-                }
-                if let Some(val) = session.get("auto_cleanup")
-                    && let Some(cleanup) = val.as_bool()
-                {
-                    config.session.auto_cleanup = cleanup;
-                }
-            }
-
-            // Worktree config
-            if let Some(worktree) = map.get("worktree") {
-                if let Some(val) = worktree.get("prefix")
-                    && let Some(prefix) = val.as_str()
-                {
-                    config.worktree.prefix = prefix.to_string();
-                }
-                if let Some(val) = worktree.get("auto_cleanup")
-                    && let Some(cleanup) = val.as_bool()
-                {
-                    config.worktree.auto_cleanup = cleanup;
-                }
-                if let Some(val) = worktree.get("max_worktrees")
-                    && let Some(max) = val.as_u64()
-                {
-                    config.worktree.max_worktrees = max as u32;
-                }
-            }
-
-            // Logging config
-            if let Some(logging) = map.get("logging") {
-                if let Some(val) = logging.get("level")
-                    && let Some(level_str) = val.as_str()
-                {
-                    match level_str.parse::<LogLevel>() {
-                        Ok(level) => config.logging.level = level,
-                        Err(_) => {
-                            return Err(ConfigError::InvalidValue {
-                                field: "logging.level".into(),
-                                value: level_str.to_string(),
-                                reason: "must be one of: trace, debug, info, warn, error"
-                                    .to_string(),
-                            }
-                            .into());
-                        }
-                    }
-                }
-                if let Some(val) = logging.get("format")
-                    && let Some(format) = val.as_str()
-                {
-                    config.logging.format = format.to_string();
-                }
-                if let Some(val) = logging.get("output")
-                    && let Some(output) = val.as_str()
-                {
-                    config.logging.output = output.to_string();
-                }
-            }
+        // System config - check if values differ from defaults to avoid overwriting
+        if partial.system.max_execution_time_ms != default_max_execution_time() {
+            base.system.max_execution_time_ms = partial.system.max_execution_time_ms;
+        }
+        if partial.system.workspace_root != default_workspace_root() {
+            base.system.workspace_root = partial.system.workspace_root;
+        }
+        if partial.system.enable_metrics != default_true() {
+            base.system.enable_metrics = partial.system.enable_metrics;
         }
 
-        Ok(())
+        // Security config
+        if partial.security.enable_validation != default_true() {
+            base.security.enable_validation = partial.security.enable_validation;
+        }
+        if partial.security.allowed_tools != default_allowed_tools() {
+            base.security.allowed_tools = partial.security.allowed_tools;
+        }
+        if !partial.security.blocked_paths.is_empty() {
+            base.security.blocked_paths = partial.security.blocked_paths;
+        }
+
+        // TTS config
+        if partial.tts.provider != default_tts_provider() {
+            base.tts.provider = partial.tts.provider;
+        }
+        if partial.tts.voice != default_voice() {
+            base.tts.voice = partial.tts.voice;
+        }
+        if partial.tts.rate != default_tts_rate() {
+            base.tts.rate = partial.tts.rate;
+        }
+
+        // Session config
+        if partial.session.max_agents != default_max_agents() {
+            base.session.max_agents = partial.session.max_agents;
+        }
+        if partial.session.timeout_minutes != default_timeout_minutes() {
+            base.session.timeout_minutes = partial.session.timeout_minutes;
+        }
+        if partial.session.auto_cleanup != default_true() {
+            base.session.auto_cleanup = partial.session.auto_cleanup;
+        }
+
+        // Worktree config
+        if partial.worktree.prefix != default_worktree_prefix() {
+            base.worktree.prefix = partial.worktree.prefix;
+        }
+        if partial.worktree.auto_cleanup != default_true() {
+            base.worktree.auto_cleanup = partial.worktree.auto_cleanup;
+        }
+        if partial.worktree.max_worktrees != default_max_worktrees() {
+            base.worktree.max_worktrees = partial.worktree.max_worktrees;
+        }
+
+        // Logging config
+        if partial.logging.level != default_log_level() {
+            base.logging.level = partial.logging.level;
+        }
+        if partial.logging.format != default_log_format() {
+            base.logging.format = partial.logging.format;
+        }
+        if partial.logging.output != default_log_output() {
+            base.logging.output = partial.logging.output;
+        }
     }
 
     /// Apply environment variable overrides
@@ -459,12 +401,11 @@ impl ConfigLoader {
     ) -> Result<()> {
         // System overrides
         if let Some(val) = env_vars.get("MAOS_SYSTEM_MAX_EXECUTION_TIME_MS") {
-            config.system.max_execution_time_ms =
-                val.parse().map_err(|_| ConfigError::InvalidValue {
-                    field: "MAOS_SYSTEM_MAX_EXECUTION_TIME_MS".into(),
-                    value: val.clone(),
-                    reason: "must be a valid number".into(),
-                })?;
+            config.system.max_execution_time_ms = Self::parse_env_var(
+                val,
+                "MAOS_SYSTEM_MAX_EXECUTION_TIME_MS",
+                "must be a valid number",
+            )?;
         }
 
         if let Some(val) = env_vars.get("MAOS_SYSTEM_WORKSPACE_ROOT") {
@@ -473,12 +414,11 @@ impl ConfigLoader {
 
         // Security overrides
         if let Some(val) = env_vars.get("MAOS_SECURITY_ENABLE_VALIDATION") {
-            config.security.enable_validation =
-                val.parse().map_err(|_| ConfigError::InvalidValue {
-                    field: "MAOS_SECURITY_ENABLE_VALIDATION".into(),
-                    value: val.clone(),
-                    reason: "must be true or false".into(),
-                })?;
+            config.security.enable_validation = Self::parse_env_var(
+                val,
+                "MAOS_SECURITY_ENABLE_VALIDATION",
+                "must be true or false",
+            )?;
         }
 
         // TTS overrides
@@ -489,26 +429,18 @@ impl ConfigLoader {
             config.tts.voice = val.clone();
         }
         if let Some(val) = env_vars.get("MAOS_TTS_RATE") {
-            config.tts.rate = val.parse().map_err(|_| ConfigError::InvalidValue {
-                field: "MAOS_TTS_RATE".into(),
-                value: val.clone(),
-                reason: "must be a valid number".into(),
-            })?;
+            config.tts.rate = Self::parse_env_var(val, "MAOS_TTS_RATE", "must be a valid number")?;
         }
 
         // Logging overrides
         if let Some(val) = env_vars.get("MAOS_LOGGING_LEVEL") {
-            match val.parse::<LogLevel>() {
-                Ok(level) => config.logging.level = level,
-                Err(_) => {
-                    return Err(ConfigError::InvalidValue {
+            config.logging.level =
+                val.parse()
+                    .map_err(|err: String| ConfigError::InvalidValue {
                         field: "MAOS_LOGGING_LEVEL".into(),
                         value: val.clone(),
-                        reason: "must be one of: trace, debug, info, warn, error".to_string(),
-                    }
-                    .into());
-                }
-            }
+                        reason: err,
+                    })?;
         }
         if let Some(val) = env_vars.get("MAOS_LOGGING_FORMAT") {
             config.logging.format = val.clone();
