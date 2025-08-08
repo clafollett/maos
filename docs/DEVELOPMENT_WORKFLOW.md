@@ -526,14 +526,37 @@ mod tests {
 }
 ```
 
+### String Interpolation & Formatting
+
+- Prefer inline captured identifiers introduced in Rust 1.58+.
+- Use `format!("{var}")` instead of `format!("{}", var)`.
+- Applies to: `format!`, `println!`, logging macros (`info!`, `error!`, etc.), `panic!`, `anyhow!` messages, `assert!` messages, and `format_args!`.
+- Enforce via Clippy: `cargo clippy -- -D clippy::uninlined-format-args`.
+
+Good examples:
+```rust
+let user = "alice";
+let s = format!("hello {user}");
+info!("processing user: {user}");
+println!("result: {user}");
+```
+
+Bad examples:
+```rust
+let user = "alice";
+let s = format!("hello {}", user); // avoid
+info!("processing user: {}", user); // avoid
+println!("result: {}", user); // avoid
+```
+
 ### Logging Standards
 ```rust
 use log::{debug, error, info, warn};
 use tracing::{event, instrument, Level};
 
 // Using log crate
-info!("Loading hook configuration for: {}", hook_name);
-error!("Failed to create worktree for agent: {}", agent_name);
+info!("Loading hook configuration for: {hook_name}");
+error!("Failed to create worktree for agent: {agent_name}");
 
 // Using tracing for structured logging
 #[instrument]

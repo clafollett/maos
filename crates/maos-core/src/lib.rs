@@ -43,3 +43,9 @@ pub use types::{
     session::{Session, SessionId, SessionStatus},
     tool::{ToolCall, ToolCallId, ToolResult},
 };
+
+// Re-export error types
+pub use error::{
+    ConfigError, ErrorContext, ExitCode, FileSystemError, GitError, IntoMaosError, MaosError,
+    Result, SecurityError, SessionError, ValidationError,
+};
