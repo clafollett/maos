@@ -276,12 +276,9 @@ impl ConfigLoader {
 
     /// Load configuration from a JSON string
     pub fn load_from_str(&self, json: &str) -> Result<MaosConfig> {
-        // Parse JSON into a partial config
-        let partial: MaosConfig = serde_json::from_str(json)?;
-
-        // Merge with defaults (simple approach - could be more sophisticated)
-        let mut config = MaosConfig::default();
-        self.merge_configs(&mut config, partial);
+        // Use serde's built-in merging by deserializing with defaults
+        // The #[serde(default)] attributes handle the merging automatically
+        let config: MaosConfig = serde_json::from_str(json)?;
 
         // Validate
         config.validate()?;
@@ -317,80 +314,6 @@ impl ConfigLoader {
         config.validate()?;
 
         Ok(config)
-    }
-
-    /// Merge a partial config into a base config
-    /// This replaces only the fields that are present in the partial config
-    fn merge_configs(&self, base: &mut MaosConfig, partial: MaosConfig) {
-        // For now, this is a simple field-by-field replacement
-        // In a more sophisticated implementation, we could check if fields
-        // are "default" and only override non-default values
-
-        // System config - check if values differ from defaults to avoid overwriting
-        if partial.system.max_execution_time_ms != default_max_execution_time() {
-            base.system.max_execution_time_ms = partial.system.max_execution_time_ms;
-        }
-        if partial.system.workspace_root != default_workspace_root() {
-            base.system.workspace_root = partial.system.workspace_root;
-        }
-        if partial.system.enable_metrics != default_true() {
-            base.system.enable_metrics = partial.system.enable_metrics;
-        }
-
-        // Security config
-        if partial.security.enable_validation != default_true() {
-            base.security.enable_validation = partial.security.enable_validation;
-        }
-        if partial.security.allowed_tools != default_allowed_tools() {
-            base.security.allowed_tools = partial.security.allowed_tools;
-        }
-        if !partial.security.blocked_paths.is_empty() {
-            base.security.blocked_paths = partial.security.blocked_paths;
-        }
-
-        // TTS config
-        if partial.tts.provider != default_tts_provider() {
-            base.tts.provider = partial.tts.provider;
-        }
-        if partial.tts.voice != default_voice() {
-            base.tts.voice = partial.tts.voice;
-        }
-        if partial.tts.rate != default_tts_rate() {
-            base.tts.rate = partial.tts.rate;
-        }
-
-        // Session config
-        if partial.session.max_agents != default_max_agents() {
-            base.session.max_agents = partial.session.max_agents;
-        }
-        if partial.session.timeout_minutes != default_timeout_minutes() {
-            base.session.timeout_minutes = partial.session.timeout_minutes;
-        }
-        if partial.session.auto_cleanup != default_true() {
-            base.session.auto_cleanup = partial.session.auto_cleanup;
-        }
-
-        // Worktree config
-        if partial.worktree.prefix != default_worktree_prefix() {
-            base.worktree.prefix = partial.worktree.prefix;
-        }
-        if partial.worktree.auto_cleanup != default_true() {
-            base.worktree.auto_cleanup = partial.worktree.auto_cleanup;
-        }
-        if partial.worktree.max_worktrees != default_max_worktrees() {
-            base.worktree.max_worktrees = partial.worktree.max_worktrees;
-        }
-
-        // Logging config
-        if partial.logging.level != default_log_level() {
-            base.logging.level = partial.logging.level;
-        }
-        if partial.logging.format != default_log_format() {
-            base.logging.format = partial.logging.format;
-        }
-        if partial.logging.output != default_log_output() {
-            base.logging.output = partial.logging.output;
-        }
     }
 
     /// Apply environment variable overrides
@@ -434,13 +357,11 @@ impl ConfigLoader {
 
         // Logging overrides
         if let Some(val) = env_vars.get("MAOS_LOGGING_LEVEL") {
-            config.logging.level =
-                val.parse()
-                    .map_err(|err: String| ConfigError::InvalidValue {
-                        field: "MAOS_LOGGING_LEVEL".into(),
-                        value: val.clone(),
-                        reason: err,
-                    })?;
+            config.logging.level = Self::parse_env_var(
+                val,
+                "MAOS_LOGGING_LEVEL",
+                "must be one of: trace, debug, info, warn, error",
+            )?;
         }
         if let Some(val) = env_vars.get("MAOS_LOGGING_FORMAT") {
             config.logging.format = val.clone();
