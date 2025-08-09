@@ -88,8 +88,14 @@ impl PathValidator {
 
     /// Helper for macOS symlink equivalence (/var vs /private/var)
     ///
-    /// On macOS, `/var` is a symlink to `/private/var`, which can cause path validation
-    /// issues when canonical paths resolve differently but refer to the same location.
+    /// On macOS, `/var` is a symlink to `/private/var`, which creates validation complexity:
+    /// - User provides workspace path: `/var/folders/temp`
+    /// - Path canonicalization resolves to: `/private/var/folders/temp`
+    /// - Direct string comparison fails despite referring to same location
+    ///
+    /// This function handles the bidirectional equivalence by checking if paths
+    /// would be equivalent after resolving the symlink in either direction.
+    /// Essential for proper workspace isolation on macOS systems.
     fn macos_symlink_equivalent(workspace_str: &str, path_str: &str) -> bool {
         // macOS path prefixes for symlink handling
         const VAR_PREFIX_LEN: usize = 4; // "/var/"
@@ -106,39 +112,97 @@ impl PathValidator {
         }
     }
 
+    /// Check if a path string contains basic traversal patterns
+    fn contains_basic_traversal_patterns(path_str: &str) -> bool {
+        const BASIC_TRAVERSALS: &[&str] = &["../", "..\\", "/..", "\\.."];
+        path_str.starts_with("..") || BASIC_TRAVERSALS.iter().any(|&p| path_str.contains(p))
+    }
+
+    /// Check if a path string contains Unicode-based traversal attack patterns
+    ///
+    /// Unicode characters that visually resemble path separators can be used to bypass
+    /// security filters that only check for ASCII path separators. This function detects:
+    /// - U+FF0F (Fullwidth Solidus): ／ - looks like / but is different character
+    /// - U+2044 (Fraction Slash): ⁄ - used in mathematical notation  
+    /// - U+2215 (Division Slash): ∕ - mathematical division operator
+    ///
+    /// These can be combined with ".." to create traversal attacks that bypass naive
+    /// ASCII-only path validation.
+    fn contains_unicode_traversal_patterns(path_str: &str) -> bool {
+        // Pre-computed Unicode traversal patterns to avoid allocations
+        const UNICODE_TRAVERSAL_PATTERNS: &[&str] = &[
+            "..\u{FF0F}",
+            "\u{FF0F}../",
+            "..\u{2044}",
+            "\u{2044}../",
+            "..\u{2215}",
+            "\u{2215}../",
+        ];
+
+        UNICODE_TRAVERSAL_PATTERNS
+            .iter()
+            .any(|&pattern| path_str.contains(pattern))
+    }
+
+    /// Check if a path string contains URL-encoded traversal patterns
+    ///
+    /// Attackers may URL-encode path traversal sequences to bypass filters:
+    /// - %2e%2e = ".." (single encoded)
+    /// - %2E%2E = ".." (uppercase single encoded)  
+    /// - %252e%252e = ".." (double encoded, %25 = %)
+    /// - %252E%252E = ".." (uppercase double encoded)
+    ///
+    /// Double encoding is used when the path passes through multiple decode stages.
+    fn contains_url_encoded_traversal_patterns(path_str: &str) -> bool {
+        const URL_ENCODED: &[&str] = &["%2e%2e", "%2E%2E", "%252e%252e", "%252E%252E"];
+        URL_ENCODED.iter().any(|&p| path_str.contains(p))
+    }
+
+    /// Check if a path contains control characters combined with traversal patterns
+    ///
+    /// Control characters (ASCII 0-31) combined with path traversal can be used to:
+    /// - Exploit parser bugs that handle control characters inconsistently
+    /// - Bypass regex-based filters that don't expect embedded control chars
+    /// - Create paths that display differently than they resolve
+    ///
+    /// Common attack vectors:
+    /// - Null bytes (\0) to truncate paths in C-style string processing
+    /// - Newlines (\n, \r) to inject commands or break log parsing
+    /// - Tabs (\t) to confuse visual inspection of paths
+    fn contains_control_char_traversal_attack(path_str: &str) -> bool {
+        const CONTROL_CHARS: &[char] = &['\0', '\n', '\r', '\t'];
+        let has_traversal = path_str.contains("..");
+        has_traversal && CONTROL_CHARS.iter().any(|&c| path_str.contains(c))
+    }
+
+    /// Check if a path contains suspicious system paths combined with traversal
+    ///
+    /// This detects attempts to access critical system directories using path traversal:
+    /// - "/etc/" - Unix system configuration directory
+    /// - "\\etc\\" - Windows-style path to etc directory  
+    /// - "%2e" - URL-encoded dot for obfuscated traversal
+    ///
+    /// These patterns indicate potential attacks targeting:
+    /// - Password files (/etc/passwd, /etc/shadow)
+    /// - System configuration (/etc/hosts, /etc/fstab)
+    /// - Service configurations (/etc/ssh/, /etc/nginx/)
+    ///
+    /// The function requires both suspicious paths AND traversal indicators.
+    fn contains_suspicious_path_traversal_attack(path_str: &str) -> bool {
+        let has_traversal = path_str.contains("..");
+        let targets_system_paths = path_str.contains("/etc/") || path_str.contains("\\etc\\");
+        let has_encoded_traversal = path_str.contains("%2e");
+
+        targets_system_paths && (has_traversal || has_encoded_traversal)
+    }
+
     /// Check if a path string contains various traversal attack patterns
     fn contains_traversal_patterns(path_str: &str) -> bool {
-        // Define basic traversal patterns as constants
-        const BASIC_TRAVERSALS: &[&str] = &["../", "..\\", "/..", "\\.."];
-
-        // Check basic traversal patterns
-        if path_str.starts_with("..") || BASIC_TRAVERSALS.iter().any(|&p| path_str.contains(p)) {
-            return true;
-        }
-
-        // Unicode slash variants with traversal
-        const UNICODE_SLASHES: &[char] = &['\u{FF0F}', '\u{2044}', '\u{2215}'];
-        if UNICODE_SLASHES.iter().any(|&c| {
-            path_str.contains(&format!("..{}", c)) || path_str.contains(&format!("{}../", c))
-        }) {
-            return true;
-        }
-
-        // URL-encoded patterns (single and double encoded)
-        const URL_ENCODED: &[&str] = &["%2e%2e", "%2E%2E", "%252e%252e", "%252E%252E"];
-        if URL_ENCODED.iter().any(|&p| path_str.contains(p)) {
-            return true;
-        }
-
-        // Combined security checks using lazy evaluation
-        let has_traversal = path_str.contains("..");
-
-        // Control characters + traversal
-        const CONTROL_CHARS: &[char] = &['\0', '\n', '\r', '\t'];
-        (has_traversal && CONTROL_CHARS.iter().any(|&c| path_str.contains(c)))
-            // Suspicious paths + traversal
-            || ((path_str.contains("/etc/") || path_str.contains("\\etc\\")) 
-                && (has_traversal || path_str.contains("%2e")))
+        Self::contains_basic_traversal_patterns(path_str)
+            || Self::contains_unicode_traversal_patterns(path_str)
+            || Self::contains_url_encoded_traversal_patterns(path_str)
+            || Self::contains_control_char_traversal_attack(path_str)
+            || Self::contains_suspicious_path_traversal_attack(path_str)
     }
 
     /// Check if a path is in the list of allowed roots (for testing)
@@ -458,6 +522,13 @@ impl PathValidator {
         session_id: &SessionId,
         agent_type: &AgentType,
     ) -> PathBuf {
-        root.join(format!("{}_{}", session_id.as_str(), agent_type.as_str()))
+        // Avoid format! allocation by building path components directly
+        let mut workspace_name =
+            String::with_capacity(session_id.as_str().len() + 1 + agent_type.as_str().len());
+        workspace_name.push_str(session_id.as_str());
+        workspace_name.push('_');
+        workspace_name.push_str(agent_type.as_str());
+
+        root.join(workspace_name)
     }
 }

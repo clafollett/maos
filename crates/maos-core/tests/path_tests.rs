@@ -242,8 +242,9 @@ mod path_validator_tests {
         let validator = PathValidator::new(allowed_roots, vec![]);
 
         // Create a very long traversal path
+        const LONG_TRAVERSAL_COUNT: usize = 100;
         let mut long_traversal = String::new();
-        for _ in 0..100 {
+        for _ in 0..LONG_TRAVERSAL_COUNT {
             long_traversal.push_str("../");
         }
         long_traversal.push_str("etc/passwd");
@@ -633,9 +634,10 @@ mod path_validator_tests {
         let workspace_path = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
 
         // Should generate reasonable length paths (not exceed typical filesystem limits)
+        const MAX_PATH_LENGTH: usize = 4096;
         let path_len = workspace_path.to_string_lossy().len();
         assert!(
-            path_len < 4096,
+            path_len < MAX_PATH_LENGTH,
             "Path should be reasonable length: {} chars",
             path_len
         );

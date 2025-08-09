@@ -4,7 +4,10 @@
 //! that our path utilities maintain their invariants under all conditions.
 //! This complements our unit tests by exploring the input space exhaustively.
 
-use proptest::prelude::*;
+use proptest::{
+    collection, option, prop_assert, prop_assert_eq, prop_assert_ne, prop_assume, prop_oneof,
+    proptest, strategy::Strategy,
+};
 use std::path::PathBuf;
 
 use maos_core::path::{PathValidator, normalize_path, paths_equal, relative_path};
@@ -12,7 +15,7 @@ use maos_core::{AgentType, SessionId};
 
 /// Generate arbitrary valid path strings for testing
 fn arb_path_string() -> impl Strategy<Value = String> {
-    prop::collection::vec(
+    collection::vec(
         prop_oneof![
             // Normal path components (start with alphanumeric to avoid problematic patterns)
             "[a-zA-Z0-9][a-zA-Z0-9_-]{0,19}",
@@ -356,7 +359,7 @@ mod path_validator_properties {
         #[test]
         fn path_validation_accepts_valid_paths(
             file_name in "[a-zA-Z0-9][a-zA-Z0-9_-]{0,19}\\.(txt|rs|json|toml)",  // Start with alphanumeric, then allow hyphens
-            subdir in prop::option::of("[a-zA-Z0-9][a-zA-Z0-9_-]{0,14}")
+            subdir in option::of("[a-zA-Z0-9][a-zA-Z0-9_-]{0,14}")
         ) {
             let temp_dir = std::env::temp_dir();
             let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
@@ -496,7 +499,7 @@ mod security_properties {
         #[test]
         fn control_character_injection_safe(
             base_path in "[a-zA-Z0-9]{1,10}",
-            control_char in 0u8..32u8,
+            control_char in 0u8..32u8, // ASCII control characters range
             attack_suffix in "\\.\\./etc/passwd"
         ) {
             let temp_dir = std::env::temp_dir();

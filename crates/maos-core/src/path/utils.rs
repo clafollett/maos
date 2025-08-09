@@ -89,14 +89,36 @@ use std::path::{Path, PathBuf};
 pub fn normalize_path(path: &Path) -> PathBuf {
     use std::path::Component;
 
-    // Normalize Windows separators first, then Unicode attack vectors and URL-encoded separators
-    const UNICODE_SLASHES: [char; 3] = ['\u{FF0F}', '\u{2044}', '\u{2215}'];
-    let path_str = path
-        .to_string_lossy()
-        .replace('\\', "/") // Windows compatibility
-        .replace(UNICODE_SLASHES, "/") // Security: Unicode attack vectors (array replace works via trait)
-        .replace("%2F", "/")
-        .replace("%2f", "/");
+    // Normalize all separators in a single pass to minimize string allocations
+    const UNICODE_SLASH_COUNT: usize = 3;
+    const UNICODE_SLASHES: [char; UNICODE_SLASH_COUNT] = ['\u{FF0F}', '\u{2044}', '\u{2215}'];
+    let path_lossy = path.to_string_lossy();
+    let mut path_str = String::with_capacity(path_lossy.len());
+
+    // Process characters in a single pass to reduce allocations
+    let mut chars = path_lossy.chars().peekable();
+    while let Some(ch) = chars.next() {
+        match ch {
+            '\\' => path_str.push('/'), // Windows compatibility
+            c if UNICODE_SLASHES.contains(&c) => path_str.push('/'), // Security: Unicode attack vectors
+            '%' if chars.peek() == Some(&'2') => {
+                // Handle URL-encoded separators %2F and %2f
+                let mut temp_chars = chars.clone();
+                if temp_chars.next() == Some('2')
+                    && let Some(third_char) = temp_chars.next()
+                    && (third_char == 'F' || third_char == 'f')
+                {
+                    // Skip the "2F" or "2f" part
+                    chars.next(); // Skip '2'
+                    chars.next(); // Skip 'F' or 'f'
+                    path_str.push('/');
+                    continue;
+                }
+                path_str.push(ch); // Not a URL-encoded separator
+            }
+            _ => path_str.push(ch),
+        }
+    }
 
     // Process components using fold for cleaner state management
     let (is_absolute, components) = Path::new(&path_str).components().fold(
