@@ -10,8 +10,9 @@ import argparse
 import json
 import os
 import sys
-import random
 import subprocess
+import random
+import time
 from pathlib import Path
 
 try:
@@ -20,14 +21,13 @@ try:
 except ImportError:
     pass  # dotenv is optional
 
+# Import shared utilities
+sys.path.append(str(Path(__file__).parent / "utils"))
+from config import is_response_tts_enabled, is_completion_tts_enabled, get_engineer_name, get_active_tts_provider
 
-# Import shared path utilities
+# Import path utilities
 sys.path.append(str(Path(__file__).parent))
 from utils.path_utils import PROJECT_ROOT, LOGS_DIR
-
-# Import config utility
-sys.path.append(str(Path(__file__).parent / "utils"))
-from config import is_response_tts_enabled, is_completion_tts_enabled, get_engineer_name
 
 
 def get_completion_messages():
@@ -44,272 +44,208 @@ def get_completion_messages():
         f"Job complete{name_suffix}"
     ]
 
+
 def get_tts_script_path():
-    """
-    Determine which TTS script to use based on available API keys.
-    Priority order: ElevenLabs > OpenAI > pyttsx3
-    """
+    """Determine which TTS script to use based on configuration."""
     # Get current script directory and construct utils/tts path
     script_dir = Path(__file__).parent
     tts_dir = script_dir / "utils" / "tts"
     
-    # Check for ElevenLabs API key (highest priority)
-    if os.getenv('ELEVENLABS_API_KEY'):
-        elevenlabs_script = tts_dir / "elevenlabs_tts.py"
-        if elevenlabs_script.exists():
-            return str(elevenlabs_script)
+    # Get active provider from config
+    provider = get_active_tts_provider()
     
-    # Check for OpenAI API key (second priority)
-    if os.getenv('OPENAI_API_KEY'):
-        openai_script = tts_dir / "openai_tts.py"
-        if openai_script.exists():
-            return str(openai_script)
+    # Map providers to script paths
+    script_map = {
+        "macos": tts_dir / "macos_tts.py",
+        "elevenlabs": tts_dir / "elevenlabs_tts.py",
+        "openai": tts_dir / "openai_tts.py", 
+        "pyttsx3": tts_dir / "pyttsx3_tts.py"
+    }
     
-    # Fall back to pyttsx3 (no API key required)
-    pyttsx3_script = tts_dir / "pyttsx3_tts.py"
-    if pyttsx3_script.exists():
-        return str(pyttsx3_script)
+    tts_script = script_map.get(provider)
+    if tts_script and tts_script.exists():
+        return str(tts_script)
     
     return None
 
 
-def get_llm_completion_message():
-    """
-    Generate completion message using available LLM services.
-    Priority order: OpenAI > Anthropic > fallback to random message
-    
-    Returns:
-        str: Generated or fallback completion message
-    """
-    # Get current script directory and construct utils/llm path
-    script_dir = Path(__file__).parent
-    llm_dir = script_dir / "utils" / "llm"
-    
-    # Try OpenAI first (highest priority)
-    if os.getenv('OPENAI_API_KEY'):
-        oai_script = llm_dir / "oai.py"
-        if oai_script.exists():
-            try:
-                result = subprocess.run([
-                    "uv", "run", str(oai_script), "--completion"
-                ], 
-                capture_output=True,
-                text=True,
-                timeout=10
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    return result.stdout.strip()
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-                pass
-    
-    # Try Anthropic second
-    if os.getenv('ANTHROPIC_API_KEY'):
-        anth_script = llm_dir / "anth.py"
-        if anth_script.exists():
-            try:
-                result = subprocess.run([
-                    "uv", "run", str(anth_script), "--completion"
-                ], 
-                capture_output=True,
-                text=True,
-                timeout=10
-                )
-                if result.returncode == 0 and result.stdout.strip():
-                    return result.stdout.strip()
-            except (subprocess.TimeoutExpired, subprocess.SubprocessError):
-                pass
-    
-    # Fallback to random predefined message
-    messages = get_completion_messages()
-    return random.choice(messages)
-
-def trigger_conversation_tts(input_data):
-    """
-    Trigger TTS for conversational responses if enabled.
-    Reads the transcript to find the latest assistant response.
-    """
-    # Check if response TTS is enabled
-    if not is_response_tts_enabled():
-        return
-    
-    # Get transcript path
-    transcript_path = input_data.get('transcript_path')
-    if not transcript_path or not os.path.exists(transcript_path):
-        return
-    
+def simple_jsonl_append(log_path, data):
+    """Simple, fast JSONL append without reading existing file."""
     try:
-        # Read the transcript file (JSONL format)
-        assistant_messages = []
-        with open(transcript_path, 'r') as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        entry = json.loads(line)
-                        # Check for assistant messages with text content
-                        if (entry.get('type') == 'assistant' and 
-                            entry.get('message', {}).get('content')):
-                            content = entry['message']['content']
-                            for item in content:
-                                if item.get('type') == 'text' and item.get('text'):
-                                    assistant_messages.append(item['text'])
-                    except json.JSONDecodeError:
-                        continue
+        # Ensure log directory exists
+        log_path.parent.mkdir(parents=True, exist_ok=True)
         
-        # Get the most recent assistant message
-        if not assistant_messages:
-            return
+        # Simple append to JSONL file
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(data, separators=(',', ':')) + '\n')
+        return True
+    except Exception:
+        return False
+
+
+def fire_completion_tts():
+    """Fire completion TTS immediately - no blocking."""
+    try:
+        # Skip completion announcement if response TTS is enabled
+        if is_response_tts_enabled():
+            return False
         
-        latest_response = assistant_messages[-1]
+        # Check if completion TTS is enabled
+        if not is_completion_tts_enabled():
+            return False
         
-        # Skip if it's too short or looks like a completion message
-        if len(latest_response.strip()) < 20:
-            return
+        tts_script = get_tts_script_path()
+        if not tts_script:
+            return False
         
-        # Skip if it contains mainly tool calls or excessive code blocks
-        MAX_CODE_BLOCKS = 2
-        has_function_calls = '<function_calls>' in latest_response
-        has_many_code_blocks = latest_response.count('```') > MAX_CODE_BLOCKS
+        # Get random completion message
+        completion_messages = get_completion_messages()
+        completion_message = random.choice(completion_messages)
         
-        if has_function_calls or has_many_code_blocks:
-            return
+        # Fire TTS in background - don't wait for completion
+        subprocess.Popen([
+            "uv", "run", tts_script, completion_message
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        
+        return True
+        
+    except Exception:
+        return False
+
+
+def fire_response_tts(input_data):
+    """Fire response TTS if enabled."""
+    try:
+        if not is_response_tts_enabled():
+            return False
+            
+        transcript_path = input_data.get('transcript_path')
+        if not transcript_path or not os.path.exists(transcript_path):
+            return False
+        
+        # Get the latest assistant response from transcript
+        latest_response = None
+        try:
+            with open(transcript_path, 'r') as f:
+                for line in f:
+                    if line.strip():
+                        try:
+                            data = json.loads(line.strip())
+                            # Handle nested message structure
+                            msg = data.get('message', {})
+                            if msg.get('role') == 'assistant' and msg.get('content'):
+                                content = msg['content']
+                                # Handle both string content and array of content blocks
+                                if isinstance(content, str):
+                                    latest_response = content
+                                elif isinstance(content, list) and content:
+                                    # Extract text from content blocks
+                                    for block in content:
+                                        if isinstance(block, dict) and block.get('type') == 'text':
+                                            latest_response = block.get('text', '')
+                                            break
+                        except json.JSONDecodeError:
+                            continue
+        except Exception:
+            return False
+        
+        if not latest_response:
+            return False
         
         # Get script directory and construct path to response TTS
         script_dir = Path(__file__).parent
         tts_script = script_dir / "utils" / "tts" / "response_tts.py"
         
         if not tts_script.exists():
-            return
+            return False
         
-        # Trigger TTS with proper process management
-        subprocess.run([
+        # Fire TTS in background - don't wait
+        subprocess.Popen([
             "uv", "run", str(tts_script), latest_response
-            ], 
-            capture_output=True,  # Capture output to prevent blocking
-            timeout=120,  # 120-second timeout to prevent hanging
-            check=False  # Don't raise exception on non-zero exit
-        )
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
-    except subprocess.SubprocessError as e:
-        # Log subprocess errors for debugging
-        print(f"TTS subprocess error: {e}", file=sys.stderr)
-    except (OSError, json.JSONDecodeError):
-        # Silent failure for expected file/parsing errors
-        pass
-    except Exception as e:
-        # Log any unexpected errors
-        print(f"TTS unexpected error: {e}", file=sys.stderr)
+        return True
+        
+    except Exception:
+        return False
 
-def announce_completion():
-    """Announce completion using the best available TTS service."""
+
+def copy_transcript_to_chat(input_data):
+    """Copy new transcript entries to chat.jsonl in append-only mode."""
     try:
-        # Skip completion announcement if response TTS is enabled
-        # (since assistant will already be speaking the response)
-        if is_response_tts_enabled():
-            return
+        transcript_path = input_data.get('transcript_path')
+        if not transcript_path or not os.path.exists(transcript_path):
+            return False
         
-        # Check if completion TTS is enabled
-        if not is_completion_tts_enabled():
-            return
+        # Get the chat log file
+        chat_file = LOGS_DIR / 'chat.jsonl'
+        chat_file.parent.mkdir(parents=True, exist_ok=True)
         
-        tts_script = get_tts_script_path()
-        if not tts_script:
-            return  # No TTS scripts available
+        # Instead of reading entire transcript and rewriting everything,
+        # just append new entries since last processing
+        # For now, append the stop event itself as a chat entry
+        chat_entry = {
+            'event': 'stop',
+            'session_id': input_data.get('session_id'),
+            'transcript_path': transcript_path,
+            'timestamp': input_data.get('timestamp', ''),
+            'cwd': input_data.get('cwd', '')
+        }
         
-        # Get completion message (LLM-generated or fallback)
-        completion_message = get_llm_completion_message()
+        # Fast append to JSONL
+        with open(chat_file, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(chat_entry, separators=(',', ':')) + '\n')
         
-        # Call the TTS script with the completion message
-        subprocess.run([
-            "uv", "run", tts_script, completion_message
-        ], 
-        capture_output=True,  # Suppress output
-        timeout=10  # 10-second timeout
-        )
+        return True
         
-    except subprocess.TimeoutExpired:
-        print("Completion TTS timeout after 10 seconds", file=sys.stderr)
-    except FileNotFoundError as e:
-        print(f"Completion TTS file not found: {e}", file=sys.stderr)
-    except subprocess.SubprocessError as e:
-        print(f"Completion TTS subprocess error: {e}", file=sys.stderr)
-    except Exception as e:
-        print(f"Completion TTS unexpected error: {e}", file=sys.stderr)
+    except Exception:
+        return False
 
 
 def main():
+    """Optimized stop hook - TTS first, everything else fire-and-forget."""
     try:
-        # Parse command line arguments
+        # Parse arguments
         parser = argparse.ArgumentParser()
         parser.add_argument('--chat', action='store_true', help='Copy transcript to chat.json')
         args = parser.parse_args()
         
         # Read JSON input from stdin
         input_data = json.load(sys.stdin)
-
-        # Extract required fields (for future use)
-        # session_id = input_data.get("session_id", "")
-        # stop_hook_active = input_data.get("stop_hook_active", False)
-
-        # Ensure log directory exists
-        LOGS_DIR.mkdir(parents=True, exist_ok=True)
-        log_path = LOGS_DIR / "stop.json"
-
-        # Read existing log data or initialize empty list
-        if os.path.exists(log_path):
-            with open(log_path, 'r') as f:
-                try:
-                    log_data = json.load(f)
-                except (json.JSONDecodeError, ValueError):
-                    log_data = []
-        else:
-            log_data = []
         
-        # Append new data
-        log_data.append(input_data)
+        # 🚀 FIRE TTS IMMEDIATELY - TOP PRIORITY
+        start_time = time.time()
         
-        # Write back to file with formatting
-        with open(log_path, 'w') as f:
-            json.dump(log_data, f, indent=2)
+        # Fire response TTS or completion TTS (mutually exclusive)
+        response_tts_fired = fire_response_tts(input_data)
+        completion_tts_fired = False
         
-        # Handle --chat switch
-        if args.chat and 'transcript_path' in input_data:
-            transcript_path = input_data['transcript_path']
-            if os.path.exists(transcript_path):
-                # Read .jsonl file and convert to JSON array
-                chat_data = []
-                try:
-                    with open(transcript_path, 'r') as f:
-                        for line in f:
-                            line = line.strip()
-                            if line:
-                                try:
-                                    chat_data.append(json.loads(line))
-                                except json.JSONDecodeError:
-                                    pass  # Skip invalid lines
-                    
-                    # Write to logs/chat.json
-                    chat_file = LOGS_DIR / 'chat.json'
-                    with open(chat_file, 'w') as f:
-                        json.dump(chat_data, f, indent=2)
-                except Exception:
-                    pass  # Fail silently
-
-        # Handle response TTS for conversational content
-        trigger_conversation_tts(input_data)
-
-        # Announce completion via TTS
-        announce_completion()
-
+        if not response_tts_fired:
+            completion_tts_fired = fire_completion_tts()
+        
+        tts_time = time.time() - start_time
+        if response_tts_fired or completion_tts_fired:
+            tts_type = "Response" if response_tts_fired else "Completion"
+            print(f"🚀 {tts_type} TTS fired in {tts_time*1000:.2f}ms", file=sys.stderr)
+        
+        # 📝 BACKGROUND OPERATIONS (fire-and-forget)
+        
+        # Log to JSONL format - simple append
+        log_path = LOGS_DIR / "stop.jsonl"
+        simple_jsonl_append(log_path, input_data)
+        
+        # Copy transcript to chat if requested
+        if args.chat:
+            copy_transcript_to_chat(input_data)
+        
+        # Exit immediately - don't wait for background operations
         sys.exit(0)
-
+        
     except json.JSONDecodeError:
-        # Handle JSON decode errors gracefully
-        sys.exit(0)
+        sys.exit(0)  # Graceful exit on bad JSON
     except Exception:
-        # Handle any other errors gracefully
-        sys.exit(0)
+        sys.exit(0)  # Graceful exit on any error
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     main()

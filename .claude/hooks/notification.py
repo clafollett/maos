@@ -12,6 +12,7 @@ import os
 import sys
 import subprocess
 import random
+import time
 from pathlib import Path
 
 try:
@@ -21,46 +22,61 @@ except ImportError:
     pass  # dotenv is optional
 
 
-# Import shared path utilities
+# Import shared utilities
 sys.path.append(str(Path(__file__).parent))
 from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from utils.config import is_notification_tts_enabled, get_active_tts_provider
 
 
 def get_tts_script_path():
     """
-    Determine which TTS script to use based on available API keys.
-    Priority order: ElevenLabs > OpenAI > pyttsx3
+    Determine which TTS script to use based on configuration.
     """
     # Get current script directory and construct utils/tts path
     script_dir = Path(__file__).parent
     tts_dir = script_dir / "utils" / "tts"
     
-    # Check for ElevenLabs API key (highest priority)
-    if os.getenv('ELEVENLABS_API_KEY'):
-        elevenlabs_script = tts_dir / "elevenlabs_tts.py"
-        if elevenlabs_script.exists():
-            return str(elevenlabs_script)
+    # Get active provider from config
+    provider = get_active_tts_provider()
     
-    # Check for OpenAI API key (second priority)
-    if os.getenv('OPENAI_API_KEY'):
-        openai_script = tts_dir / "openai_tts.py"
-        if openai_script.exists():
-            return str(openai_script)
+    # Map providers to script paths
+    script_map = {
+        "macos": tts_dir / "macos_tts.py",
+        "elevenlabs": tts_dir / "elevenlabs_tts.py", 
+        "openai": tts_dir / "openai_tts.py",
+        "pyttsx3": tts_dir / "pyttsx3_tts.py"
+    }
     
-    # Fall back to pyttsx3 (no API key required)
-    pyttsx3_script = tts_dir / "pyttsx3_tts.py"
-    if pyttsx3_script.exists():
-        return str(pyttsx3_script)
+    tts_script = script_map.get(provider)
+    if tts_script and tts_script.exists():
+        return str(tts_script)
     
     return None
 
 
-def announce_notification():
-    """Announce that the agent needs user input."""
+def simple_jsonl_append(log_path, data):
+    """Simple, fast JSONL append without reading existing file."""
     try:
+        # Ensure log directory exists
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        
+        # Simple append to JSONL file
+        with open(log_path, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(data, separators=(',', ':')) + '\n')
+        return True
+    except Exception:
+        return False
+
+
+def fire_tts_notification():
+    """Fire TTS notification immediately - no blocking."""
+    try:
+        if not is_notification_tts_enabled():
+            return False
+            
         tts_script = get_tts_script_path()
         if not tts_script:
-            return  # No TTS scripts available
+            return False
         
         # Get engineer name if available
         engineer_name = os.getenv('ENGINEER_NAME', '').strip()
@@ -71,25 +87,21 @@ def announce_notification():
         else:
             notification_message = "Your agent needs your input"
         
-        # Call the TTS script with the notification message
-        subprocess.run([
+        # Fire TTS in background - don't wait for completion
+        subprocess.Popen([
             "uv", "run", tts_script, notification_message
-        ], 
-        capture_output=True,  # Suppress output
-        timeout=10  # 10-second timeout
-        )
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         
-    except (subprocess.TimeoutExpired, subprocess.SubprocessError, FileNotFoundError):
-        # Fail silently if TTS encounters issues
-        pass
+        return True
+        
     except Exception:
-        # Fail silently for any other errors
-        pass
+        return False
 
 
 def main():
+    """Optimized notification hook - TTS first, logging fire-and-forget."""
     try:
-        # Parse command line arguments
+        # Parse arguments
         parser = argparse.ArgumentParser()
         parser.add_argument('--notify', action='store_true', help='Enable TTS notifications')
         args = parser.parse_args()
@@ -97,40 +109,31 @@ def main():
         # Read JSON input from stdin
         input_data = json.loads(sys.stdin.read())
         
-        # Ensure log directory exists
-        LOGS_DIR.mkdir(parents=True, exist_ok=True)
-        log_file = LOGS_DIR / 'notification.json'
+        # 🚀 FIRE TTS IMMEDIATELY - TOP PRIORITY
+        start_time = time.time()
+        tts_fired = False
         
-        # Read existing log data or initialize empty list
-        if os.path.exists(log_file):
-            with open(log_file, 'r') as f:
-                try:
-                    log_data = json.load(f)
-                except (json.JSONDecodeError, ValueError):
-                    log_data = []
-        else:
-            log_data = []
-        
-        # Append new data
-        log_data.append(input_data)
-        
-        # Write back to file with formatting
-        with open(log_file, 'w') as f:
-            json.dump(log_data, f, indent=2)
-        
-        # Announce notification via TTS only if --notify flag is set
-        # Skip TTS for the generic "Claude is waiting for your input" message
+        # Fire TTS only if --notify flag is set AND not generic waiting message
         if args.notify and input_data.get('message') != 'Claude is waiting for your input':
-            announce_notification()
+            tts_fired = fire_tts_notification()
         
+        tts_time = time.time() - start_time
+        if tts_fired:
+            print(f"🚀 Notification TTS fired in {tts_time*1000:.2f}ms", file=sys.stderr)
+        
+        # 📝 LOGGING IN FIRE-AND-FORGET MODE (don't wait)
+        # Log to JSONL format - simple append, no reading existing file
+        log_path = LOGS_DIR / "notification.jsonl"
+        simple_jsonl_append(log_path, input_data)
+        
+        # Exit immediately - don't wait for logging to complete
         sys.exit(0)
         
     except json.JSONDecodeError:
-        # Handle JSON decode errors gracefully
-        sys.exit(0)
+        sys.exit(0)  # Graceful exit on bad JSON
     except Exception:
-        # Handle any other errors gracefully
-        sys.exit(0)
+        sys.exit(0)  # Graceful exit on any error
+
 
 if __name__ == '__main__':
     main()

@@ -7,13 +7,23 @@ import sys
 import subprocess
 from pathlib import Path
 
-# Import text utilities and config
+# Import utilities and config
 sys.path.append(str(Path(__file__).parent.parent))
 from text_utils import clean_text_for_speech
-from config import get_macos_config
+from config import get_macos_config, get_tts_timeout
+from tts_control import get_tts_manager
 
-def speak_with_macos(text, voice=None):
-    """Speak text using native macOS TTS with specified voice."""
+def speak_with_macos(text, voice=None, use_process_manager=True):
+    """Speak text using native macOS TTS with specified voice.
+    
+    Args:
+        text: Text to speak
+        voice: Voice to use (None for config default)
+        use_process_manager: Whether to use process manager for interruption (default: True)
+        
+    Returns:
+        bool: True if successful, False otherwise
+    """
     
     try:
         # Use provided voice or get from config system
@@ -30,20 +40,39 @@ def speak_with_macos(text, voice=None):
         
         print(f"🎙️  {voice} speaking: {clean_text[:100]}...")
         
-        # Use macOS say command
-        result = subprocess.run([
-            "say", "-v", voice, clean_text
-        ], 
-        capture_output=True,
-        text=True
-        )
+        # Build say command
+        command = ["say", "-v", voice, clean_text]
         
-        if result.returncode == 0:
-            print(f"✅ {voice} has spoken!")
-            return True
+        if use_process_manager:
+            # Use process manager for interruptible TTS
+            tts_manager = get_tts_manager()
+            process = tts_manager.start_tts_process(command)
+            
+            if process is None:
+                return False
+                
+            # Wait for completion with configured timeout
+            timeout = get_tts_timeout()
+            success = tts_manager.wait_for_completion(process, timeout=timeout)
+            
+            if success:
+                print(f"✅ {voice} has spoken!")
+            return success
+            
         else:
-            print(f"❌ Error: {result.stderr}", file=sys.stderr)
-            return False
+            # Legacy synchronous mode (for compatibility)
+            result = subprocess.run(
+                command,
+                capture_output=True,
+                text=True
+            )
+            
+            if result.returncode == 0:
+                print(f"✅ {voice} has spoken!")
+                return True
+            else:
+                print(f"❌ Error: {result.stderr}", file=sys.stderr)
+                return False
         
     except Exception as e:
         print(f"❌ Error: {e}", file=sys.stderr)
@@ -80,7 +109,7 @@ def main():
             voice = "Lee (Premium)"
             text = " ".join(sys.argv[1:])
         
-        success = speak_with_macos(text, voice)
+        success = speak_with_macos(text, voice, use_process_manager=True)
         sys.exit(0 if success else 1)
     else:
         print("Usage: ./macos_tts.py 'text to speak'")

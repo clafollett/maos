@@ -58,20 +58,134 @@ pub struct SecurityConfig {
 }
 
 /// TTS (Text-to-Speech) configuration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TtsConfig {
-    /// TTS provider ("none", "say", "espeak", etc.)
+    /// Master TTS switch - controls all TTS functionality
+    #[serde(default = "default_tts_enabled")]
+    pub enabled: bool,
+
+    /// TTS provider ("none", "macos", "elevenlabs", "openai", "pyttsx3")
     #[serde(default = "default_tts_provider")]
     pub provider: String,
 
-    /// Voice name
-    #[serde(default = "default_voice")]
+    /// Maximum text length for TTS processing
+    #[serde(default = "default_text_length_limit")]
+    pub text_length_limit: u32,
+
+    /// TTS operation timeout in seconds
+    #[serde(default = "default_tts_timeout")]
+    pub timeout: u32,
+
+    /// Provider-specific voice configurations
+    #[serde(default = "default_tts_voices")]
+    pub voices: TtsVoiceConfigs,
+
+    /// Feature-specific toggles
+    #[serde(default = "default_tts_responses")]
+    pub responses: TtsFeatureConfig,
+
+    #[serde(default = "default_tts_completion")]
+    pub completion: TtsFeatureConfig,
+
+    #[serde(default = "default_tts_notifications")]
+    pub notifications: TtsFeatureConfig,
+
+    /// Engineer configuration for TTS
+    #[serde(default = "default_engineer_config")]
+    pub engineer: EngineerConfig,
+}
+
+/// Provider-specific voice configurations
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TtsVoiceConfigs {
+    #[serde(default = "default_macos_voice_config")]
+    pub macos: MacOsVoiceConfig,
+
+    #[serde(default = "default_elevenlabs_voice_config")]
+    pub elevenlabs: ElevenLabsVoiceConfig,
+
+    #[serde(default = "default_openai_voice_config")]
+    pub openai: OpenAiVoiceConfig,
+
+    #[serde(default = "default_pyttsx3_voice_config")]
+    pub pyttsx3: Pyttsx3VoiceConfig,
+}
+
+/// macOS TTS voice configuration
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MacOsVoiceConfig {
+    #[serde(default = "default_macos_voice")]
     pub voice: String,
 
-    /// Speech rate (words per minute)
-    #[serde(default = "default_tts_rate")]
+    #[serde(default = "default_macos_rate")]
     pub rate: u32,
+
+    #[serde(default = "default_macos_quality")]
+    pub quality: u32,
+}
+
+/// ElevenLabs TTS configuration
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ElevenLabsVoiceConfig {
+    #[serde(default = "default_elevenlabs_voice_id")]
+    pub voice_id: String,
+
+    #[serde(default = "default_elevenlabs_model")]
+    pub model: String,
+
+    #[serde(default = "default_elevenlabs_output_format")]
+    pub output_format: String,
+
+    /// Optional API key (prefer environment variable)
+    pub api_key: Option<String>,
+}
+
+/// OpenAI TTS configuration
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct OpenAiVoiceConfig {
+    #[serde(default = "default_openai_model")]
+    pub model: String,
+
+    #[serde(default = "default_openai_voice")]
+    pub voice: String,
+
+    /// Optional API key (prefer environment variable)
+    pub api_key: Option<String>,
+}
+
+/// Pyttsx3 TTS configuration
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Pyttsx3VoiceConfig {
+    #[serde(default = "default_pyttsx3_voice")]
+    pub voice: String,
+
+    #[serde(default = "default_pyttsx3_rate")]
+    pub rate: u32,
+
+    #[serde(default = "default_pyttsx3_volume")]
+    pub volume: f32,
+}
+
+/// Feature-specific TTS configuration
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct TtsFeatureConfig {
+    #[serde(default = "default_feature_enabled")]
+    pub enabled: bool,
+}
+
+/// Engineer configuration for TTS personalization
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct EngineerConfig {
+    #[serde(default = "default_engineer_name")]
+    pub name: String,
 }
 
 /// Session management configuration
@@ -167,7 +281,7 @@ pub struct LoggingConfig {
 }
 
 /// Root MAOS configuration structure
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 #[serde(deny_unknown_fields)]
 pub struct MaosConfig {
@@ -207,9 +321,15 @@ impl Default for MaosConfig {
                 blocked_paths: Vec::new(),
             },
             tts: TtsConfig {
+                enabled: default_tts_enabled(),
                 provider: default_tts_provider(),
-                voice: default_voice(),
-                rate: default_tts_rate(),
+                text_length_limit: default_text_length_limit(),
+                timeout: default_tts_timeout(),
+                voices: default_tts_voices(),
+                responses: default_tts_responses(),
+                completion: default_tts_completion(),
+                notifications: default_tts_notifications(),
+                engineer: default_engineer_config(),
             },
             session: SessionConfig {
                 max_agents: default_max_agents(),
@@ -234,6 +354,92 @@ impl MaosConfig {
     /// Load configuration (currently just returns defaults)
     pub fn load() -> Result<Self> {
         Ok(Self::default())
+    }
+
+    /// Get API key for provider using cascading resolution: env vars → config.json
+    pub fn get_api_key(&self, provider: &str) -> Option<String> {
+        use std::env;
+
+        // Environment variable names for each provider
+        let env_var = match provider {
+            "elevenlabs" => "ELEVENLABS_API_KEY",
+            "openai" => "OPENAI_API_KEY",
+            _ => return None,
+        };
+
+        // 1. Check environment variable first (highest priority)
+        if let Ok(api_key) = env::var(env_var) {
+            let trimmed = api_key.trim();
+            if !trimmed.is_empty() {
+                return Some(trimmed.to_string());
+            }
+        }
+
+        // 2. Check config.json as fallback
+        let config_api_key = match provider {
+            "elevenlabs" => &self.tts.voices.elevenlabs.api_key,
+            "openai" => &self.tts.voices.openai.api_key,
+            _ => return None,
+        };
+
+        config_api_key.as_ref().and_then(|key| {
+            let trimmed = key.trim();
+            if !trimmed.is_empty() {
+                Some(trimmed.to_string())
+            } else {
+                None
+            }
+        })
+    }
+
+    /// Get the active TTS provider based on config and API key availability.
+    ///
+    /// Respects user's configured provider but falls back gracefully if API keys unavailable.
+    pub fn get_active_tts_provider(&self) -> String {
+        let provider = &self.tts.provider;
+
+        // For API-based providers, verify key availability
+        if matches!(provider.as_str(), "elevenlabs" | "openai") {
+            if self.get_api_key(provider).is_some() {
+                return provider.clone();
+            } else {
+                // Fallback to pyttsx3 if API key not available
+                return "pyttsx3".to_string();
+            }
+        }
+
+        // For local providers (macos, pyttsx3), no API key needed
+        provider.clone()
+    }
+
+    /// Check if TTS master switch is enabled
+    pub fn is_tts_enabled(&self) -> bool {
+        self.tts.enabled
+    }
+
+    /// Check if response TTS is enabled (master switch AND responses.enabled)
+    pub fn is_response_tts_enabled(&self) -> bool {
+        self.tts.enabled && self.tts.responses.enabled
+    }
+
+    /// Check if completion TTS is enabled (master switch AND completion.enabled)
+    pub fn is_completion_tts_enabled(&self) -> bool {
+        self.tts.enabled && self.tts.completion.enabled
+    }
+
+    /// Check if notification TTS is enabled (master switch AND notifications.enabled)
+    pub fn is_notification_tts_enabled(&self) -> bool {
+        self.tts.enabled && self.tts.notifications.enabled
+    }
+
+    /// Get the maximum text length for TTS processing
+    pub fn get_text_length_limit(&self) -> u32 {
+        self.tts.text_length_limit
+    }
+
+    /// Get the timeout in seconds for TTS operations
+    pub fn get_tts_timeout(&self) -> u32 {
+        self.tts.timeout
     }
 
     /// Validate configuration
@@ -344,15 +550,13 @@ impl ConfigLoader {
             )?;
         }
 
-        // TTS overrides
-        if let Some(val) = env_vars.get("MAOS_TTS_PROVIDER") {
-            config.tts.provider = val.clone();
+        // TTS API key overrides (ELEVENLABS_API_KEY, OPENAI_API_KEY)
+        if let Some(val) = env_vars.get("ELEVENLABS_API_KEY") {
+            config.tts.voices.elevenlabs.api_key = Some(val.clone());
         }
-        if let Some(val) = env_vars.get("MAOS_TTS_VOICE") {
-            config.tts.voice = val.clone();
-        }
-        if let Some(val) = env_vars.get("MAOS_TTS_RATE") {
-            config.tts.rate = Self::parse_env_var(val, "MAOS_TTS_RATE", "must be a valid number")?;
+
+        if let Some(val) = env_vars.get("OPENAI_API_KEY") {
+            config.tts.voices.openai.api_key = Some(val.clone());
         }
 
         // Logging overrides
@@ -387,14 +591,135 @@ fn default_true() -> bool {
 fn default_allowed_tools() -> Vec<String> {
     vec!["*".to_string()]
 }
-fn default_tts_provider() -> String {
-    "none".to_string()
+// TTS configuration defaults
+fn default_tts_enabled() -> bool {
+    true
 }
-fn default_voice() -> String {
+
+fn default_tts_provider() -> String {
+    "pyttsx3".to_string()
+}
+
+fn default_text_length_limit() -> u32 {
+    2000 // Match Python default
+}
+
+fn default_tts_timeout() -> u32 {
+    120 // Match Python default (seconds)
+}
+
+fn default_tts_voices() -> TtsVoiceConfigs {
+    TtsVoiceConfigs {
+        macos: default_macos_voice_config(),
+        elevenlabs: default_elevenlabs_voice_config(),
+        openai: default_openai_voice_config(),
+        pyttsx3: default_pyttsx3_voice_config(),
+    }
+}
+
+fn default_tts_responses() -> TtsFeatureConfig {
+    TtsFeatureConfig { enabled: false }
+}
+
+fn default_tts_completion() -> TtsFeatureConfig {
+    TtsFeatureConfig { enabled: true }
+}
+
+fn default_tts_notifications() -> TtsFeatureConfig {
+    TtsFeatureConfig { enabled: true }
+}
+
+fn default_feature_enabled() -> bool {
+    false
+}
+
+fn default_engineer_config() -> EngineerConfig {
+    EngineerConfig {
+        name: default_engineer_name(),
+    }
+}
+
+fn default_engineer_name() -> String {
+    String::new()
+}
+
+// Voice configuration defaults
+fn default_macos_voice_config() -> MacOsVoiceConfig {
+    MacOsVoiceConfig {
+        voice: default_macos_voice(),
+        rate: default_macos_rate(),
+        quality: default_macos_quality(),
+    }
+}
+
+fn default_elevenlabs_voice_config() -> ElevenLabsVoiceConfig {
+    ElevenLabsVoiceConfig {
+        voice_id: default_elevenlabs_voice_id(),
+        model: default_elevenlabs_model(),
+        output_format: default_elevenlabs_output_format(),
+        api_key: None,
+    }
+}
+
+fn default_openai_voice_config() -> OpenAiVoiceConfig {
+    OpenAiVoiceConfig {
+        model: default_openai_model(),
+        voice: default_openai_voice(),
+        api_key: None,
+    }
+}
+
+fn default_pyttsx3_voice_config() -> Pyttsx3VoiceConfig {
+    Pyttsx3VoiceConfig {
+        voice: default_pyttsx3_voice(),
+        rate: default_pyttsx3_rate(),
+        volume: default_pyttsx3_volume(),
+    }
+}
+
+// Individual voice setting defaults
+fn default_macos_voice() -> String {
+    "Alex".to_string() // Match Python default
+}
+
+fn default_macos_rate() -> u32 {
+    190 // Match Python default
+}
+
+fn default_macos_quality() -> u32 {
+    127
+}
+
+fn default_elevenlabs_voice_id() -> String {
+    "IKne3meq5aSn9XLyUdCD".to_string() // Charlie voice
+}
+
+fn default_elevenlabs_model() -> String {
+    "eleven_turbo_v2_5".to_string()
+}
+
+fn default_elevenlabs_output_format() -> String {
+    "mp3_44100_128".to_string()
+}
+
+fn default_openai_model() -> String {
+    "tts-1".to_string()
+}
+
+fn default_openai_voice() -> String {
+    "alloy".to_string()
+}
+
+fn default_pyttsx3_voice() -> String {
     "default".to_string()
 }
-fn default_tts_rate() -> u32 {
-    200
+
+fn default_pyttsx3_rate() -> u32 {
+    190
+}
+
+fn default_pyttsx3_volume() -> f32 {
+    0.9
 }
 fn default_max_agents() -> u32 {
     20

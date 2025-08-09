@@ -26,27 +26,18 @@ from utils.path_utils import PROJECT_ROOT, LOGS_DIR
 
 
 def log_user_prompt(session_id, input_data):
-    """Log user prompt to logs directory."""
-    # Ensure logs directory exists
-    LOGS_DIR.mkdir(parents=True, exist_ok=True)
-    log_file = LOGS_DIR / 'user_prompt_submit.json'
-    
-    # Read existing log data or initialize empty list
-    if log_file.exists():
-        with open(log_file, 'r') as f:
-            try:
-                log_data = json.load(f)
-            except (json.JSONDecodeError, ValueError):
-                log_data = []
-    else:
-        log_data = []
-    
-    # Append the entire input data
-    log_data.append(input_data)
-    
-    # Write back to file with formatting
-    with open(log_file, 'w') as f:
-        json.dump(log_data, f, indent=2)
+    """Log user prompt to logs directory using efficient JSONL append."""
+    try:
+        # Ensure logs directory exists
+        LOGS_DIR.mkdir(parents=True, exist_ok=True)
+        log_file = LOGS_DIR / 'user_prompt_submit.jsonl'
+        
+        # Simple append to JSONL file - no reading existing content
+        with open(log_file, 'a', encoding='utf-8') as f:
+            f.write(json.dumps(input_data, separators=(',', ':')) + '\n')
+    except Exception:
+        # Silent failure for logging - don't block user prompt processing
+        pass
 
 
 def validate_prompt(prompt):

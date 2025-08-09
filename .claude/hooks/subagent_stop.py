@@ -21,43 +21,51 @@ except ImportError:
     pass  # dotenv is optional
 
 
-# Import shared path utilities
+# Import shared utilities
 sys.path.append(str(Path(__file__).parent))
 from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from utils.config import is_completion_tts_enabled, get_active_tts_provider
 
 
 def get_tts_script_path():
     """
-    Determine which TTS script to use based on available API keys.
-    Priority order: ElevenLabs > OpenAI > pyttsx3
+    Determine which TTS script to use based on config.json provider setting.
+    Environment variables are only used for authentication, NOT provider selection.
     """
     # Get current script directory and construct utils/tts path
     script_dir = Path(__file__).parent
     tts_dir = script_dir / "utils" / "tts"
     
-    # Check for ElevenLabs API key (highest priority)
-    if os.getenv('ELEVENLABS_API_KEY'):
-        elevenlabs_script = tts_dir / "elevenlabs_tts.py"
-        if elevenlabs_script.exists():
-            return str(elevenlabs_script)
+    # Use config.json to determine provider (canonical authority)
+    provider = get_active_tts_provider()
     
-    # Check for OpenAI API key (second priority)
-    if os.getenv('OPENAI_API_KEY'):
-        openai_script = tts_dir / "openai_tts.py"
-        if openai_script.exists():
-            return str(openai_script)
+    # Map provider to script file
+    provider_scripts = {
+        'elevenlabs': tts_dir / "elevenlabs_tts.py",
+        'openai': tts_dir / "openai_tts.py", 
+        'macos': tts_dir / "macos_tts.py",
+        'pyttsx3': tts_dir / "pyttsx3_tts.py"
+    }
     
-    # Fall back to pyttsx3 (no API key required)
-    pyttsx3_script = tts_dir / "pyttsx3_tts.py"
-    if pyttsx3_script.exists():
-        return str(pyttsx3_script)
+    script_path = provider_scripts.get(provider)
+    if script_path and script_path.exists():
+        return str(script_path)
     
+    # Fallback to macos if configured provider not available
+    fallback_script = tts_dir / "macos_tts.py" 
+    if fallback_script.exists():
+        return str(fallback_script)
+        
     return None
 
 
 def announce_subagent_completion():
     """Announce subagent completion using the best available TTS service."""
     try:
+        # First check if completion TTS is enabled in config
+        if not is_completion_tts_enabled():
+            return  # TTS disabled via config
+            
         tts_script = get_tts_script_path()
         if not tts_script:
             return  # No TTS scripts available

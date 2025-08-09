@@ -8,6 +8,21 @@ from pathlib import Path
 
 def get_config_path():
     """Get the path to the Claude hooks configuration file."""
+    import subprocess
+    
+    # Try to find git root first (most reliable for Claude Code)
+    try:
+        git_root = subprocess.check_output(
+            ['git', 'rev-parse', '--show-toplevel'],
+            stderr=subprocess.DEVNULL,
+            text=True
+        ).strip()
+        config_path = Path(git_root) / ".claude" / "config.json"
+        if config_path.exists():
+            return config_path
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        pass
+    
     # Look for config in .claude directory relative to current working directory
     config_path = Path.cwd() / ".claude" / "config.json"
     if config_path.exists():
@@ -25,9 +40,8 @@ def load_config():
     """Load configuration from config.json with fallback to environment variables."""
     import platform
     
-    # Platform-specific defaults
-    is_macos = platform.system() == "Darwin"
-    default_provider = "macos" if is_macos else "pyttsx3"
+    # Default to cross-platform provider
+    default_provider = "pyttsx3"
     default_macos_voice = "Alex"  # Alex is the default macOS system voice
     
     default_config = {
@@ -51,17 +65,23 @@ def load_config():
                     # Charlie
                     "voice_id": "IKne3meq5aSn9XLyUdCD",
                     "model": "eleven_turbo_v2_5",
-                    "output_format": "mp3_44100_128"
+                    "output_format": "mp3_44100_128",
+                    "api_key": None  # Optional: falls back to ELEVENLABS_API_KEY env var
+                },
+                "openai": {
+                    "model": "tts-1",
+                    "voice": "alloy",
+                    "api_key": None  # Optional: falls back to OPENAI_API_KEY env var
                 }
             },
             "responses": {
-                "enabled": True
+                "enabled": False
             },
             "completion": {
                 "enabled": False
             },
             "notifications": {
-                "enabled": True
+                "enabled": False
             }
         },
         "engineer": {
@@ -121,39 +141,84 @@ def is_response_tts_enabled():
     """Check if response TTS is enabled (master switch AND responses.enabled)."""
     tts_config = get_tts_config()
     master_enabled = tts_config.get('enabled', True)
-    responses_enabled = tts_config.get('responses', {}).get('enabled', True)
-    return master_enabled and responses_enabled
+    if not master_enabled:
+        return False  # Master switch overrides everything
+    responses_enabled = tts_config.get('responses', {}).get('enabled', False)
+    return responses_enabled
 
 def is_completion_tts_enabled():
     """Check if completion TTS is enabled (master switch AND completion.enabled)."""
     tts_config = get_tts_config()
     master_enabled = tts_config.get('enabled', True)
-    completion_enabled = tts_config.get('completion', {}).get('enabled', False)
-    return master_enabled and completion_enabled
+    if not master_enabled:
+        return False  # Master switch overrides everything
+    completion_enabled = tts_config.get('completion', {}).get('enabled', True)
+    return completion_enabled
 
 def is_notification_tts_enabled():
     """Check if notification TTS is enabled (master switch AND notifications.enabled)."""
     tts_config = get_tts_config()
     master_enabled = tts_config.get('enabled', True)
+    if not master_enabled:
+        return False  # Master switch overrides everything
     notifications_enabled = tts_config.get('notifications', {}).get('enabled', True)
-    return master_enabled and notifications_enabled
+    return notifications_enabled
 
 def get_tts_provider():
-    """Get the preferred TTS provider (macos, elevenlabs) - applies globally."""
-    return get_tts_config().get('provider', 'macos')
+    """Get the preferred TTS provider (pyttsx3, elevenlabs, macos) - applies globally."""
+    return get_tts_config().get('provider', 'pyttsx3')
+
+def get_api_key(provider):
+    """Get API key for provider using cascading resolution: env vars → config.json.
+    
+    Args:
+        provider: TTS provider name ('elevenlabs', 'openai')
+        
+    Returns:
+        API key string or None if not found
+    """
+    import os  # Local import to avoid unused import warning
+    
+    # Environment variable names for each provider
+    env_var_map = {
+        'elevenlabs': 'ELEVENLABS_API_KEY',
+        'openai': 'OPENAI_API_KEY'
+    }
+    
+    # 1. Check environment variable first (highest priority)
+    env_var = env_var_map.get(provider)
+    if env_var:
+        api_key = os.getenv(env_var)
+        if api_key:
+            return api_key.strip()
+    
+    # 2. Check config.json as fallback
+    voices_config = get_tts_config().get('voices', {})
+    provider_config = voices_config.get(provider, {})
+    config_api_key = provider_config.get('api_key')
+    
+    if config_api_key and config_api_key.strip():
+        return config_api_key.strip()
+        
+    return None
 
 def get_active_tts_provider():
-    """Get the active TTS provider based on availability and config."""
-    import os  # Local import to avoid unused import warning
+    """Get the active TTS provider based on config and API key availability.
+    
+    Respects user's configured provider but falls back gracefully if API keys unavailable.
+    """
     provider = get_tts_provider()
     
-    # Check if ElevenLabs is configured and available
-    if provider == 'elevenlabs':
-        if os.getenv('ELEVENLABS_API_KEY'):
-            return 'elevenlabs'
-        # Fallback to macOS if ElevenLabs not available
-        return 'macos'
+    # For API-based providers, verify key availability
+    if provider in ['elevenlabs', 'openai']:
+        api_key = get_api_key(provider)
+        if api_key:
+            return provider
+        else:
+            # Fallback to pyttsx3 if API key not available
+            return 'pyttsx3'
     
+    # For local providers (macos, pyttsx3), no API key needed
     return provider
 
 def get_text_length_limit():
@@ -175,22 +240,80 @@ def get_macos_config():
     macos_config = voices.get('macos', {})
     
     return {
-        'voice': macos_config.get('voice', 'Lee (Premium)'),
-        'rate': macos_config.get('rate', 200),
+        'voice': macos_config.get('voice', 'Alex'),
+        'rate': macos_config.get('rate', 190),
         'quality': macos_config.get('quality', 127)
     }
 
 def get_elevenlabs_config():
-    """Get ElevenLabs configuration."""
+    """Get ElevenLabs configuration with API key resolution.
+    
+    WARNING: This function returns the actual API key for use by TTS providers.
+    Never print or log the return value of this function directly!
+    """
     voices = get_tts_config().get('voices', {})
     elevenlabs_config = voices.get('elevenlabs', {})
     
-    # Return defaults if not configured
+    # Return config with cascading API key resolution
     return {
         'voice_id': elevenlabs_config.get('voice_id', 'FNMROvc7ZdHldafWFMqC'),
         'model': elevenlabs_config.get('model', 'eleven_turbo_v2_5'),
-        'output_format': elevenlabs_config.get('output_format', 'mp3_44100_128')
+        'output_format': elevenlabs_config.get('output_format', 'mp3_44100_128'),
+        'api_key': get_api_key('elevenlabs')  # Cascading resolution
     }
+
+def get_openai_config():
+    """Get OpenAI TTS configuration with API key resolution.
+    
+    WARNING: This function returns the actual API key for use by TTS providers.
+    Never print or log the return value of this function directly!
+    """
+    voices = get_tts_config().get('voices', {})
+    openai_config = voices.get('openai', {})
+    
+    # Return config with cascading API key resolution
+    return {
+        'model': openai_config.get('model', 'tts-1'),
+        'voice': openai_config.get('voice', 'alloy'),
+        'api_key': get_api_key('openai')  # Cascading resolution
+    }
+
+def mask_api_key(api_key):
+    """Safely mask an API key for display purposes.
+    
+    Args:
+        api_key: The API key to mask (can be None)
+        
+    Returns:
+        Masked string safe for display/logging
+    """
+    if not api_key:
+        return 'Not configured'
+    return '*' * 8 + api_key[-4:] + ' (masked)'
+
+def mask_sensitive_config(config, sensitive_keys=['api_key']):
+    """Mask sensitive fields in a configuration dictionary.
+    
+    Args:
+        config: Dictionary to mask
+        sensitive_keys: List of keys to mask (default: ['api_key'])
+        
+    Returns:
+        New dictionary with sensitive fields masked
+    """
+    safe_config = config.copy()
+    for key in sensitive_keys:
+        if key in safe_config:
+            safe_config[key] = mask_api_key(safe_config[key])
+    return safe_config
+
+def get_elevenlabs_config_safe():
+    """Get ElevenLabs configuration with API key masked for display."""
+    return mask_sensitive_config(get_elevenlabs_config())
+
+def get_openai_config_safe():
+    """Get OpenAI configuration with API key masked for display."""
+    return mask_sensitive_config(get_openai_config())
 
 def get_engineer_name():
     """Get the engineer name from config."""
@@ -206,8 +329,30 @@ if __name__ == "__main__":
             print(json.dumps(config, indent=2))
         elif sys.argv[1] == "tts":
             print(f"TTS enabled: {is_tts_enabled()}")
-            print(f"TTS provider: {get_tts_provider()}")
-            print(f"macOS voice: {get_voice_for_provider('macos')}")
-            print(f"ElevenLabs voice: {get_voice_for_provider('elevenlabs')}")
+            print(f"TTS provider (config): {get_tts_provider()}")
+            print(f"TTS provider (active): {get_active_tts_provider()}")
+            print(f"macOS config: {get_macos_config()}")
+            
+            # Safe config display with API keys masked
+            print(f"ElevenLabs config: {get_elevenlabs_config_safe()}")
+            print(f"OpenAI config: {get_openai_config_safe()}")
+            
+            # Show API key resolution details
+            print("\nAPI Key Resolution:")
+            for provider in ['elevenlabs', 'openai']:
+                api_key = get_api_key(provider)
+                if api_key:
+                    print(f"  {provider}: {mask_api_key(api_key)} (found)")
+                else:
+                    print(f"  {provider}: None (not configured)")
+        elif sys.argv[1] == "keys":
+            print("API Key Status:")
+            for provider in ['elevenlabs', 'openai']:
+                api_key = get_api_key(provider)
+                status = mask_api_key(api_key)
+                print(f"  {provider.capitalize()}: {status}")
     else:
-        print("Usage: python config.py [show|tts]")
+        print("Usage: python config.py [show|tts|keys]")
+        print("  show - Display full configuration")
+        print("  tts  - Display TTS-specific settings and resolution")
+        print("  keys - Display API key availability (masked)")
