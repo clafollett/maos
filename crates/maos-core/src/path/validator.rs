@@ -26,7 +26,6 @@ pub struct PathValidator {
     /// List of canonicalized allowed root directories
     allowed_roots: Vec<PathBuf>,
     /// Glob patterns for blocked paths (e.g., "**/.git/**")  
-    #[allow(dead_code)] // Will be used in TDD Cycle 5
     blocked_patterns: Vec<String>,
 }
 
@@ -78,6 +77,10 @@ impl PathValidator {
             return true;
         }
 
+        // macOS path prefixes for symlink handling
+        const VAR_PREFIX_LEN: usize = 4; // "/var/"
+        const PRIVATE_VAR_PREFIX_LEN: usize = 12; // "/private/var/"
+
         // Handle macOS symlink variations using pattern matching
         let (path_str, workspace_str) = (
             canonical_path.to_string_lossy(),
@@ -86,10 +89,10 @@ impl PathValidator {
 
         match (workspace_str.as_ref(), path_str.as_ref()) {
             (ws, p) if ws.starts_with("/var/") && p.starts_with("/private/var/") => {
-                p[12..].starts_with(&ws[4..])
+                p[PRIVATE_VAR_PREFIX_LEN..].starts_with(&ws[VAR_PREFIX_LEN..])
             }
             (ws, p) if ws.starts_with("/private/var/") && p.starts_with("/var/") => {
-                p[4..].starts_with(&ws[12..])
+                p[VAR_PREFIX_LEN..].starts_with(&ws[PRIVATE_VAR_PREFIX_LEN..])
             }
             _ => false,
         }

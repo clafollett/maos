@@ -39,17 +39,20 @@ mod path_traversal_attacks {
         let temp_dir = std::env::temp_dir();
         let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
 
-        // Overlong UTF-8 sequences that could bypass filters (using byte arrays)
+        // Overlong UTF-8 encodings of path traversal characters (e.g., '.' and '/')
+        // These are invalid UTF-8 sequences that encode '.' and '/' using more bytes than necessary.
+        // For example, '.' (U+002E) as 0xC0 0xAE, '/' (U+002F) as 0xC0 0xAF.
         let overlong_attacks = vec![
-            // These are invalid UTF-8 sequences, so they'll be handled by Rust's UTF-8 validation
+            // Overlong encoding of "../etc/passwd": [0xC0 0xAE][0xC0 0xAE][0xC0 0xAF]etc[0xC0 0xAF]passwd
             String::from_utf8_lossy(&[
-                0xC0, 0xAE, 0xC0, 0xAE, b'/', b'e', b't', b'c', b'/', b'p', b'a', b's', b's', b'w',
-                b'd',
+                0xC0, 0xAE, 0xC0, 0xAE, 0xC0, 0xAF, b'e', b't', b'c', 0xC0, 0xAF, b'p', b'a', b's',
+                b's', b'w', b'd',
             ])
             .to_string(),
+            // Overlong encoding of "../etc/passwd": [0xE0 0x80 0xAE][0xE0 0x80 0xAE][0xE0 0x80 0xAF]etc[0xE0 0x80 0xAF]passwd
             String::from_utf8_lossy(&[
-                0xE0, 0x80, 0xAE, 0xE0, 0x80, 0xAE, b'/', b'e', b't', b'c', b'/', b'p', b'a', b's',
-                b's', b'w', b'd',
+                0xE0, 0x80, 0xAE, 0xE0, 0x80, 0xAE, 0xE0, 0x80, 0xAF, b'e', b't', b'c', 0xE0, 0x80,
+                0xAF, b'p', b'a', b's', b's', b'w', b'd',
             ])
             .to_string(),
         ];

@@ -89,11 +89,12 @@ use std::path::{Path, PathBuf};
 pub fn normalize_path(path: &Path) -> PathBuf {
     use std::path::Component;
 
-    // Security: normalize separators and decode URL/Unicode variants
-    const UNICODE_SLASHES: [char; 4] = ['\\', '\u{FF0F}', '\u{2044}', '\u{2215}'];
+    // Normalize Windows separators first, then Unicode attack vectors and URL-encoded separators
+    const UNICODE_SLASHES: [char; 3] = ['\u{FF0F}', '\u{2044}', '\u{2215}'];
     let path_str = path
         .to_string_lossy()
-        .replace(UNICODE_SLASHES, "/")
+        .replace('\\', "/") // Windows compatibility
+        .replace(UNICODE_SLASHES, "/") // Security: Unicode attack vectors
         .replace("%2F", "/")
         .replace("%2f", "/");
 

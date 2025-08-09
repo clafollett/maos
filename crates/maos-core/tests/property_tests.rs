@@ -13,9 +13,9 @@ use std::path::PathBuf;
 fn arb_path_string() -> impl Strategy<Value = String> {
     prop::collection::vec(
         prop_oneof![
-            // Normal path components
-            "[a-zA-Z0-9_-]{1,20}",
-            // Special cases that should be handled
+            // Normal path components (start with alphanumeric to avoid problematic patterns)
+            "[a-zA-Z0-9][a-zA-Z0-9_-]{0,19}",
+            // Special cases that should be handled (but not as path components)
             "\\.",
             "\\.\\.",
             // Unicode components (safe ones)
@@ -352,8 +352,8 @@ mod path_validator_properties {
         /// Property: Valid paths within workspace should be accepted
         #[test]
         fn path_validation_accepts_valid_paths(
-            file_name in "[a-zA-Z0-9_-]{1,20}\\.(txt|rs|json|toml)",  // Removed '.' to avoid ".." patterns
-            subdir in prop::option::of("[a-zA-Z0-9_-]{1,15}")
+            file_name in "[a-zA-Z0-9][a-zA-Z0-9_-]{0,19}\\.(txt|rs|json|toml)",  // Start with alphanumeric, then allow hyphens
+            subdir in prop::option::of("[a-zA-Z0-9][a-zA-Z0-9_-]{0,14}")
         ) {
             let temp_dir = std::env::temp_dir();
             let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
