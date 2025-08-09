@@ -37,6 +37,7 @@
 pub mod types;
 pub mod config;
 pub mod error;
+pub mod path;
 
 // Re-export commonly used types
 pub use types::{
@@ -48,5 +49,5 @@ pub use types::{
 // Re-export error types
 pub use error::{
     ConfigError, ErrorContext, ExitCode, FileSystemError, GitError, IntoMaosError, MaosError,
-    Result, SecurityError, SessionError, ValidationError,
+    PathValidationError, Result, SecurityError, SessionError, ValidationError,
 };
