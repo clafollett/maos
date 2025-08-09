@@ -565,7 +565,7 @@ mod path_validator_tests {
 
         // Should contain session and agent identifiers in some form
         assert!(
-            path_str.contains("mysession") || path_str.contains("myagent"),
+            path_str.contains(&session_id.to_string()) || path_str.contains(&agent_type),
             "Path should contain session or agent identifiers: {}",
             path_str
         );
