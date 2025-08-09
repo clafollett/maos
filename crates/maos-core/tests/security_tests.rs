@@ -6,6 +6,18 @@
 use maos_core::path::{PathValidator, normalize_path, paths_equal};
 use std::path::{Path, PathBuf};
 
+// Overlong UTF-8 encoding attack vectors for security testing
+// These represent "../etc/passwd" using invalid UTF-8 sequences that encode
+// '.' (U+002E) and '/' (U+002F) with more bytes than necessary
+const OVERLONG_DOT_SLASH_ATTACK_2BYTE: &[u8] = &[
+    0xC0, 0xAE, 0xC0, 0xAE, 0xC0, 0xAF, b'e', b't', b'c', 0xC0, 0xAF, b'p', b'a', b's', b's', b'w',
+    b'd',
+];
+const OVERLONG_DOT_SLASH_ATTACK_3BYTE: &[u8] = &[
+    0xE0, 0x80, 0xAE, 0xE0, 0x80, 0xAE, 0xE0, 0x80, 0xAF, b'e', b't', b'c', 0xE0, 0x80, 0xAF, b'p',
+    b'a', b's', b's', b'w', b'd',
+];
+
 #[cfg(test)]
 mod path_traversal_attacks {
     use super::*;
@@ -43,18 +55,10 @@ mod path_traversal_attacks {
         // These are invalid UTF-8 sequences that encode '.' and '/' using more bytes than necessary.
         // For example, '.' (U+002E) as 0xC0 0xAE, '/' (U+002F) as 0xC0 0xAF.
         let overlong_attacks = vec![
-            // Overlong encoding of "../etc/passwd": [0xC0 0xAE][0xC0 0xAE][0xC0 0xAF]etc[0xC0 0xAF]passwd
-            String::from_utf8_lossy(&[
-                0xC0, 0xAE, 0xC0, 0xAE, 0xC0, 0xAF, b'e', b't', b'c', 0xC0, 0xAF, b'p', b'a', b's',
-                b's', b'w', b'd',
-            ])
-            .to_string(),
-            // Overlong encoding of "../etc/passwd": [0xE0 0x80 0xAE][0xE0 0x80 0xAE][0xE0 0x80 0xAF]etc[0xE0 0x80 0xAF]passwd
-            String::from_utf8_lossy(&[
-                0xE0, 0x80, 0xAE, 0xE0, 0x80, 0xAE, 0xE0, 0x80, 0xAF, b'e', b't', b'c', 0xE0, 0x80,
-                0xAF, b'p', b'a', b's', b's', b'w', b'd',
-            ])
-            .to_string(),
+            // Overlong encoding of "../etc/passwd" using 2-byte sequences
+            String::from_utf8_lossy(OVERLONG_DOT_SLASH_ATTACK_2BYTE).to_string(),
+            // Overlong encoding of "../etc/passwd" using 3-byte sequences
+            String::from_utf8_lossy(OVERLONG_DOT_SLASH_ATTACK_3BYTE).to_string(),
         ];
 
         for attack in overlong_attacks {

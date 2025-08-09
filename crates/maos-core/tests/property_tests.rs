@@ -4,10 +4,11 @@
 //! that our path utilities maintain their invariants under all conditions.
 //! This complements our unit tests by exploring the input space exhaustively.
 
-use maos_core::path::{PathValidator, normalize_path, paths_equal, relative_path};
-use maos_core::{AgentType, SessionId};
 use proptest::prelude::*;
 use std::path::PathBuf;
+
+use maos_core::path::{PathValidator, normalize_path, paths_equal, relative_path};
+use maos_core::{AgentType, SessionId};
 
 /// Generate arbitrary valid path strings for testing
 fn arb_path_string() -> impl Strategy<Value = String> {
@@ -127,11 +128,13 @@ mod normalize_path_properties {
             let normalized = normalize_path(&path);
             let normalized_str = normalized.to_string_lossy();
 
+            const BACKSLASHES: &str = r"\\";
+
             // On Unix, backslashes should be treated as regular characters, not separators
             // But our normalize_path should handle them as separators for cross-platform support
-            if path_str.contains("\\\\") && !path_str.contains("..") {
+            if path_str.contains(BACKSLASHES) && !path_str.contains("..") {
                 prop_assert!(
-                    normalized_str.contains("/") || !normalized_str.contains("\\\\"),
+                    normalized_str.contains("/") || !normalized_str.contains(BACKSLASHES),
                     "Mixed separators should be normalized: {} -> {}",
                     path_str, normalized_str);
             }

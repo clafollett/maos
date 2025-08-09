@@ -77,17 +77,25 @@ impl PathValidator {
             return true;
         }
 
-        // macOS path prefixes for symlink handling
-        const VAR_PREFIX_LEN: usize = 4; // "/var/"
-        const PRIVATE_VAR_PREFIX_LEN: usize = 12; // "/private/var/"
-
         // Handle macOS symlink variations using pattern matching
         let (path_str, workspace_str) = (
             canonical_path.to_string_lossy(),
             canonical_workspace.to_string_lossy(),
         );
 
-        match (workspace_str.as_ref(), path_str.as_ref()) {
+        Self::macos_symlink_equivalent(workspace_str.as_ref(), path_str.as_ref())
+    }
+
+    /// Helper for macOS symlink equivalence (/var vs /private/var)
+    ///
+    /// On macOS, `/var` is a symlink to `/private/var`, which can cause path validation
+    /// issues when canonical paths resolve differently but refer to the same location.
+    fn macos_symlink_equivalent(workspace_str: &str, path_str: &str) -> bool {
+        // macOS path prefixes for symlink handling
+        const VAR_PREFIX_LEN: usize = 4; // "/var/"
+        const PRIVATE_VAR_PREFIX_LEN: usize = 12; // "/private/var/"
+
+        match (workspace_str, path_str) {
             (ws, p) if ws.starts_with("/var/") && p.starts_with("/private/var/") => {
                 p[PRIVATE_VAR_PREFIX_LEN..].starts_with(&ws[VAR_PREFIX_LEN..])
             }
@@ -324,9 +332,10 @@ impl PathValidator {
             .map(|n| n.to_string_lossy())
             .unwrap_or_default();
 
-        // Generate path suffixes for flexible matching (last 3 suffixes)
+        // Generate path suffixes for flexible matching (last PATH_SUFFIX_COUNT suffixes)
+        const PATH_SUFFIX_COUNT: usize = 3;
         let components: Vec<_> = path.components().collect();
-        let path_suffixes: Vec<String> = (0..3.min(components.len()))
+        let path_suffixes: Vec<String> = (0..PATH_SUFFIX_COUNT.min(components.len()))
             .filter_map(|skip_count| {
                 let start_idx = components.len().saturating_sub(skip_count + 1);
                 let suffix: Vec<_> = components[start_idx..]

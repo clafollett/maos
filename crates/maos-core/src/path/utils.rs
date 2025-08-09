@@ -94,7 +94,7 @@ pub fn normalize_path(path: &Path) -> PathBuf {
     let path_str = path
         .to_string_lossy()
         .replace('\\', "/") // Windows compatibility
-        .replace(UNICODE_SLASHES, "/") // Security: Unicode attack vectors
+        .replace(UNICODE_SLASHES, "/") // Security: Unicode attack vectors (array replace works via trait)
         .replace("%2F", "/")
         .replace("%2f", "/");
 
