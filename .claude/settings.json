@@ -37,15 +37,6 @@
             "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/post_tool_use.py\""
           }
         ]
-      },
-      {
-        "matcher": "Edit|MultiEdit|Update",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "if echo '$(.tool_input.file_path)' | grep -q '\\.rs$'; then cargo fmt && cargo clippy --fix --allow-dirty --allow-staged --files '$(.tool_input.file_path)' -- -D warnings; fi"
-          }
-        ]
       }
     ],
     "Notification": [

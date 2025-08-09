@@ -38,6 +38,29 @@ def main():
                 # Non-blocking MAOS error
                 print(f"⚠️  MAOS post-processing error (non-blocking): {e}", file=sys.stderr)
         
+        # RUST FORMATTING AND LINTING (non-blocking)
+        if tool_name in ['Edit', 'MultiEdit']:
+            try:
+                file_path = tool_input.get('file_path', '')
+                if file_path.endswith('.rs'):
+                    print("🦀 Formatting and linting Rust code...", file=sys.stderr)
+                    import subprocess
+                    
+                    # Run cargo fmt
+                    subprocess.run(['cargo', 'fmt'], check=False, cwd=PROJECT_ROOT)
+                    
+                    # Run cargo clippy with fixes
+                    subprocess.run([
+                        'cargo', 'clippy', 
+                        '--fix', '--allow-dirty', '--allow-staged', 
+                        '--', '-D', 'warnings'
+                    ], check=False, cwd=PROJECT_ROOT)
+                    
+                    print("✅ Rust formatting and linting complete", file=sys.stderr)
+            except Exception as e:
+                # Non-blocking Rust tooling error
+                print(f"⚠️  Rust tooling error (non-blocking): {e}", file=sys.stderr)
+        
         # LOGGING (original behavior preserved)
         
         # Ensure log directory exists

@@ -6,13 +6,20 @@ authors.workspace = true
 license.workspace = true
 
 [dependencies]
+anyhow = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-anyhow = { workspace = true }
-chrono = { version = "0.4.38", features = ["serde"] }
 uuid = { workspace = true }
+chrono = { version = "0.4.38", features = ["serde"] }
+dunce = "1.0.5"
+glob = "0.3.2"
 
 [dev-dependencies]
 proptest = "1.5"
 criterion = "0.5"
+tempfile = "3.13"
+
+[[bench]]
+name = "path_benchmarks"
+harness = false

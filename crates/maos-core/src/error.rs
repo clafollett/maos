@@ -4,6 +4,7 @@
 //! exit code mappings, and error context utilities.
 //!
 //! Implemented for issue #39: foundational error types and exit code mapping.
+//! Hook test: automatic cargo fmt and clippy integration.
 
 use thiserror::Error;
 
@@ -79,6 +80,9 @@ pub enum MaosError {
 
     #[error("Validation error: {0}")]
     Validation(#[from] ValidationError),
+
+    #[error("Path validation failed: {0}")]
+    PathValidation(#[from] PathValidationError),
 
     #[error("{message}: {source}")]
     Context {
@@ -304,6 +308,42 @@ pub enum ValidationError {
 
     #[error("{0}")]
     Other(String),
+}
+
+/// Path validation and security errors
+///
+/// These errors are designed with security-first principles:
+/// - Fail closed by default (deny access, require explicit allows)
+/// - Minimal information leakage in error messages
+/// - Clear indication of security violations without revealing sensitive paths
+#[derive(Debug, Error)]
+pub enum PathValidationError {
+    /// Path traversal attempt detected (e.g., "../../../etc/passwd")
+    #[error("Path traversal attempt blocked: {path}")]
+    PathTraversal { path: std::path::PathBuf },
+
+    /// Path is outside the allowed workspace boundary
+    #[error("Path outside workspace: {path} not in {workspace}")]
+    OutsideWorkspace {
+        path: std::path::PathBuf,
+        workspace: std::path::PathBuf,
+    },
+
+    /// Path matches a blocked pattern (e.g., .git/hooks, .ssh)
+    #[error("Blocked path pattern: {0}")]
+    BlockedPath(std::path::PathBuf),
+
+    /// Failed to canonicalize path (resolve symlinks and relative paths)
+    #[error("Canonicalization failed for {0}: {1}")]
+    CanonicalizationFailed(std::path::PathBuf, #[source] std::io::Error),
+
+    /// Workspace root path is invalid or inaccessible
+    #[error("Invalid workspace: {0}")]
+    InvalidWorkspace(std::path::PathBuf, #[source] std::io::Error),
+
+    /// Path component contains invalid characters or patterns
+    #[error("Invalid path component: {0}")]
+    InvalidComponent(String),
 }
 
 /// Error context extension trait to attach additional context during propagation.

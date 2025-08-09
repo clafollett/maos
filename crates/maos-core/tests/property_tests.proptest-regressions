@@ -1,0 +1,9 @@
+# Seeds for failure cases proptest has generated in the past. It is
+# automatically read and these particular cases re-run before any
+# novel cases are generated.
+#
+# It is recommended to check this file in to source control so that
+# everyone who runs the test benefits from these saved cases.
+cc 770ab396f95d4a3775fc11a3f5d4d65017c9c274930eb265969ca0688be2a3bd # shrinks to file_name = "-..txt", subdir = None
+cc b4549e8627b55a626aa6e3a713810fcfcb7c71a7bc206f1252891d76eafc70db # shrinks to malicious_path = "A\\a/A"
+cc ea0b242565c325ec2d92ec508389fc96720e63f13c9c7c991226607bbf0afacb # shrinks to file_name = "..txt", subdir = None
