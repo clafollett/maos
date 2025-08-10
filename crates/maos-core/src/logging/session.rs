@@ -8,6 +8,7 @@ use std::sync::Arc;
 use flate2::Compression;
 use flate2::write::GzEncoder;
 use parking_lot::RwLock;
+use tracing::debug;
 
 use super::config::RollingLogConfig;
 use crate::{Result, SessionId};
@@ -106,7 +107,7 @@ impl SessionLogger {
         self.log_dir.join(filename)
     }
 
-    /// Rotate the current log file
+    /// Rotate the current log file atomically to prevent data loss
     fn rotate_log_file(&mut self) -> Result<()> {
         // Close current file
         if let Some(mut file) = self.current_file.take() {
@@ -118,10 +119,23 @@ impl SessionLogger {
         // Shift existing rotated files
         self.shift_rotated_files()?;
 
-        // Move current file to .1
+        // Move current file to .1 atomically
         if self.config.compress_on_roll {
             let rotated_path = current_path.with_extension("log.1.gz");
-            self.compress_file(&current_path, &rotated_path)?;
+            let temp_path = current_path.with_extension("log.1.gz.tmp");
+
+            // Compress to temporary file first
+            self.compress_file(&current_path, &temp_path)?;
+
+            // Atomic rename of compressed file
+            fs::rename(&temp_path, &rotated_path).or_else(|_| -> Result<()> {
+                // Fallback: copy and remove if rename fails (cross-filesystem)
+                fs::copy(&temp_path, &rotated_path)?;
+                fs::remove_file(&temp_path)?;
+                Ok(())
+            })?;
+
+            // Remove original only after successful compression
             fs::remove_file(&current_path)?;
         } else {
             let rotated_path = current_path.with_extension("log.1");
@@ -188,8 +202,10 @@ impl SessionLogger {
 
             let old_file = self.current_log_path().with_extension(&extensions);
 
-            if old_file.exists() {
-                let _ = fs::remove_file(old_file); // Ignore errors for cleanup
+            if old_file.exists()
+                && let Err(e) = fs::remove_file(&old_file)
+            {
+                debug!("Failed to remove old log file {:?}: {}", old_file, e);
             }
         }
 

@@ -102,6 +102,11 @@ fn test_log_rotation() {
         file_pattern: "session-{session_id}.log".to_string(),
     };
 
+    // Store pattern before moving config
+    let pattern = config
+        .file_pattern
+        .replace("{session_id}", session_id.as_str());
+
     let mut logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config)
         .expect("Failed to create session logger");
 
@@ -110,8 +115,9 @@ fn test_log_rotation() {
     logger.write(&long_entry).expect("Failed to write");
     logger.write(&long_entry).expect("Failed to write"); // Should trigger rotation
 
-    // Verify rotation happened
-    let rotated_file = log_dir.join(format!("session-{}.log.1", session_id.as_str()));
+    // Verify rotation happened using the same logic as production code
+    let base_path = log_dir.join(pattern);
+    let rotated_file = base_path.with_extension("log.1");
     assert!(rotated_file.exists(), "Rotated file should exist");
 }
 

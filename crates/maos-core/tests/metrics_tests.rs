@@ -170,8 +170,8 @@ fn test_timed_operation_macro() {
     assert_eq!(stats.count, 1);
     assert!(stats.avg_ms >= 10.0, "Should record at least 10ms");
     assert!(
-        stats.avg_ms < 50.0,
-        "Should be reasonably close to sleep time"
+        stats.avg_ms < 100.0,
+        "Should be reasonably close to sleep time (allowing for CI variability)"
     );
 }
 

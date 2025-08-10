@@ -178,11 +178,20 @@ fn calculate_percentile(sorted_values: &[f64], percentile: f64) -> f64 {
         return sorted_values[0];
     }
 
+    let n = sorted_values.len();
+
+    // Handle boundary cases explicitly
+    if percentile <= 0.0 {
+        return sorted_values[0];
+    }
+    if percentile >= 100.0 {
+        return sorted_values[n - 1];
+    }
+
     // Use the nearest-rank method for percentile calculation
     // For 1-100 values, p50 should be value at index 49 (0-based), which is 50
-    let n = sorted_values.len();
-    let index = ((percentile / 100.0) * n as f64).ceil() as usize - 1;
-    let clamped_index = index.min(n - 1);
+    let index = ((percentile / 100.0) * n as f64).ceil() as isize - 1;
+    let clamped_index = index.max(0).min((n - 1) as isize) as usize;
 
     sorted_values[clamped_index]
 }
