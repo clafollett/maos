@@ -388,7 +388,8 @@ impl PathConstraint {
                 return false;
             }
             // Also check just the filename for patterns like "*.log" or "test_*_backup"
-            if let Some(filename) = path.file_name().and_then(|n| n.to_str())
+            if let Some(filename_osstr) = path.file_name()
+                && let Some(filename) = filename_osstr.to_str()
                 && globset.is_match(filename)
             {
                 return false;
