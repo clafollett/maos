@@ -53,6 +53,7 @@
 //! ```
 
 use crate::{AgentId, Result, SessionId, ToolCall, ToolCallId, ToolResult};
+use globset::{Glob, GlobSet, GlobSetBuilder};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -170,8 +171,7 @@ impl HookInput {
 
     /// Get the tool input (returns null if not a tool event)
     pub fn tool_input(&self) -> &Value {
-        static NULL: Value = Value::Null;
-        self.tool_input.as_ref().unwrap_or(&NULL)
+        self.tool_input.as_ref().unwrap_or(&Value::Null)
     }
 
     /// Get the tool response if present (PostToolUse only)
@@ -266,20 +266,69 @@ impl SessionContext {
             None
         };
 
+        // Determine workspace root using multiple heuristics
+        let workspace_root = Self::determine_workspace_root(&input.cwd);
+
         Ok(Self {
             session_id,
             agent_id,
             agent_type: None,
-            workspace_root: input
-                .cwd
-                .parent()
-                .map(PathBuf::from)
-                .unwrap_or_else(|| PathBuf::from("/workspace")),
+            workspace_root,
             active_agents: Vec::new(),
             parent_agent: None,
             cwd: input.cwd.clone(),
             transcript_path: Some(input.transcript_path.clone()),
         })
+    }
+
+    /// Determine the workspace root using multiple heuristics
+    ///
+    /// This method looks for common workspace indicators in the directory hierarchy:
+    /// 1. Git repository root (.git directory)
+    /// 2. Common project files (Cargo.toml, package.json, pyproject.toml, etc.)
+    /// 3. Claude Code session directory (.claude)
+    /// 4. Fallback to parent directory or /workspace
+    fn determine_workspace_root(cwd: &Path) -> PathBuf {
+        let mut current = cwd;
+
+        // Walk up the directory tree looking for workspace indicators
+        loop {
+            // Check for Git repository
+            if current.join(".git").exists() {
+                return current.to_path_buf();
+            }
+
+            // Check for common project files
+            let project_files = [
+                "Cargo.toml",     // Rust
+                "package.json",   // Node.js
+                "pyproject.toml", // Python (modern)
+                "setup.py",       // Python (legacy)
+                "pom.xml",        // Java Maven
+                "build.gradle",   // Java Gradle
+                "go.mod",         // Go
+                ".claude",        // Claude Code
+                "Makefile",       // Make
+                "CMakeLists.txt", // CMake
+            ];
+
+            for file in &project_files {
+                if current.join(file).exists() {
+                    return current.to_path_buf();
+                }
+            }
+
+            // Move to parent directory
+            match current.parent() {
+                Some(parent) => current = parent,
+                None => break,
+            }
+        }
+
+        // Fallback: use parent of cwd or default workspace
+        cwd.parent()
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("/workspace"))
     }
 }
 
@@ -289,9 +338,34 @@ pub struct PathConstraint {
     pub allowed_paths: Vec<PathBuf>,
     pub blocked_patterns: Vec<String>,
     pub max_depth: Option<usize>,
+    #[serde(skip)]
+    blocked_globset: Option<GlobSet>,
 }
 
 impl PathConstraint {
+    /// Create a new PathConstraint with compiled glob patterns
+    pub fn new(
+        allowed_paths: Vec<PathBuf>,
+        blocked_patterns: Vec<String>,
+        max_depth: Option<usize>,
+    ) -> Self {
+        let mut builder = GlobSetBuilder::new();
+        for pattern in &blocked_patterns {
+            if let Ok(glob) = Glob::new(pattern) {
+                builder.add(glob);
+            }
+        }
+
+        let blocked_globset = builder.build().ok();
+
+        Self {
+            allowed_paths,
+            blocked_patterns,
+            max_depth,
+            blocked_globset,
+        }
+    }
+
     /// Check if a path is allowed by this constraint
     pub fn is_allowed(&self, path: &Path) -> bool {
         // Check if path starts with any allowed path
@@ -307,42 +381,25 @@ impl PathConstraint {
             return false;
         }
 
-        // Check blocked patterns
-        let path_str = path.to_string_lossy();
-        for pattern in &self.blocked_patterns {
-            if pattern.contains('*') {
-                // Simple glob matching for patterns with wildcards
-                if pattern.starts_with('*') && pattern.ends_with('*') {
-                    // Pattern like *foo* - check if path contains the middle part
-                    let middle = &pattern[1..pattern.len() - 1];
-                    if path_str.contains(middle) {
-                        return false;
-                    }
-                } else if let Some(suffix) = pattern.strip_prefix('*') {
-                    // Pattern like *.log - check suffix
-                    if path_str.ends_with(suffix) {
-                        return false;
-                    }
-                } else if pattern.ends_with('*') {
-                    // Pattern like test_* - check prefix
-                    let prefix = &pattern[..pattern.len() - 1];
-                    if path_str.starts_with(prefix) {
-                        return false;
-                    }
-                } else {
-                    // Pattern like test_*_backup - check prefix and suffix
-                    let parts: Vec<&str> = pattern.splitn(2, '*').collect();
-                    if parts.len() == 2 {
-                        let prefix = parts[0];
-                        let suffix = parts[1];
-                        let filename = path.file_name().and_then(|n| n.to_str()).unwrap_or("");
-                        if filename.starts_with(prefix) && filename.ends_with(suffix) {
-                            return false;
-                        }
-                    }
-                }
-            } else if path_str.contains(pattern) {
+        // Check blocked patterns using globset if available, fallback to simple matching
+        if let Some(ref globset) = self.blocked_globset {
+            // Test against both full path and just filename
+            if globset.is_match(path) {
                 return false;
+            }
+            // Also check just the filename for patterns like "*.log" or "test_*_backup"
+            if let Some(filename) = path.file_name().and_then(|n| n.to_str())
+                && globset.is_match(filename)
+            {
+                return false;
+            }
+        } else {
+            // Fallback to simple pattern matching
+            let path_str = path.to_string_lossy();
+            for pattern in &self.blocked_patterns {
+                if path_str.contains(pattern) {
+                    return false;
+                }
             }
         }
 

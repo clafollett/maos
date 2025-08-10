@@ -129,13 +129,14 @@ impl SchemaValidator {
         }
 
         // Validate status enum value
-        if let Some(status) = value.get("status").and_then(|v| v.as_str())
-            && !["active", "paused", "completed", "failed"].contains(&status)
-        {
-            return Err(SchemaError::ValidationFailed {
-                schema: "SessionFile".to_string(),
-                errors: vec![format!("Invalid status value: {}", status)],
-            });
+        match value.get("status").and_then(|v| v.as_str()) {
+            Some(status) if !["active", "paused", "completed", "failed"].contains(&status) => {
+                return Err(SchemaError::ValidationFailed {
+                    schema: "SessionFile".to_string(),
+                    errors: vec![format!("Invalid status value: {}", status)],
+                });
+            }
+            _ => {}
         }
 
         // Try to deserialize to validate full structure

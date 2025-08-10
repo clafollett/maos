@@ -6,9 +6,38 @@
 
 use maos_core::SessionId;
 use maos_core::messages::*;
-use serde_json::json;
+use serde_json::{Value, json};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
+
+// =============================================================================
+// Test Helpers
+// =============================================================================
+
+/// Helper builder for creating HookInput instances in tests
+fn make_hook_input(
+    session_id: Option<&str>,
+    transcript_path: Option<&str>,
+    cwd: Option<&str>,
+    hook_event_name: Option<HookEventName>,
+    tool_name: Option<&str>,
+    tool_input: Option<Value>,
+    tool_response: Option<Value>,
+    prompt: Option<&str>,
+) -> HookInput {
+    HookInput {
+        session_id: session_id
+            .unwrap_or("sess_12345678-1234-1234-1234-123456789012")
+            .to_string(),
+        transcript_path: PathBuf::from(transcript_path.unwrap_or("/tmp/transcript")),
+        cwd: PathBuf::from(cwd.unwrap_or("/workspace")),
+        hook_event_name: hook_event_name.unwrap_or(HookEventName::PreToolUse),
+        tool_name: tool_name.map(|s| s.to_string()),
+        tool_input,
+        tool_response,
+        prompt: prompt.map(|s| s.to_string()),
+    }
+}
 
 // =============================================================================
 // HookInput Tests - Testing Claude Code format
@@ -397,16 +426,16 @@ fn test_post_tool_message_error_cases() {
 #[test]
 fn test_session_context_error_handling() {
     // Test with invalid session ID format
-    let hook_input = HookInput {
-        session_id: "invalid-session-id".to_string(),
-        transcript_path: PathBuf::from("/tmp/transcript"),
-        cwd: PathBuf::from("/workspace"),
-        hook_event_name: HookEventName::PreToolUse,
-        tool_name: Some("Test".to_string()),
-        tool_input: None,
-        tool_response: None,
-        prompt: None,
-    };
+    let hook_input = make_hook_input(
+        Some("invalid-session-id"),
+        Some("/tmp/transcript"),
+        Some("/workspace"),
+        Some(HookEventName::PreToolUse),
+        Some("Test"),
+        None,
+        None,
+        None,
+    );
 
     let result = SessionContext::from_hook_input(&hook_input);
     assert!(result.is_err());
@@ -889,11 +918,11 @@ fn test_hook_output_serialization() {
 
 #[test]
 fn test_path_constraint_validation() {
-    let constraint = PathConstraint {
-        allowed_paths: vec![PathBuf::from("/workspace"), PathBuf::from("/tmp")],
-        blocked_patterns: vec![".env".to_string(), "*.secret".to_string()],
-        max_depth: Some(5),
-    };
+    let constraint = PathConstraint::new(
+        vec![PathBuf::from("/workspace"), PathBuf::from("/tmp")],
+        vec![".env".to_string(), "*.secret".to_string()],
+        Some(5),
+    );
 
     // Should allow paths within workspace
     assert!(constraint.is_allowed(Path::new("/workspace/src/main.rs")));
@@ -912,15 +941,15 @@ fn test_path_constraint_validation() {
 
 #[test]
 fn test_path_constraint_complex_patterns() {
-    let constraint = PathConstraint {
-        allowed_paths: vec![PathBuf::from("/workspace")],
-        blocked_patterns: vec![
+    let constraint = PathConstraint::new(
+        vec![PathBuf::from("/workspace")],
+        vec![
             "*.log".to_string(),
             "**/node_modules/**".to_string(),
             "test_*_backup".to_string(),
         ],
-        max_depth: None,
-    };
+        None,
+    );
 
     // Test complex glob patterns with multiple asterisks
     assert!(!constraint.is_allowed(Path::new("/workspace/debug.log")));
@@ -937,19 +966,11 @@ fn test_path_constraint_complex_patterns() {
 #[test]
 fn test_path_constraint_edge_cases() {
     // Empty allowed paths
-    let constraint = PathConstraint {
-        allowed_paths: vec![],
-        blocked_patterns: vec![],
-        max_depth: None,
-    };
+    let constraint = PathConstraint::new(vec![], vec![], None);
     assert!(!constraint.is_allowed(Path::new("/any/path")));
 
     // Path exactly matching allowed path
-    let constraint = PathConstraint {
-        allowed_paths: vec![PathBuf::from("/workspace")],
-        blocked_patterns: vec![],
-        max_depth: Some(0),
-    };
+    let constraint = PathConstraint::new(vec![PathBuf::from("/workspace")], vec![], Some(0));
     assert!(constraint.is_allowed(Path::new("/workspace")));
     assert!(!constraint.is_allowed(Path::new("/workspace/file.txt")));
 }

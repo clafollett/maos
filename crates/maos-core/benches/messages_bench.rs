@@ -178,15 +178,15 @@ fn bench_path_constraint(c: &mut Criterion) {
     use maos_core::messages::PathConstraint;
     use std::path::{Path, PathBuf};
 
-    let constraint = PathConstraint {
-        allowed_paths: vec![PathBuf::from("/workspace"), PathBuf::from("/tmp")],
-        blocked_patterns: vec![
+    let constraint = PathConstraint::new(
+        vec![PathBuf::from("/workspace"), PathBuf::from("/tmp")],
+        vec![
             ".env".to_string(),
             "*.secret".to_string(),
             "test_*_backup".to_string(),
         ],
-        max_depth: Some(5),
-    };
+        Some(5),
+    );
 
     let test_paths = vec![
         Path::new("/workspace/src/main.rs"),
