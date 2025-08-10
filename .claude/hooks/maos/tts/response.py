@@ -91,7 +91,7 @@ def _load_config_fallback():
     master_config = _get_master_config()
     
     try:
-        config_path = Path.cwd() / ".claude" / "config.json"
+        config_path = Path.cwd() / ".claude" / "hooks" / "maos" / "config.json"
         if config_path.exists():
             with open(config_path, 'r') as f:
                 user_config = json.load(f)

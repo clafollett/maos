@@ -8,7 +8,7 @@ MAOS follows a zero-configuration philosophy - it works out of the box with sens
 
 MAOS checks for configuration in this order:
 1. Environment variables (highest priority)
-2. `.claude/config.json` (project-specific)
+2. `.claude/hooks/maos/config.json` (project-specific)
 3. Built-in defaults (lowest priority)
 
 ## Environment Variables
@@ -46,7 +46,7 @@ export CLAUDE_AGENT_TYPE="backend-engineer"
 
 ## Project Configuration
 
-Create `.claude/config.json` for project-specific settings:
+Create `.claude/maos/config.json` for project-specific settings:
 
 ```json
 {
@@ -202,7 +202,7 @@ maos config show
 1. **Minimal Configuration**: Only configure what you need
 2. **Environment Variables**: Use for sensitive data (API keys)
 3. **Project Config**: Use for project-specific settings
-4. **Version Control**: Commit `.claude/config.json`, not API keys
+4. **Version Control**: Commit `.claude/maos/config.json`, not API keys
 
 ## See Also
 

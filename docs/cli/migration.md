@@ -100,7 +100,7 @@ No changes needed - same environment variables work:
 - `ENGINEER_NAME`
 
 ### Project Configuration
-If you have `.claude/config.json`, it works with both versions.
+If you have `.claude/hooks/maos/config.json`, it works with both versions.
 
 ## Benefits of Migration
 

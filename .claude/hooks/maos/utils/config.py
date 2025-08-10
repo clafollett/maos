@@ -17,14 +17,14 @@ def get_config_path():
             stderr=subprocess.DEVNULL,
             text=True
         ).strip()
-        config_path = Path(git_root) / ".claude" / "config.json"
+        config_path = Path(git_root) / ".claude" / "hooks" / "maos" / "config.json"
         if config_path.exists():
             return config_path
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
     
     # Look for config in .claude directory relative to current working directory
-    config_path = Path.cwd() / ".claude" / "config.json"
+    config_path = Path.cwd() / ".claude" / "hooks" / "maos" / "config.json"
     if config_path.exists():
         return config_path
     
@@ -119,7 +119,7 @@ def save_config(config):
         # Create config in .claude directory
         claude_dir = Path.cwd() / ".claude"
         claude_dir.mkdir(exist_ok=True)
-        config_path = claude_dir / "config.json"
+        config_path = claude_dir / "maos" / "config.json"
     
     try:
         with open(config_path, 'w') as f:

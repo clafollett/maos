@@ -30,7 +30,7 @@ export ENGINEER_NAME="Alice"
 
 ### Project Configuration
 
-Configure TTS behavior in `.claude/config.json`:
+Configure TTS behavior in `.claude/hooks/maos/config.json`:
 
 ```json
 {
