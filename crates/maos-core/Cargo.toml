@@ -18,6 +18,9 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 parking_lot = "0.12"
 flate2 = "1.0"
+jsonschema = "0.26"
+schemars = "0.8"
+dirs = "5.0"
 
 [dev-dependencies]
 proptest = "1.5"
@@ -34,4 +37,8 @@ harness = false
 
 [[bench]]
 name = "logging_benchmarks"
+harness = false
+
+[[bench]]
+name = "messages_bench"
 harness = false

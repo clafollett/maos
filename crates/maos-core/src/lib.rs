@@ -39,6 +39,7 @@ pub mod config;
 pub mod constants;
 pub mod error;
 pub mod logging;
+pub mod messages;
 pub mod metrics;
 pub mod path;
 
