@@ -25,6 +25,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from maos.utils.config import is_response_tts_enabled, is_completion_tts_enabled, get_engineer_name, get_active_tts_provider
 from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from maos.utils.async_logging import log_hook_data_sync
 
 
 def get_completion_messages():
@@ -64,20 +65,6 @@ def get_tts_script_path():
         return str(tts_script)
     
     return None
-
-
-def simple_jsonl_append(log_path, data):
-    """Simple, fast JSONL append without reading existing file."""
-    try:
-        # Ensure log directory exists
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Simple append to JSONL file
-        with open(log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(data, separators=(',', ':')) + '\n')
-        return True
-    except Exception:
-        return False
 
 
 def fire_completion_tts():
@@ -185,13 +172,11 @@ def copy_transcript_to_chat(input_data):
             'event': 'stop',
             'session_id': input_data.get('session_id'),
             'transcript_path': transcript_path,
-            'timestamp': input_data.get('timestamp', ''),
             'cwd': input_data.get('cwd', '')
         }
         
-        # Fast append to JSONL
-        with open(chat_file, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(chat_entry, separators=(',', ':')) + '\n')
+        # Use unified async logger (adds timestamp automatically)
+        log_hook_data_sync(chat_file, chat_entry)
         
         return True
         
@@ -227,9 +212,9 @@ def main():
         
         # 📝 BACKGROUND OPERATIONS (fire-and-forget)
         
-        # Log to JSONL format - simple append
+        # Log to JSONL format using unified async logger
         log_path = LOGS_DIR / "stop.jsonl"
-        simple_jsonl_append(log_path, input_data)
+        log_hook_data_sync(log_path, input_data)
         
         # Copy transcript to chat if requested
         if args.chat:

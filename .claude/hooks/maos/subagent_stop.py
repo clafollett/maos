@@ -12,7 +12,6 @@ import os
 import sys
 import subprocess
 from pathlib import Path
-from datetime import datetime
 
 try:
     from dotenv import load_dotenv
@@ -25,6 +24,7 @@ except ImportError:
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
 from maos.utils.config import is_completion_tts_enabled, get_active_tts_provider
+from maos.utils.async_logging import log_hook_data_sync
 
 
 def get_tts_script_path():
@@ -103,26 +103,9 @@ def main():
         session_id = input_data.get("session_id", "")
         stop_hook_active = input_data.get("stop_hook_active", False)
 
-        # Ensure log directory exists
-        LOGS_DIR.mkdir(parents=True, exist_ok=True)
-        log_path = LOGS_DIR / "subagent_stop.json"
-
-        # Read existing log data or initialize empty list
-        if os.path.exists(log_path):
-            with open(log_path, 'r') as f:
-                try:
-                    log_data = json.load(f)
-                except (json.JSONDecodeError, ValueError):
-                    log_data = []
-        else:
-            log_data = []
-        
-        # Append new data
-        log_data.append(input_data)
-        
-        # Write back to file with formatting
-        with open(log_path, 'w') as f:
-            json.dump(log_data, f, indent=2)
+        # Use unified async logger for subagent stop events
+        log_path = LOGS_DIR / "subagent_stop.jsonl"
+        log_hook_data_sync(log_path, input_data)
         
         # Handle --chat switch (same as stop.py)
         if args.chat and 'transcript_path' in input_data:
@@ -140,10 +123,10 @@ def main():
                                 except json.JSONDecodeError:
                                     pass  # Skip invalid lines
                     
-                    # Write to logs/chat.json
-                    chat_file = LOGS_DIR / 'chat.json'
-                    with open(chat_file, 'w') as f:
-                        json.dump(chat_data, f, indent=2)
+                    # Write to logs/chat.jsonl using unified async logger
+                    chat_file = LOGS_DIR / 'chat.jsonl'
+                    for entry in chat_data:
+                        log_hook_data_sync(chat_file, entry)
                 except Exception:
                     pass  # Fail silently
 

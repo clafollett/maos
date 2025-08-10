@@ -22,10 +22,12 @@ except ImportError:
     pass  # dotenv is optional
 
 
+
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
 from maos.utils.config import is_notification_tts_enabled, get_active_tts_provider
+from maos.utils.async_logging import log_hook_data_sync
 
 
 def get_tts_script_path():
@@ -52,21 +54,6 @@ def get_tts_script_path():
         return str(tts_script)
     
     return None
-
-
-def simple_jsonl_append(log_path, data):
-    """Simple, fast JSONL append without reading existing file."""
-    try:
-        # Ensure log directory exists
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Simple append to JSONL file
-        with open(log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(data, separators=(',', ':')) + '\n')
-        return True
-    except Exception:
-        return False
-
 
 def fire_tts_notification():
     """Fire TTS notification immediately - no blocking."""
@@ -122,9 +109,9 @@ def main():
             print(f"🚀 Notification TTS fired in {tts_time*1000:.2f}ms", file=sys.stderr)
         
         # 📝 LOGGING IN FIRE-AND-FORGET MODE (don't wait)
-        # Log to JSONL format - simple append, no reading existing file
+        # Use unified async logger (adds timestamp automatically)
         log_path = LOGS_DIR / "notification.jsonl"
-        simple_jsonl_append(log_path, input_data)
+        log_hook_data_sync(log_path, input_data)
         
         # Exit immediately - don't wait for logging to complete
         sys.exit(0)

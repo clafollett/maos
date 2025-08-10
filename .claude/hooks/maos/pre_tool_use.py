@@ -206,8 +206,14 @@ async def main_async():
             background_tasks.append(maos_task)
         
         # Async logging (JSONL format for true append-only)
-        log_path = LOGS_DIR / 'pre_tool_use.jsonl'  # Changed to .jsonl
+        log_path = LOGS_DIR / 'pre_tool_use.jsonl'
         logging_task = asyncio.create_task(log_hook_data(log_path, input_data))
+        
+        # Add immediate fallback sync logging to ensure file is always created
+        try:
+            log_hook_data_sync(log_path, input_data)
+        except Exception:
+            pass  # Silent failure
         background_tasks.append(logging_task)
         
         # Give background tasks a moment to start, but don't wait for completion

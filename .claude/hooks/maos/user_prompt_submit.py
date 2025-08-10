@@ -11,7 +11,6 @@ import json
 import os
 import sys
 from pathlib import Path
-from datetime import datetime
 
 try:
     from dotenv import load_dotenv
@@ -23,18 +22,15 @@ except ImportError:
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from maos.utils.async_logging import log_hook_data_sync
 
 
 def log_user_prompt(session_id, input_data):
-    """Log user prompt to logs directory using efficient JSONL append."""
+    """Log user prompt using unified async logger."""
     try:
-        # Ensure logs directory exists
-        LOGS_DIR.mkdir(parents=True, exist_ok=True)
         log_file = LOGS_DIR / 'user_prompt_submit.jsonl'
-        
-        # Simple append to JSONL file - no reading existing content
-        with open(log_file, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(input_data, separators=(',', ':')) + '\n')
+        # Use unified async logger (adds timestamp automatically)
+        log_hook_data_sync(log_file, input_data)
     except Exception:
         # Silent failure for logging - don't block user prompt processing
         pass
