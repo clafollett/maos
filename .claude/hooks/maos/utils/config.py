@@ -6,8 +6,28 @@
 import json
 from pathlib import Path
 
+# Constants for config file location
+CONFIG_DIR_COMPONENTS = (".claude", "hooks", "maos")
+CONFIG_FILENAME = "config.json"
+
+# Cache for config path and loaded config
+# Using a sentinel value to distinguish between "not cached" and "cached as None"
+_CACHE_SENTINEL = object()
+_config_path_cache = _CACHE_SENTINEL
+_config_cache = _CACHE_SENTINEL
+
+def get_config_dir():
+    """Get the configuration directory path."""
+    return Path.cwd().joinpath(*CONFIG_DIR_COMPONENTS)
+
 def get_config_path():
-    """Get the path to the Claude hooks configuration file."""
+    """Get the path to the Claude hooks configuration file (cached)."""
+    global _config_path_cache
+    
+    # Return cached path if already resolved
+    if _config_path_cache is not _CACHE_SENTINEL:
+        return _config_path_cache
+    
     import subprocess
     
     # Try to find git root first (most reliable for Claude Code)
@@ -17,28 +37,41 @@ def get_config_path():
             stderr=subprocess.DEVNULL,
             text=True
         ).strip()
-        config_path = Path(git_root) / ".claude" / "config.json"
+        config_path = Path(git_root).joinpath(*CONFIG_DIR_COMPONENTS, CONFIG_FILENAME)
         if config_path.exists():
+            _config_path_cache = config_path
             return config_path
     except (subprocess.CalledProcessError, FileNotFoundError):
         pass
     
     # Look for config in .claude directory relative to current working directory
-    config_path = Path.cwd() / ".claude" / "config.json"
+    config_path = Path.cwd().joinpath(*CONFIG_DIR_COMPONENTS, CONFIG_FILENAME)
     if config_path.exists():
+        _config_path_cache = config_path
         return config_path
     
     # Fallback to script directory
     script_dir = Path(__file__).parent.parent
-    config_path = script_dir / "config.json"
+    config_path = script_dir / CONFIG_FILENAME
     if config_path.exists():
+        _config_path_cache = config_path
         return config_path
     
+    # Cache None result too to avoid repeated searches
+    _config_path_cache = None
     return None
 
-def load_config():
-    """Load configuration from config.json with fallback to environment variables."""
-    import platform
+def load_config(force_reload=False):
+    """Load configuration from config.json with fallback to environment variables (cached).
+    
+    Args:
+        force_reload: If True, bypass cache and reload from disk
+    """
+    global _config_cache
+    
+    # Return cached config if available and not forcing reload
+    if _config_cache is not _CACHE_SENTINEL and not force_reload:
+        return _config_cache
     
     # Default to cross-platform provider
     default_provider = "pyttsx3"
@@ -95,11 +128,14 @@ def load_config():
             with open(config_path, 'r') as f:
                 config = json.load(f)
                 # Merge with defaults to handle missing keys
-                return merge_configs(default_config, config)
+                merged_config = merge_configs(default_config, config)
+                _config_cache = merged_config
+                return merged_config
         except (json.JSONDecodeError, FileNotFoundError):
             pass
     
-    # Return default config if no file found
+    # Return default config if no file found and cache it
+    _config_cache = default_config
     return default_config
 
 def merge_configs(default, user):
@@ -112,18 +148,28 @@ def merge_configs(default, user):
             result[key] = value
     return result
 
+def clear_config_cache():
+    """Clear the cached config path and loaded config."""
+    global _config_path_cache, _config_cache
+    _config_path_cache = _CACHE_SENTINEL
+    _config_cache = _CACHE_SENTINEL
+
 def save_config(config):
-    """Save configuration to config.json."""
+    """Save configuration to config.json and clear cache."""
+    global _config_cache
+    
     config_path = get_config_path()
     if not config_path:
         # Create config in .claude directory
-        claude_dir = Path.cwd() / ".claude"
-        claude_dir.mkdir(exist_ok=True)
-        config_path = claude_dir / "config.json"
+        config_dir = Path.cwd().joinpath(*CONFIG_DIR_COMPONENTS)
+        config_dir.mkdir(parents=True, exist_ok=True)
+        config_path = config_dir / CONFIG_FILENAME
     
     try:
         with open(config_path, 'w') as f:
             json.dump(config, f, indent=2)
+        # Clear cache after successful save
+        _config_cache = _CACHE_SENTINEL
         return True
     except (OSError, json.JSONDecodeError):
         return False

@@ -83,7 +83,7 @@ Thumbs.db
 .env.production.local
 
 # Local configuration
-.claude/config.json
+.claude/hooks/maos/config.json
 
 # Logs
 logs/

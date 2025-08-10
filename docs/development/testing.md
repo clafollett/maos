@@ -373,7 +373,7 @@ use tempfile::TempDir;
 
 fn setup_test_env() -> (TempDir, PathBuf) {
     let temp = TempDir::new().unwrap();
-    let config_path = temp.path().join(".claude/config.json");
+    let config_path = temp.path().join(".claude/hooks/maos/config.json");
     
     fs::create_dir_all(config_path.parent().unwrap()).unwrap();
     fs::write(&config_path, r#"{"maos": {"tts": {"enabled": true}}}"#).unwrap();

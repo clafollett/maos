@@ -84,22 +84,15 @@ def _deep_merge(master, user):
     return result
 
 def _load_config_fallback():
-    """Load master config with user config.json overlay."""
-    import json
-    from pathlib import Path
-    
-    master_config = _get_master_config()
-    
+    """Load config using centralized config management."""
+    # Use the centralized config loading from utils/config.py
+    # This avoids duplicating the path resolution logic
     try:
-        config_path = Path.cwd() / ".claude" / "config.json"
-        if config_path.exists():
-            with open(config_path, 'r') as f:
-                user_config = json.load(f)
-                return _deep_merge(master_config, user_config)
-    except Exception:
-        pass
-    
-    return master_config
+        from utils.config import load_config
+        return load_config()
+    except ImportError:
+        # Fallback if config module not available
+        return _get_master_config()
 
 # Fallback function implementations using master config
 def _get_active_tts_provider_fallback():

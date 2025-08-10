@@ -14,6 +14,10 @@ uuid = { workspace = true }
 chrono = { version = "0.4.38", features = ["serde"] }
 dunce = "1.0.5"
 glob = "0.3.2"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+parking_lot = "0.12"
+flate2 = "1.0"
 
 [dev-dependencies]
 proptest = "1.5"
@@ -22,4 +26,12 @@ tempfile = "3.13"
 
 [[bench]]
 name = "path_benchmarks"
+harness = false
+
+[[bench]]
+name = "metrics_benchmarks"
+harness = false
+
+[[bench]]
+name = "logging_benchmarks"
 harness = false
