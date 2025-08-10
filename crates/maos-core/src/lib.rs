@@ -36,7 +36,10 @@
 #[macro_use]
 pub mod types;
 pub mod config;
+pub mod constants;
 pub mod error;
+pub mod logging;
+pub mod metrics;
 pub mod path;
 
 // Re-export commonly used types
@@ -51,3 +54,6 @@ pub use error::{
     ConfigError, ErrorContext, ExitCode, FileSystemError, GitError, IntoMaosError, MaosError,
     PathValidationError, Result, SecurityError, SessionError, ValidationError,
 };
+
+// Re-export metrics types
+pub use metrics::{ExecutionStats, MemoryStats, MetricsReport, PerformanceMetrics};
