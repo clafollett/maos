@@ -205,7 +205,7 @@ impl SessionLogger {
             if old_file.exists()
                 && let Err(e) = fs::remove_file(&old_file)
             {
-                debug!("Failed to remove old log file {:?}: {}", old_file, e);
+                debug!("Failed to remove old log file {old_file:?}: {e}");
             }
         }
 

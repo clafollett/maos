@@ -110,6 +110,13 @@ lint:
     @echo "🔍 Running clippy lints..."
     cargo clippy --all-targets --all-features -- -D warnings
 
+# Fix auto-fixable clippy issues
+clippy-fix:
+    @echo "🔧 Fixing clippy issues..."
+    cargo clippy --all-targets --all-features --fix --allow-dirty --allow-staged
+    @echo "✅ Applied clippy fixes"
+
+
 # Run all tests
 test:
     @echo "🧪 Running tests..."
@@ -299,8 +306,9 @@ run-verbose *args:
 # Format and lint in one command
 fmt: format lint
 
+# Fix all auto-fixable issues (format + clippy)
+fix: format clippy-fix
+    @echo "🎯 All auto-fixes applied!"
+
 # Quick check without tests
 quick: format-check lint check
-
-# Alias for convenience
-fix: format
