@@ -46,7 +46,7 @@ export CLAUDE_AGENT_TYPE="backend-engineer"
 
 ## Project Configuration
 
-Create `.claude/maos/config.json` for project-specific settings:
+Create `.claude/hooks/maos/config.json` for project-specific settings:
 
 ```json
 {
@@ -202,7 +202,6 @@ maos config show
 1. **Minimal Configuration**: Only configure what you need
 2. **Environment Variables**: Use for sensitive data (API keys)
 3. **Project Config**: Use for project-specific settings
-4. **Version Control**: Commit `.claude/maos/config.json`, not API keys
 
 ## See Also
 
