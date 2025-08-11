@@ -11,10 +11,13 @@ import os
 import sys
 import subprocess
 from pathlib import Path
+
 from dotenv import load_dotenv
 
-# Add path resolution for proper imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+# Bootstrap path resolution to find our utils
+sys.path.insert(0, str(Path(__file__).parent.parent))  # Get to maos directory
+from utils.path_utils import setup_maos_imports
+setup_maos_imports()
 
 # Constants for fallback values
 DEFAULT_VOICE_ID = "FNMROvc7ZdHldafWFMqC"
@@ -68,21 +71,6 @@ def _get_master_config():
         }
     }
 
-def _deep_merge(master, user):
-    """Deep merge user config into master config."""
-    import copy
-    result = copy.deepcopy(master)
-    
-    def merge_dict(target, source):
-        for key, value in source.items():
-            if key in target and isinstance(target[key], dict) and isinstance(value, dict):
-                merge_dict(target[key], value)
-            else:
-                target[key] = value
-    
-    merge_dict(result, user)
-    return result
-
 def _load_config_fallback():
     """Load config using centralized config management."""
     # Use the centralized config loading from utils/config.py
@@ -117,8 +105,8 @@ def _clean_text_for_speech_fallback(text):
     return text[:limit] if len(text) > limit else text
 
 try:
-    from maos.utils.config import get_active_tts_provider, get_elevenlabs_config, get_macos_config, get_tts_timeout
-    from maos.utils.text_utils import clean_text_for_speech
+    from utils.config import get_active_tts_provider, get_elevenlabs_config, get_macos_config, get_tts_timeout
+    from utils.text_utils import clean_text_for_speech
 except ImportError as e:
     if "config" in str(e):
         print(f"❌ Config module import error: {e}", file=sys.stderr)

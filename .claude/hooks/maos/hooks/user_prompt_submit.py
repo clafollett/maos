@@ -21,16 +21,23 @@ except ImportError:
 
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
-from maos.utils.async_logging import log_hook_data_sync
+from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from utils.async_logging import log_hook_data_sync
 
 
 def log_user_prompt(session_id, input_data):
     """Log user prompt using unified async logger."""
+    from datetime import datetime
     try:
         log_file = LOGS_DIR / 'user_prompt_submit.jsonl'
-        # Use unified async logger (adds timestamp automatically)
-        log_hook_data_sync(log_file, input_data)
+        
+        # Enhance Claude Code's input with our timestamp
+        log_data = {
+            'timestamp': datetime.now().isoformat(),
+            **input_data,  # Preserve all Claude Code fields as-is
+        }
+        
+        log_hook_data_sync(log_file, log_data)
     except Exception:
         # Silent failure for logging - don't block user prompt processing
         pass
@@ -69,11 +76,17 @@ def main():
         # Read JSON input from stdin
         input_data = json.loads(sys.stdin.read())
         
-        # Extract session_id and prompt
-        session_id = input_data.get('session_id', 'unknown')
-        prompt = input_data.get('prompt', '')
+        # Validate Claude Code provided required fields
+        if 'session_id' not in input_data:
+            print(f"❌ FATAL: Claude Code did not provide session_id!", file=sys.stderr)
+            print(f"Available keys: {list(input_data.keys())}", file=sys.stderr)
+            sys.exit(1)
         
-        # Log the user prompt
+        # Extract fields we need
+        session_id = input_data['session_id']
+        prompt = input_data.get('user_input', '')  # UserPromptSubmit uses 'user_input' field
+        
+        # Log the user prompt with enhanced data
         log_user_prompt(session_id, input_data)
         
         # Validate prompt if requested and not in log-only mode

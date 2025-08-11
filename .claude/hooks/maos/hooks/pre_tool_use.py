@@ -16,6 +16,7 @@ import threading
 from pathlib import Path
 from typing import Dict, Optional
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 try:
     from dotenv import load_dotenv
@@ -25,12 +26,12 @@ except ImportError:
 
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
-from maos.utils.async_logging import log_hook_data, log_hook_data_sync, get_task_manager
+from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from utils.async_logging import log_hook_data, log_hook_data_sync, get_task_manager
 
 # Import MAOS handler
 try:
-    from maos.handlers.pre_tool_handler import handle_maos_pre_tool
+    from handlers.pre_tool_handler import handle_maos_pre_tool
 except ImportError:
     # Fallback if MAOS not available
     handle_maos_pre_tool = None
@@ -170,6 +171,13 @@ async def main_async():
         # Read JSON input from stdin
         input_data = json.load(sys.stdin)
         
+        # Validate Claude Code provided required fields
+        if 'session_id' not in input_data:
+            print(f"❌ FATAL: Claude Code did not provide session_id!", file=sys.stderr)
+            print(f"Available keys: {list(input_data.keys())}", file=sys.stderr)
+            sys.exit(1)
+        
+        # Extract fields we need for MAOS processing
         tool_name = input_data.get('tool_name', '')
         tool_input = input_data.get('tool_input', {})
         hook_metadata = input_data.get('metadata', {})
@@ -205,13 +213,20 @@ async def main_async():
             maos_task = asyncio.create_task(run_maos_background(tool_name, tool_input, hook_metadata))
             background_tasks.append(maos_task)
         
+        # Enhance Claude Code's input with our timestamp and MAOS metadata
+        log_data = {
+            'timestamp': datetime.now().isoformat(),
+            **input_data,  # Preserve all Claude Code fields as-is
+            # Add any MAOS-specific metadata here if needed
+        }
+        
         # Async logging (JSONL format for true append-only)
         log_path = LOGS_DIR / 'pre_tool_use.jsonl'
-        logging_task = asyncio.create_task(log_hook_data(log_path, input_data))
+        logging_task = asyncio.create_task(log_hook_data(log_path, log_data))
         
         # Add immediate fallback sync logging to ensure file is always created
         try:
-            log_hook_data_sync(log_path, input_data)
+            log_hook_data_sync(log_path, log_data)
         except Exception:
             pass  # Silent failure
         background_tasks.append(logging_task)
@@ -243,99 +258,11 @@ async def main_async():
 
 
 def main():
-    """Wrapper to run async main with fallback."""
+    """Clean async-only main function."""
     try:
-        # Try async version first
-        try:
-            asyncio.get_running_loop()
-            # Loop already running, create new thread
-            result = [None]
-            exception = [None]
-            
-            def run_async():
-                try:
-                    new_loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(new_loop)
-                    result[0] = new_loop.run_until_complete(main_async())
-                except Exception as e:
-                    exception[0] = e
-                finally:
-                    new_loop.close()
-            
-            thread = threading.Thread(target=run_async)
-            thread.start()
-            thread.join()
-            
-            if exception[0]:
-                raise exception[0]
-                
-        except RuntimeError:
-            # No running event loop - normal case
-            asyncio.run(main_async())
-            
-    except Exception:
-        # Fallback to synchronous version
-        main_sync()
-
-
-def main_sync():
-    """Fallback synchronous version with optimized I/O."""
-    try:
-        start_time = time.time()
-        
-        # Read JSON input from stdin
-        input_data = json.load(sys.stdin)
-        
-        tool_name = input_data.get('tool_name', '')
-        tool_input = input_data.get('tool_input', {})
-        hook_metadata = input_data.get('metadata', {})
-        
-        # 🚨 SECURITY CHECKS FIRST (blocking)
-        
-        if is_env_file_access(tool_name, tool_input):
-            print("BLOCKED: Access to .env files containing sensitive data is prohibited", file=sys.stderr)
-            print("Use .env.sample for template files instead", file=sys.stderr)
-            sys.exit(2)
-        
-        if tool_name == 'Bash':
-            command = tool_input.get('command', '')
-            if is_dangerous_rm_command(command):
-                print("BLOCKED: Dangerous rm command detected and prevented", file=sys.stderr)
-                sys.exit(2)
-        
-        security_time = time.time() - start_time
-        print(f"🔒 Security checks completed in {security_time*1000:.2f}ms", file=sys.stderr)
-        
-        # 🚀 BACKGROUND PROCESSING
-        
-        def background_work():
-            # MAOS orchestration
-            if handle_maos_pre_tool:
-                try:
-                    handle_maos_pre_tool(tool_name, tool_input, hook_metadata)
-                except Exception as e:
-                    print(f"⚠️  MAOS processing error (background): {e}", file=sys.stderr)
-            
-            # Fast JSONL logging
-            log_path = LOGS_DIR / 'pre_tool_use.jsonl'
-            log_hook_data_sync(log_path, input_data)
-        
-        # Start background thread
-        bg_thread = threading.Thread(target=background_work, daemon=True)
-        bg_thread.start()
-        
-        # Give background thread a tiny moment to start
-        bg_thread.join(timeout=0.05)
-        
-        total_time = time.time() - start_time
-        print(f"⚡ Pre-tool hook completed in {total_time*1000:.2f}ms (sync fallback)", file=sys.stderr)
-        
-        sys.exit(0)
-        
-    except json.JSONDecodeError:
-        sys.exit(0)
+        asyncio.run(main_async())
     except Exception as e:
-        print(f"⚠️  Pre-tool hook error (sync fallback): {e}", file=sys.stderr)
+        print(f"⚠️  Pre-tool hook error: {e}", file=sys.stderr)
         sys.exit(0)
 
 if __name__ == '__main__':

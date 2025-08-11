@@ -25,9 +25,9 @@ except ImportError:
 
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
-from maos.utils.config import is_notification_tts_enabled, get_active_tts_provider
-from maos.utils.async_logging import log_hook_data_sync
+from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from utils.config import is_notification_tts_enabled, get_active_tts_provider
+from utils.async_logging import log_hook_data_sync
 
 
 def get_tts_script_path():
@@ -35,8 +35,9 @@ def get_tts_script_path():
     Determine which TTS script to use based on configuration.
     """
     # Get current script directory and construct tts path
-    script_dir = Path(__file__).parent
-    tts_dir = script_dir / "tts"
+    # Notification hook is in hooks/ subdirectory, TTS scripts are in tts/ subdirectory
+    maos_dir = Path(__file__).parent.parent  # Go up from hooks/ to maos/
+    tts_dir = maos_dir / "tts"
     
     # Get active provider from config
     provider = get_active_tts_provider()
@@ -96,6 +97,11 @@ def main():
         # Read JSON input from stdin
         input_data = json.loads(sys.stdin.read())
         
+        # Validate Claude Code provided required fields
+        if 'session_id' not in input_data:
+            print(f"❌ WARNING: Claude Code did not provide session_id!", file=sys.stderr)
+            # Don't exit - notifications should still work
+        
         # 🚀 FIRE TTS IMMEDIATELY - TOP PRIORITY
         start_time = time.time()
         tts_fired = False
@@ -109,9 +115,15 @@ def main():
             print(f"🚀 Notification TTS fired in {tts_time*1000:.2f}ms", file=sys.stderr)
         
         # 📝 LOGGING IN FIRE-AND-FORGET MODE (don't wait)
-        # Use unified async logger (adds timestamp automatically)
+        # Enhance Claude Code's input with our timestamp
+        from datetime import datetime
+        log_data = {
+            'timestamp': datetime.now().isoformat(),
+            **input_data,  # Preserve all Claude Code fields as-is
+        }
+        
         log_path = LOGS_DIR / "notification.jsonl"
-        log_hook_data_sync(log_path, input_data)
+        log_hook_data_sync(log_path, log_data)
         
         # Exit immediately - don't wait for logging to complete
         sys.exit(0)

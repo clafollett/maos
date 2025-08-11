@@ -6,10 +6,12 @@
 import json
 import subprocess
 import time
-import os
+import uuid
 from pathlib import Path
 from datetime import datetime
-from typing import Dict, Optional, Any
+from typing import Dict, Optional
+from .state_manager import MAOSStateManager
+from .file_locking import MAOSFileLockManager
 
 
 def get_project_root():
@@ -54,6 +56,12 @@ class MAOSBackend:
         self.maos_dir.mkdir(exist_ok=True)
         self.sessions_dir.mkdir(exist_ok=True)
         self.worktrees_dir.mkdir(exist_ok=True)
+        
+        # State managers per session (lazy-loaded)
+        self._state_managers: Dict[str, MAOSStateManager] = {}
+        
+        # File lock managers per session (lazy-loaded)
+        self._lock_managers: Dict[str, MAOSFileLockManager] = {}
     
     def get_or_create_session(self, hook_metadata: Optional[Dict] = None) -> str:
         """Get active session ID or create new one"""
@@ -95,87 +103,84 @@ class MAOSBackend:
         with open(session_dir / "session.json", 'w') as f:
             json.dump(session_data, f, indent=2)
         
-        # Initialize coordination files
-        with open(session_dir / "agents.json", 'w') as f:
-            json.dump([], f, indent=2)
-        
-        with open(session_dir / "pending_agents.json", 'w') as f:
-            json.dump({}, f, indent=2)
-        
-        with open(session_dir / "locks.json", 'w') as f:
-            json.dump({}, f, indent=2)
-        
-        with open(session_dir / "progress.json", 'w') as f:
-            json.dump({}, f, indent=2)
+        # Initialize directory-based state manager (modern atomic operations)
+        state_manager = self._get_state_manager(session_id)
         
         # Update active session pointer
         with open(self.maos_dir / "active_session.json", 'w') as f:
             json.dump({"session_id": session_id}, f, indent=2)
     
-    def register_pending_agent(self, agent_type: str, session_id: str) -> str:
-        """Register an agent for lazy workspace creation"""
-        agent_id = f"{agent_type}-{session_id}-{int(time.time())}"
+    def _get_state_manager(self, session_id: str) -> MAOSStateManager:
+        """Get or create state manager for session (lazy loading)"""
+        if session_id not in self._state_managers:
+            session_dir = self.sessions_dir / session_id
+            self._state_managers[session_id] = MAOSStateManager(session_id, session_dir)
+        return self._state_managers[session_id]
+    
+    def _get_lock_manager(self, session_id: str) -> MAOSFileLockManager:
+        """Get or create file lock manager for session (lazy loading)"""
+        if session_id not in self._lock_managers:
+            session_dir = self.sessions_dir / session_id
+            self._lock_managers[session_id] = MAOSFileLockManager(session_id, session_dir)
+        return self._lock_managers[session_id]
+    
+    def register_pending_agent(self, agent_type: str, session_id: str, hook_data: Optional[Dict] = None) -> str:
+        """Register an agent for lazy workspace creation using atomic directory operations"""
+        # Generate truly unique, session-scoped agent ID using UUID
+        unique_suffix = str(uuid.uuid4())[:8]  # Short UUID for readability
+        agent_id = f"{agent_type}-{session_id}-{unique_suffix}"
         
-        # Store pending agent info in session
-        session_dir = self.sessions_dir / session_id
-        pending_file = session_dir / "pending_agents.json"
+        # Use directory-based state manager for atomic operations
+        state_manager = self._get_state_manager(session_id)
         
-        # Load existing pending agents
-        pending_agents = {}
-        if pending_file.exists():
-            try:
-                with open(pending_file) as f:
-                    pending_agents = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                pending_agents = {}
-        
-        # Add new pending agent
-        pending_agents[agent_id] = {
-            "type": agent_type,
-            "session": session_id,
-            "registered_at": datetime.now().isoformat(),
-            "workspace_created": False,
-            "workspace_path": None
-        }
-        
-        # Save updated pending agents
-        with open(pending_file, 'w') as f:
-            json.dump(pending_agents, f, indent=2)
+        # Register with full hook context
+        hook_context = hook_data or {}
+        state_manager.register_pending_agent(agent_id, agent_type, hook_context)
         
         return agent_id
     
     def get_agent_info(self, agent_id: str, session_id: str) -> Optional[Dict]:
-        """Get information about a pending or active agent"""
-        session_dir = self.sessions_dir / session_id
+        """Get information about a pending or active agent using atomic directory operations"""
+        state_manager = self._get_state_manager(session_id)
         
-        # Check pending agents first
-        pending_file = session_dir / "pending_agents.json"
-        if pending_file.exists():
-            try:
-                with open(pending_file) as f:
-                    pending_agents = json.load(f)
-                    if agent_id in pending_agents:
-                        return pending_agents[agent_id]
-            except (json.JSONDecodeError, FileNotFoundError):
-                pass
+        # Check current state
+        state = state_manager.get_agent_state(agent_id)
+        if not state:
+            return None
         
-        # Check active agents
-        agents_file = session_dir / "agents.json"
-        if agents_file.exists():
-            try:
-                with open(agents_file) as f:
-                    agents = json.load(f)
-                    for agent in agents:
-                        if agent.get("id") == agent_id:
-                            return agent
-            except (json.JSONDecodeError, FileNotFoundError):
-                pass
+        # Get agent data based on state
+        if state == "pending":
+            pending_agents = state_manager.get_pending_agents()
+            for agent in pending_agents:
+                if agent.get("agent_id") == agent_id:
+                    return {
+                        "type": agent.get("agent_type"),
+                        "session": agent.get("session_id"),
+                        "registered_at": agent.get("timestamp"),
+                        "workspace_created": False,
+                        "workspace_path": None,
+                        "status": "pending"
+                    }
+        elif state == "active":
+            active_agents = state_manager.get_active_agents()
+            for agent in active_agents:
+                if agent.get("agent_id") == agent_id:
+                    return {
+                        "type": agent.get("agent_type"),
+                        "session": agent.get("session_id"),
+                        "registered_at": agent.get("timestamp"),
+                        "workspace_created": True,
+                        "workspace_path": agent.get("workspace_path"),
+                        "status": "active"
+                    }
         
         return None
     
     def create_workspace_if_needed(self, agent_id: str, session_id: str) -> Optional[str]:
-        """Create workspace for agent if not already created"""
+        """Create workspace for agent if not already created using atomic state transitions"""
+        state_manager = self._get_state_manager(session_id)
         agent_info = self.get_agent_info(agent_id, session_id)
+        
         if not agent_info:
             return None
         
@@ -187,25 +192,14 @@ class MAOSBackend:
         agent_type = agent_info["type"]
         workspace_path = self.prepare_workspace(agent_type, session_id)
         
-        # Update pending agent to mark workspace as created
-        session_dir = self.sessions_dir / session_id
-        pending_file = session_dir / "pending_agents.json"
-        
-        if pending_file.exists():
-            try:
-                with open(pending_file) as f:
-                    pending_agents = json.load(f)
-                
-                if agent_id in pending_agents:
-                    pending_agents[agent_id]["workspace_created"] = True
-                    pending_agents[agent_id]["workspace_path"] = workspace_path
-                    
-                    with open(pending_file, 'w') as f:
-                        json.dump(pending_agents, f, indent=2)
-            except (json.JSONDecodeError, FileNotFoundError):
-                pass
-        
-        return workspace_path
+        # Atomically transition from pending to active
+        success = state_manager.transition_to_active(agent_id, workspace_path)
+        if success:
+            return workspace_path
+        else:
+            # Agent may have been transitioned by another process
+            updated_info = self.get_agent_info(agent_id, session_id)
+            return updated_info.get("workspace_path") if updated_info else None
     
     def prepare_workspace(self, agent_type: str, session_id: str) -> str:
         """Create git worktree for agent"""
@@ -226,7 +220,9 @@ class MAOSBackend:
             return str(workspace)
             
         except subprocess.CalledProcessError as e:
-            # If branch exists, try without -b flag
+            print(f"⚠️  Git worktree creation failed: {e.stderr if e.stderr else str(e)}", file=sys.stderr)
+            
+            # Try without -b flag in case branch exists
             try:
                 result = run_git_command([
                     "worktree", "add", str(workspace), branch
@@ -234,142 +230,75 @@ class MAOSBackend:
                 if result.returncode != 0:
                     raise subprocess.CalledProcessError(result.returncode, result.args)
                 
+                print(f"✅ Git worktree created (existing branch): {workspace}", file=sys.stderr)
                 self.register_agent(agent_type, session_id, str(workspace))
                 return str(workspace)
                 
-            except subprocess.CalledProcessError:
-                # Fall back to unique naming
-                timestamp = int(time.time())
-                workspace = self.worktrees_dir / f"{agent_type}-{session_id}-{timestamp}"
-                branch = f"agent/session-{session_id}/{agent_type}-{timestamp}"
+            except subprocess.CalledProcessError as e2:
+                print(f"⚠️  Git worktree fallback failed: {e2.stderr if e2.stderr else str(e2)}", file=sys.stderr)
                 
-                result = run_git_command([
-                    "worktree", "add", "-b", branch, str(workspace)
-                ])
-                if result.returncode != 0:
-                    raise subprocess.CalledProcessError(result.returncode, result.args)
-                
-                self.register_agent(agent_type, session_id, str(workspace))
-                return str(workspace)
+                # Try with unique naming
+                try:
+                    timestamp = int(time.time())
+                    workspace = self.worktrees_dir / f"{agent_type}-{session_id}-{timestamp}"
+                    branch = f"agent/session-{session_id}/{agent_type}-{timestamp}"
+                    
+                    result = run_git_command([
+                        "worktree", "add", "-b", branch, str(workspace)
+                    ])
+                    if result.returncode != 0:
+                        raise subprocess.CalledProcessError(result.returncode, result.args)
+                    
+                    print(f"✅ Git worktree created (unique): {workspace}", file=sys.stderr)
+                    self.register_agent(agent_type, session_id, str(workspace))
+                    return str(workspace)
+                    
+                except subprocess.CalledProcessError as e3:
+                    print(f"🚨 All git worktree methods failed, creating simple directory: {e3.stderr if e3.stderr else str(e3)}", file=sys.stderr)
+                    
+                    # Final fallback: create regular directory without git
+                    timestamp = int(time.time())
+                    workspace = self.worktrees_dir / f"{agent_type}-{session_id}-{timestamp}-fallback"
+                    workspace.mkdir(parents=True, exist_ok=True)
+                    
+                    print(f"📁 Fallback workspace created (no git isolation): {workspace}", file=sys.stderr)
+                    print(f"⚠️  Warning: Agent will not have git isolation - be careful with file operations!", file=sys.stderr)
+                    
+                    self.register_agent(agent_type, session_id, str(workspace))
+                    return str(workspace)
     
     def register_agent(self, agent_type: str, session_id: str, workspace: str):
-        """Register agent in session coordination"""
-        session_dir = self.sessions_dir / session_id
-        agents_file = session_dir / "agents.json"
-        
-        # Load existing agents
-        agents = []
-        if agents_file.exists():
-            try:
-                with open(agents_file) as f:
-                    agents = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                agents = []
-        
-        # Generate agent ID
-        agent_id = f"{agent_type}-{session_id}-{int(time.time())}"
-        
-        # Add new agent
-        agent_data = {
-            "id": agent_id,
-            "type": agent_type,
-            "session": session_id,
-            "workspace": workspace,
-            "created": datetime.now().isoformat(),
-            "status": "active"
-        }
-        
-        agents.append(agent_data)
-        
-        # Save updated agents list
-        with open(agents_file, 'w') as f:
-            json.dump(agents, f, indent=2)
+        """Legacy method - replaced by atomic directory operations"""
+        # This method is deprecated - modern code uses state_manager.transition_to_active()
+        pass
     
-    def check_file_lock(self, file_path: str, session_id: str) -> Optional[Dict]:
-        """Check if file is locked by another agent"""
-        session_dir = self.sessions_dir / session_id
-        locks_file = session_dir / "locks.json"
+    def check_file_lock(self, file_path: str, session_id: str, requesting_agent: str = "") -> Optional[Dict]:
+        """Check if file is locked by another agent using atomic directory operations"""
+        lock_manager = self._get_lock_manager(session_id)
         
-        if locks_file.exists():
-            try:
-                with open(locks_file) as f:
-                    locks = json.load(f)
-                    return locks.get(file_path)
-            except (json.JSONDecodeError, FileNotFoundError):
-                pass
+        if lock_manager.is_locked(file_path, requesting_agent):
+            return lock_manager.get_lock_info(file_path)
         
         return None
     
-    def update_file_lock(self, file_path: str, agent_id: str, session_id: str, operation: str):
-        """Update file lock registry"""
-        session_dir = self.sessions_dir / session_id
-        locks_file = session_dir / "locks.json"
-        
-        # Load existing locks
-        locks = {}
-        if locks_file.exists():
-            try:
-                with open(locks_file) as f:
-                    locks = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                locks = {}
-        
-        # Update lock
-        locks[file_path] = {
-            "agent": agent_id,
-            "operation": operation,
-            "locked_at": datetime.now().isoformat()
-        }
-        
-        # Save locks
-        with open(locks_file, 'w') as f:
-            json.dump(locks, f, indent=2)
+    def acquire_file_lock(self, file_path: str, agent_id: str, session_id: str, operation: str, timeout: float = 5.0) -> bool:
+        """Acquire file lock using atomic directory operations"""
+        lock_manager = self._get_lock_manager(session_id)
+        return lock_manager.acquire_lock(agent_id, file_path, operation, timeout)
     
-    def release_file_lock(self, file_path: str, session_id: str):
-        """Release file lock"""
-        session_dir = self.sessions_dir / session_id
-        locks_file = session_dir / "locks.json"
-        
-        if locks_file.exists():
-            try:
-                with open(locks_file) as f:
-                    locks = json.load(f)
-                
-                if file_path in locks:
-                    del locks[file_path]
-                    
-                    with open(locks_file, 'w') as f:
-                        json.dump(locks, f, indent=2)
-            except (json.JSONDecodeError, FileNotFoundError):
-                pass
+    def release_file_lock(self, file_path: str, agent_id: str, session_id: str) -> bool:
+        """Release file lock using atomic directory operations"""
+        lock_manager = self._get_lock_manager(session_id)
+        return lock_manager.release_lock(agent_id, file_path)
     
     def update_progress(self, agent_type: str, session_id: str, operation: str, details: Optional[Dict] = None):
-        """Update agent progress tracking"""
-        session_dir = self.sessions_dir / session_id
-        progress_file = session_dir / "progress.json"
-        
-        # Load existing progress
-        progress = {}
-        if progress_file.exists():
-            try:
-                with open(progress_file) as f:
-                    progress = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                progress = {}
-        
-        # Update progress for agent
-        if agent_type not in progress:
-            progress[agent_type] = []
-        
-        progress[agent_type].append({
+        """Update agent progress tracking using JSONL append-only logs"""
+        # Modern progress tracking via lifecycle events in state manager
+        state_manager = self._get_state_manager(session_id)
+        state_manager._log_lifecycle_event("progress_update", f"unknown-{agent_type}", agent_type, {
             "operation": operation,
-            "timestamp": datetime.now().isoformat(),
             "details": details or {}
         })
-        
-        # Save progress
-        with open(progress_file, 'w') as f:
-            json.dump(progress, f, indent=2)
     
     def cleanup_completed_worktrees(self):
         """Remove completed worktrees that have no uncommitted changes"""
@@ -414,32 +343,11 @@ class MAOSBackend:
             except (json.JSONDecodeError, FileNotFoundError):
                 status['session'] = {}
         
-        # Load agents
-        agents_file = session_dir / "agents.json"
-        if agents_file.exists():
-            try:
-                with open(agents_file) as f:
-                    status['agents'] = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                status['agents'] = []
-        
-        # Load locks
-        locks_file = session_dir / "locks.json"
-        if locks_file.exists():
-            try:
-                with open(locks_file) as f:
-                    status['locks'] = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                status['locks'] = {}
-        
-        # Load progress
-        progress_file = session_dir / "progress.json"
-        if progress_file.exists():
-            try:
-                with open(progress_file) as f:
-                    status['progress'] = json.load(f)
-            except (json.JSONDecodeError, FileNotFoundError):
-                status['progress'] = {}
+        # Modern atomic directory-based state
+        state_manager = self._get_state_manager(session_id)
+        status['state'] = state_manager.get_state_summary()
+        status['pending_agents'] = state_manager.get_pending_agents()
+        status['active_agents'] = state_manager.get_active_agents()
         
         return status
 
@@ -463,15 +371,8 @@ def extract_file_path_from_tool_input(tool_input: Dict) -> Optional[str]:
     return None
 
 
-def extract_agent_id_from_environment() -> str:
-    """Extract agent ID from environment or generate default"""
-    # Try various environment variables that might contain agent ID
-    agent_id = os.environ.get('CLAUDE_AGENT_ID')
-    if agent_id:
-        return agent_id
-    
-    # Fall back to process ID
-    return f"agent-{os.getpid()}"
+# extract_agent_id_from_environment() function removed - replaced with hook context matching
+# to eliminate race conditions in multi-agent environments
 
 
 if __name__ == '__main__':

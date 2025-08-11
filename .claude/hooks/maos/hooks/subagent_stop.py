@@ -33,8 +33,9 @@ def get_tts_script_path():
     Environment variables are only used for authentication, NOT provider selection.
     """
     # Get current script directory and construct tts path
-    script_dir = Path(__file__).parent
-    tts_dir = script_dir / "tts"
+    # Subagent stop hook is in hooks/ subdirectory, TTS scripts are in tts/ subdirectory
+    maos_dir = Path(__file__).parent.parent  # Go up from hooks/ to maos/
+    tts_dir = maos_dir / "tts"
     
     # Use config.json to determine provider (canonical authority)
     provider = get_active_tts_provider()
@@ -98,7 +99,12 @@ def main():
         
         # Read JSON input from stdin
         input_data = json.load(sys.stdin)
-
+        
+        # Validate Claude Code provided required fields
+        if 'session_id' not in input_data:
+            print(f"❌ WARNING: Claude Code did not provide session_id!", file=sys.stderr)
+            # Don't exit - subagent stop hooks should still work
+            
         # Extract required fields
         session_id = input_data.get("session_id", "")
         stop_hook_active = input_data.get("stop_hook_active", False)
