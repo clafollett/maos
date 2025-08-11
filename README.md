@@ -29,7 +29,7 @@ MAOS is currently in bootstrap phase - the Python implementation in `.claude/hoo
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for setup instructions.
 
-### Future: Rust CLI Installation (Target: Q2 2024)
+### Future: Rust CLI Installation (Target: Q3 2025)
 
 When the Rust CLI is released, installation will be simple:
 
