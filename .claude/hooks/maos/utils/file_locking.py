@@ -6,6 +6,7 @@ Each lock is a directory with agent metadata - atomic creation/deletion ensures 
 """
 
 import json
+import hashlib
 import time
 from pathlib import Path
 from datetime import datetime, timedelta
@@ -46,10 +47,11 @@ class MAOSFileLockManager:
             return Path.cwd()
     
     def _lock_path_to_key(self, file_path: str) -> str:
-        """Convert file path to lock key (safe for filesystem)"""
-        # Replace path separators and special chars with safe alternatives
-        safe_key = file_path.replace('/', '_').replace('\\', '_').replace(':', '_')
-        return safe_key[:100]  # Limit length for filesystem compatibility
+        """Convert file path to lock key using SHA-256 hash (safe for filesystem, guaranteed unique)"""
+        # Use SHA-256 hash to guarantee uniqueness and prevent path traversal attacks
+        hash_obj = hashlib.sha256(file_path.encode('utf-8'))
+        safe_key = hash_obj.hexdigest()
+        return safe_key
     
     def acquire_lock(self, agent_id: str, file_path: str, operation: str, timeout_seconds: float = 5.0) -> bool:
         """
@@ -307,9 +309,9 @@ class MAOSFileLockManager:
             import asyncio
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                loop.create_task(log_hook_data(log_data, str(self.session_path / "file_locks.jsonl")))
+                loop.create_task(log_hook_data(self.session_path / "file_locks.jsonl", log_data))
             else:
-                asyncio.run(log_hook_data(log_data, str(self.session_path / "file_locks.jsonl")))
+                asyncio.run(log_hook_data(self.session_path / "file_locks.jsonl", log_data))
         except Exception:
             # Fallback to synchronous logging
             import json

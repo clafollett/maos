@@ -369,10 +369,10 @@ class MAOSStateManager:
             loop = asyncio.get_event_loop()
             if loop.is_running():
                 # Already in async context, schedule the coroutine
-                loop.create_task(log_hook_data(str(self.lifecycle_log), log_data))
+                loop.create_task(log_hook_data(self.lifecycle_log, log_data))
             else:
                 # Run in new event loop
-                asyncio.run(log_hook_data(str(self.lifecycle_log), log_data))
+                asyncio.run(log_hook_data(self.lifecycle_log, log_data))
         except Exception:
             # Fallback to synchronous logging if async fails
             import json
