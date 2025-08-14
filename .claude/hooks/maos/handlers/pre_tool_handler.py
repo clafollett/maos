@@ -10,10 +10,11 @@ from pathlib import Path
 from typing import Dict, Optional
 
 # Add path resolution for proper imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))  # Get to maos directory
 # Import MAOS backend utilities
 try:
-    from maos.backend import MAOSBackend, extract_file_path_from_tool_input, extract_agent_id_from_environment, PROJECT_ROOT
+    from utils.backend import MAOSBackend, extract_file_path_from_tool_input
+    from utils.path_utils import PROJECT_ROOT
 except ImportError:
     # Fallback if backend not available
     MAOSBackend = None
@@ -50,8 +51,13 @@ class MAOSCoordinator:
         try:
             session_id = self.get_session_id()
             
-            # Register agent for lazy workspace creation (don't create worktree yet)
-            agent_id = self.backend.register_pending_agent(agent_type, session_id)
+            # Register agent with full hook context for proper matching
+            hook_context = {
+                **self.hook_metadata,
+                'subagent_type': agent_type,
+                'spawned_at': session_id
+            }
+            agent_id = self.backend.register_pending_agent(agent_type, session_id, hook_context)
             
             # Modify the prompt to include conditional workspace instruction
             original_prompt = tool_input.get('prompt', '')
@@ -66,12 +72,15 @@ When using Read, Write, Edit, or MultiEdit tools, the system will:
 2. All subsequent file operations must use paths within this workspace
 3. Use absolute paths starting with your workspace directory
 
-Note: The workspace is created on-demand to save resources. Don't manually create directories - let the system handle workspace setup when you first need it."""
+Note: The workspace is created on-demand to save resources. Don't manually create directories - let the system handle workspace setup when you first need it.
+
+AGENT CONTEXT: Agent ID: {agent_id}, Type: {agent_type}"""
             
             tool_input['prompt'] = original_prompt + workspace_instruction
             
-            # Set agent type in environment for later identification
-            os.environ['CLAUDE_AGENT_TYPE'] = agent_type
+            # Store agent context in hook metadata instead of environment (eliminates race conditions)
+            self.hook_metadata['maos_agent_id'] = agent_id
+            self.hook_metadata['maos_agent_type'] = agent_type
             
             print(f"🚀 MAOS: Registered {agent_type} for lazy workspace creation", file=sys.stderr)
             print(f"📋 Session: {session_id}, Agent ID: {agent_id}", file=sys.stderr)
@@ -81,8 +90,40 @@ Note: The workspace is created on-demand to save resources. Don't manually creat
             print(f"⚠️  MAOS agent registration failed: {e}", file=sys.stderr)
             print("Continuing without workspace isolation", file=sys.stderr)
     
+    def should_create_workspace(self, tool_name, tool_input):
+        """
+        Selective worktree creation rules - only create workspaces for file modification tools.
+        
+        MAOS philosophy: Workspace isolation is expensive and should only be used when necessary
+        for conflict prevention in multi-agent file operations.
+        """
+        # File modification tools that require workspace isolation
+        WORKSPACE_REQUIRED_TOOLS = {
+            "Write", "Edit", "MultiEdit", "NotebookEdit"
+        }
+        
+        # Tools that read files but don't modify them - no workspace needed
+        READ_ONLY_TOOLS = {
+            "Read", "Grep", "Glob", "LS"
+        }
+        
+        # Non-file tools - no workspace needed
+        NON_FILE_TOOLS = {
+            "Bash", "Task", "WebFetch", "WebSearch", "BashOutput", "KillBash", "TodoWrite"
+        }
+        
+        # Only create workspace for file modification tools
+        if tool_name in WORKSPACE_REQUIRED_TOOLS:
+            return True
+        elif tool_name in READ_ONLY_TOOLS or tool_name in NON_FILE_TOOLS:
+            return False
+        else:
+            # Default: be conservative and create workspace for unknown tools
+            print(f"🤔 MAOS: Unknown tool '{tool_name}' - creating workspace conservatively", file=sys.stderr)
+            return True
+    
     def handle_file_operations(self, tool_name, tool_input):
-        """Handle file operation with lazy workspace creation"""
+        """Handle file operation with selective lazy workspace creation using atomic directory operations"""
         if not self.backend:
             return
         
@@ -92,55 +133,74 @@ Note: The workspace is created on-demand to save resources. Don't manually creat
         
         try:
             session_id = self.get_session_id()
-            agent_id = extract_agent_id_from_environment()
             
-            # Check if this agent needs a workspace created
-            # Try to find agent info by checking pending agents
-            session_dir = Path(PROJECT_ROOT) / ".maos" / "sessions" / session_id
-            pending_file = session_dir / "pending_agents.json"
+            # Get agent context from hook metadata (race-condition free)
+            agent_id = self.hook_metadata.get('maos_agent_id')
+            agent_type = self.hook_metadata.get('maos_agent_type')
             
-            if pending_file.exists():
-                # Look for matching pending agent
-                pending_agents = json.load(open(pending_file))
-                for pid, agent_info in pending_agents.items():
-                    # Check if this is our agent (match by type in environment)
-                    agent_type_env = os.environ.get('CLAUDE_AGENT_TYPE', '')
-                    if agent_type_env and agent_info.get('type') == agent_type_env:
-                        # Create workspace if needed
-                        if not agent_info.get('workspace_created'):
-                            workspace_path = self.backend.create_workspace_if_needed(pid, session_id)
-                            if workspace_path:
-                                print(f"🏗️  MAOS: Created workspace for {agent_type_env} at {workspace_path}", file=sys.stderr)
-                                # Enforce workspace usage
-                                self.enforce_workspace_path(tool_name, file_path, workspace_path)
-                        elif agent_info.get('workspace_path'):
-                            # Workspace exists, enforce its usage
-                            self.enforce_workspace_path(tool_name, file_path, agent_info['workspace_path'])
+            if not agent_id or not agent_type:
+                # No agent context - this is main session, not sub-agent
+                return
+            
+            # Use new atomic directory-based state management
+            state_manager = self.backend._get_state_manager(session_id)
+            agent_state = state_manager.get_agent_state(agent_id)
+            
+            # Apply selective worktree creation rules
+            if agent_state == "pending" and self.should_create_workspace(tool_name, tool_input):
+                # Create workspace atomically only for file modification tools
+                workspace_path = self.backend.create_workspace_if_needed(agent_id, session_id)
+                if workspace_path:
+                    print(f"🏗️  MAOS: Created workspace for {agent_type} at {workspace_path}", file=sys.stderr)
+                    print(f"🎯 Triggered by: {tool_name} operation on {file_path}", file=sys.stderr)
+                    # Enforce workspace usage
+                    self.enforce_workspace_path(tool_name, file_path, workspace_path)
+            elif agent_state == "pending":
+                # Agent is pending but tool doesn't require workspace - log this
+                print(f"📖 MAOS: Agent {agent_type} using read-only tool {tool_name} - no workspace needed", file=sys.stderr)
+                    
+            elif agent_state == "active":
+                # Get workspace path from active agent data
+                active_agents = state_manager.get_active_agents()
+                for agent_data in active_agents:
+                    if agent_data.get("agent_id") == agent_id:
+                        workspace_path = agent_data.get("workspace_path")
+                        if workspace_path and self.should_create_workspace(tool_name, tool_input):
+                            # Workspace exists and tool requires it, enforce its usage
+                            self.enforce_workspace_path(tool_name, file_path, workspace_path)
                         break
             
-            # Check for existing lock
-            lock_info = self.backend.check_file_lock(file_path, session_id)
-            if lock_info and lock_info.get('agent') != agent_id:
-                print(f"⚠️  File {file_path} is being edited by {lock_info.get('agent', 'another agent')}", 
-                      file=sys.stderr)
-                print(f"Operation: {lock_info.get('operation', 'unknown')}", file=sys.stderr)
-            
-            # Update lock for this operation
-            if tool_name in ["Edit", "Write", "MultiEdit"]:
-                self.backend.update_file_lock(file_path, agent_id, session_id, tool_name)
+            # Handle file locking for modification tools
+            if self.should_create_workspace(tool_name, tool_input):
+                lock_info = self.backend.check_file_lock(file_path, session_id, agent_id)
+                if lock_info:
+                    print(f"⚠️  File {file_path} is being edited by {lock_info.get('agent_id', 'another agent')}", 
+                          file=sys.stderr)
+                    print(f"Operation: {lock_info.get('operation', 'unknown')}", file=sys.stderr)
+                
+                # Acquire lock for file modification operations
+                if tool_name in ["Edit", "Write", "MultiEdit"]:
+                    lock_acquired = self.backend.acquire_file_lock(file_path, agent_id, session_id, tool_name, timeout=5.0)
+                    if not lock_acquired:
+                        print(f"🔒 Could not acquire lock on {file_path} - operation may conflict", file=sys.stderr)
             
         except Exception as e:
             # Non-blocking error
             print(f"⚠️  MAOS file operation handling failed: {e}", file=sys.stderr)
     
     def update_progress(self, tool_name, tool_input):
-        """Update progress tracking"""
+        """Update progress tracking using hook context"""
         if not self.backend:
             return
         
         try:
             session_id = self.get_session_id()
-            agent_id = extract_agent_id_from_environment()
+            
+            # Get agent context from hook metadata (race-condition free)
+            agent_type = self.hook_metadata.get('maos_agent_type')
+            if not agent_type:
+                # No agent context - this is main session, not sub-agent
+                return
             
             # Extract relevant details for progress tracking
             details = {}
@@ -152,7 +212,8 @@ Note: The workspace is created on-demand to save resources. Don't manually creat
                 command = tool_input.get('command', '')[:100]  # Truncate long commands
                 details['command'] = command
             
-            self.backend.update_progress(agent_id, session_id, tool_name, details)
+            # Use agent_type instead of agent_id for progress tracking (legacy compatibility)
+            self.backend.update_progress(agent_type, session_id, tool_name, details)
             
         except Exception as e:
             # Non-blocking error

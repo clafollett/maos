@@ -12,7 +12,6 @@ import os
 import sys
 import subprocess
 import random
-import time
 from pathlib import Path
 
 try:
@@ -22,29 +21,27 @@ except ImportError:
     pass  # dotenv is optional
 
 
+
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
-from maos.utils.config import is_notification_tts_enabled, get_active_tts_provider
+from utils.path_utils import LOGS_DIR, TTS_DIR
+from utils.config import is_notification_tts_enabled, get_active_tts_provider
+from utils.async_logging import log_hook_data_sync
 
 
 def get_tts_script_path():
     """
     Determine which TTS script to use based on configuration.
     """
-    # Get current script directory and construct tts path
-    script_dir = Path(__file__).parent
-    tts_dir = script_dir / "tts"
-    
     # Get active provider from config
     provider = get_active_tts_provider()
     
-    # Map providers to script paths (updated for new structure)
+    # Map providers to script paths using TTS_DIR constant
     script_map = {
-        "macos": tts_dir / "macos.py",
-        "elevenlabs": tts_dir / "elevenlabs.py", 
-        "openai": tts_dir / "openai.py",
-        "pyttsx3": tts_dir / "pyttsx3.py"
+        "macos": TTS_DIR / "macos.py",
+        "elevenlabs": TTS_DIR / "elevenlabs.py", 
+        "openai": TTS_DIR / "openai.py",
+        "pyttsx3": TTS_DIR / "pyttsx3.py"
     }
     
     tts_script = script_map.get(provider)
@@ -52,21 +49,6 @@ def get_tts_script_path():
         return str(tts_script)
     
     return None
-
-
-def simple_jsonl_append(log_path, data):
-    """Simple, fast JSONL append without reading existing file."""
-    try:
-        # Ensure log directory exists
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-        
-        # Simple append to JSONL file
-        with open(log_path, 'a', encoding='utf-8') as f:
-            f.write(json.dumps(data, separators=(',', ':')) + '\n')
-        return True
-    except Exception:
-        return False
-
 
 def fire_tts_notification():
     """Fire TTS notification immediately - no blocking."""
@@ -109,22 +91,26 @@ def main():
         # Read JSON input from stdin
         input_data = json.loads(sys.stdin.read())
         
-        # 🚀 FIRE TTS IMMEDIATELY - TOP PRIORITY
-        start_time = time.time()
-        tts_fired = False
+        # Validate Claude Code provided required fields
+        if 'session_id' not in input_data:
+            print(f"❌ WARNING: Claude Code did not provide session_id!", file=sys.stderr)
+            # Don't exit - notifications should still work
         
+        # 🚀 FIRE TTS IMMEDIATELY - TOP PRIORITY
         # Fire TTS only if --notify flag is set AND not generic waiting message
         if args.notify and input_data.get('message') != 'Claude is waiting for your input':
-            tts_fired = fire_tts_notification()
-        
-        tts_time = time.time() - start_time
-        if tts_fired:
-            print(f"🚀 Notification TTS fired in {tts_time*1000:.2f}ms", file=sys.stderr)
+            fire_tts_notification()
         
         # 📝 LOGGING IN FIRE-AND-FORGET MODE (don't wait)
-        # Log to JSONL format - simple append, no reading existing file
+        # Enhance Claude Code's input with our timestamp
+        from datetime import datetime
+        log_data = {
+            'timestamp': datetime.now().isoformat(),
+            **input_data,  # Preserve all Claude Code fields as-is
+        }
+        
         log_path = LOGS_DIR / "notification.jsonl"
-        simple_jsonl_append(log_path, input_data)
+        log_hook_data_sync(log_path, log_data)
         
         # Exit immediately - don't wait for logging to complete
         sys.exit(0)

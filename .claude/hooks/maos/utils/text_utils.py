@@ -4,12 +4,8 @@
 # ///
 
 import re
-import sys
-from pathlib import Path
-
-# Add path resolution for proper imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from maos.utils.config import get_text_length_limit
+# Use relative import since we're in the same utils directory
+from .config import get_text_length_limit
 
 # Compile regex patterns at module level for efficiency
 TECH_TERM_PATTERNS = {

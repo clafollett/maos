@@ -9,10 +9,11 @@ from pathlib import Path
 from typing import Dict, Optional
 
 # Add path resolution for proper imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(Path(__file__).parent.parent))  # Get to maos directory
 # Import MAOS backend utilities
 try:
-    from maos.backend import MAOSBackend, extract_file_path_from_tool_input, extract_agent_id_from_environment, MAOS_DIR
+    from utils.backend import MAOSBackend, extract_file_path_from_tool_input
+    from utils.path_utils import MAOS_DIR
 except ImportError:
     # Fallback if backend not available
     MAOSBackend = None
@@ -58,10 +59,16 @@ class MAOSPostCoordinator:
             
             # Release file lock if this was a write operation
             if tool_name in ["Edit", "Write", "MultiEdit"]:
-                self.backend.release_file_lock(file_path, session_id)
+                agent_id = self.hook_metadata.get('maos_agent_id')
+                if agent_id:
+                    self.backend.release_file_lock(file_path, agent_id, session_id)
             
-            # Update progress with completion status
-            agent_id = extract_agent_id_from_environment()
+            # Update progress with completion status using hook context
+            agent_type = self.hook_metadata.get('maos_agent_type')
+            if not agent_type:
+                # No agent context - this is main session, not sub-agent
+                return
+                
             success = tool_response.get('success', True) if tool_response else True
             
             details = {
@@ -73,7 +80,8 @@ class MAOSPostCoordinator:
             if not success and tool_response:
                 details['error'] = tool_response.get('error', 'Unknown error')
             
-            self.backend.update_progress(agent_id, session_id, f"{tool_name}_completed", details)
+            # Use agent_type for progress tracking (consistent with pre_tool_handler)
+            self.backend.update_progress(agent_type, session_id, f"{tool_name}_completed", details)
             
         except Exception as e:
             # Non-blocking error

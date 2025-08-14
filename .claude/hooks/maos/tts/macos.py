@@ -7,11 +7,14 @@ import sys
 import subprocess
 from pathlib import Path
 
-# Add path resolution for proper imports
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-from maos.utils.text_utils import clean_text_for_speech
-from maos.utils.config import get_macos_config, get_tts_timeout
-from maos.tts.control import get_tts_manager
+# Bootstrap path resolution to find our utils
+sys.path.insert(0, str(Path(__file__).parent.parent))  # Get to maos directory
+from utils.path_utils import setup_maos_imports
+setup_maos_imports()
+
+from utils.text_utils import clean_text_for_speech
+from utils.config import get_macos_config, get_tts_timeout
+from tts.control import get_tts_manager
 
 def speak_with_macos(text, voice=None, use_process_manager=True):
     """Speak text using native macOS TTS with specified voice.

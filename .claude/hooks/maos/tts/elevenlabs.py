@@ -65,8 +65,8 @@ def main():
             try:
                 import sys
                 from pathlib import Path
-                sys.path.insert(0, str(Path(__file__).parent.parent.parent))
-                from maos.utils.config import get_elevenlabs_config
+                sys.path.insert(0, str(Path(__file__).parent.parent))  # Get to maos directory
+                from utils.config import get_elevenlabs_config
                 elevenlabs_config = get_elevenlabs_config()
                 voice_id = elevenlabs_config['voice_id']
                 model_id = elevenlabs_config['model']

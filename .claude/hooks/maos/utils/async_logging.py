@@ -9,6 +9,7 @@ import time
 from pathlib import Path
 from typing import Dict, Any
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 class AsyncJSONLLogger:
     """
@@ -61,7 +62,7 @@ class AsyncJSONLLogger:
         
         # Add timestamp for better debugging
         log_entry = {
-            "timestamp": time.time(),
+            "timestamp": datetime.utcnow().isoformat(),
             **data
         }
         
@@ -79,7 +80,7 @@ class AsyncJSONLLogger:
             
             # Add timestamp
             log_entry = {
-                "timestamp": time.time(),
+                "timestamp": datetime.utcnow().isoformat(),
                 **data
             }
             
