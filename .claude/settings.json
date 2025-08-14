@@ -86,6 +86,28 @@
           }
         ]
       }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/pre_compact.py\""
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/session_start.py\""
+          }
+        ]
+      }
     ]
   }
 }
