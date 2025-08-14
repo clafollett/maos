@@ -78,10 +78,9 @@ impl Commands {
         match self {
             Commands::PreToolUse | Commands::PostToolUse => "tool-hooks",
             Commands::Notify => "notifications",
-            Commands::Stop { .. } | Commands::SubagentStop => "lifecycle",
+            Commands::Stop { .. } | Commands::SubagentStop | Commands::SessionStart => "lifecycle",
             Commands::UserPromptSubmit { .. } => "user-input",
             Commands::PreCompact => "maintenance",
-            Commands::SessionStart => "session",
         }
     }
 

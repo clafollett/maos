@@ -248,6 +248,7 @@ mod cli_tests {
     fn test_category_lifecycle() {
         assert_eq!(Commands::Stop { chat: false }.category(), "lifecycle");
         assert_eq!(Commands::SubagentStop.category(), "lifecycle");
+        assert_eq!(Commands::SessionStart.category(), "lifecycle");
     }
 
     #[test]
@@ -261,11 +262,6 @@ mod cli_tests {
     #[test]
     fn test_category_maintenance() {
         assert_eq!(Commands::PreCompact.category(), "maintenance");
-    }
-
-    #[test]
-    fn test_category_session() {
-        assert_eq!(Commands::SessionStart.category(), "session");
     }
 
     // ===== HOOK TYPE TESTS =====
