@@ -5,6 +5,7 @@
 
 import json
 from pathlib import Path
+from .path_utils import MAOS_HOOKS_DIR
 
 # Constants for config file location
 CONFIG_DIR_COMPONENTS = (".claude", "hooks", "maos")
@@ -50,9 +51,8 @@ def get_config_path():
         _config_path_cache = config_path
         return config_path
     
-    # Fallback to script directory
-    script_dir = Path(__file__).parent.parent
-    config_path = script_dir / CONFIG_FILENAME
+    # Fallback to MAOS hooks directory
+    config_path = MAOS_HOOKS_DIR / CONFIG_FILENAME
     if config_path.exists():
         _config_path_cache = config_path
         return config_path

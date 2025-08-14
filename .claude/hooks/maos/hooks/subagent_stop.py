@@ -22,9 +22,9 @@ except ImportError:
 
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from maos.utils.path_utils import PROJECT_ROOT, LOGS_DIR
-from maos.utils.config import is_completion_tts_enabled, get_active_tts_provider
-from maos.utils.async_logging import log_hook_data_sync
+from utils.path_utils import PROJECT_ROOT, LOGS_DIR, TTS_DIR
+from utils.config import is_completion_tts_enabled, get_active_tts_provider
+from utils.async_logging import log_hook_data_sync
 
 
 def get_tts_script_path():
@@ -32,20 +32,15 @@ def get_tts_script_path():
     Determine which TTS script to use based on config.json provider setting.
     Environment variables are only used for authentication, NOT provider selection.
     """
-    # Get current script directory and construct tts path
-    # Subagent stop hook is in hooks/ subdirectory, TTS scripts are in tts/ subdirectory
-    maos_dir = Path(__file__).parent.parent  # Go up from hooks/ to maos/
-    tts_dir = maos_dir / "tts"
-    
     # Use config.json to determine provider (canonical authority)
     provider = get_active_tts_provider()
     
-    # Map provider to script file (updated for new structure)
+    # Map provider to script file using TTS_DIR constant
     provider_scripts = {
-        'elevenlabs': tts_dir / "elevenlabs.py",
-        'openai': tts_dir / "openai.py", 
-        'macos': tts_dir / "macos.py",
-        'pyttsx3': tts_dir / "pyttsx3.py"
+        'elevenlabs': TTS_DIR / "elevenlabs.py",
+        'openai': TTS_DIR / "openai.py", 
+        'macos': TTS_DIR / "macos.py",
+        'pyttsx3': TTS_DIR / "pyttsx3.py"
     }
     
     script_path = provider_scripts.get(provider)
@@ -53,7 +48,7 @@ def get_tts_script_path():
         return str(script_path)
     
     # Fallback to macos if configured provider not available
-    fallback_script = tts_dir / "macos.py" 
+    fallback_script = TTS_DIR / "macos.py" 
     if fallback_script.exists():
         return str(fallback_script)
         
@@ -105,10 +100,6 @@ def main():
             print(f"❌ WARNING: Claude Code did not provide session_id!", file=sys.stderr)
             # Don't exit - subagent stop hooks should still work
             
-        # Extract required fields
-        session_id = input_data.get("session_id", "")
-        stop_hook_active = input_data.get("stop_hook_active", False)
-
         # Use unified async logger for subagent stop events
         log_path = LOGS_DIR / "subagent_stop.jsonl"
         log_hook_data_sync(log_path, input_data)

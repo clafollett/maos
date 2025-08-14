@@ -16,7 +16,7 @@ def get_project_root():
             text=True
         ).strip()
         return Path(root)
-    except:
+    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
         return Path.cwd()
 
 
@@ -27,6 +27,7 @@ MAOS_DIR = PROJECT_ROOT / '.maos'
 HOOKS_DIR = PROJECT_ROOT / '.claude' / 'hooks'
 MAOS_HOOKS_DIR = HOOKS_DIR / 'maos'  # This is the MAOS package directory
 MAOS_HOOKS_SCRIPTS_DIR = MAOS_HOOKS_DIR / 'hooks'  # This is where hook scripts live
+TTS_DIR = MAOS_HOOKS_DIR / 'tts'  # TTS scripts directory
 WORKTREES_DIR = PROJECT_ROOT / 'worktrees'
 
 def setup_maos_imports():

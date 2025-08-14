@@ -20,7 +20,8 @@ import sys
 from pathlib import Path
 
 # Add path resolution for proper imports
-sys.path.insert(0, str(Path(__file__).parent.parent))  # Get to maos directory
+maos_dir = Path(__file__).parent.parent
+sys.path.insert(0, str(maos_dir))
 from tts.control import emergency_stop_tts
 
 

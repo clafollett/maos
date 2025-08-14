@@ -20,8 +20,9 @@ from pathlib import Path
 from datetime import datetime
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-# Add path for imports
-sys.path.insert(0, str(Path(__file__).parent.parent))
+# Add path for imports using parent directory
+maos_dir = Path(__file__).parent.parent  
+sys.path.insert(0, str(maos_dir))
 
 from utils.state_manager import MAOSStateManager
 from utils.file_locking import MAOSFileLockManager

@@ -5,6 +5,7 @@
 
 import json
 import subprocess
+import sys
 import time
 import uuid
 from pathlib import Path
@@ -12,27 +13,7 @@ from datetime import datetime
 from typing import Dict, Optional
 from .state_manager import MAOSStateManager
 from .file_locking import MAOSFileLockManager
-
-
-def get_project_root():
-    """Get project root using git or current working directory."""
-    try:
-        root = subprocess.check_output(
-            ['git', 'rev-parse', '--show-toplevel'],
-            stderr=subprocess.DEVNULL,
-            text=True
-        ).strip()
-        return Path(root)
-    except:
-        return Path.cwd()
-
-
-# Global path constants - always use absolute paths
-PROJECT_ROOT = get_project_root()
-MAOS_DIR = PROJECT_ROOT / '.maos'
-LOGS_DIR = PROJECT_ROOT / 'logs'
-HOOKS_DIR = PROJECT_ROOT / '.claude' / 'hooks'
-WORKTREES_DIR = PROJECT_ROOT / 'worktrees'
+from .path_utils import PROJECT_ROOT, MAOS_DIR, LOGS_DIR, HOOKS_DIR, WORKTREES_DIR
 
 
 def run_git_command(cmd, cwd=None):
@@ -52,10 +33,10 @@ class MAOSBackend:
         self.sessions_dir = self.maos_dir / "sessions"
         self.worktrees_dir = WORKTREES_DIR
         
-        # Ensure directories exist
-        self.maos_dir.mkdir(exist_ok=True)
-        self.sessions_dir.mkdir(exist_ok=True)
-        self.worktrees_dir.mkdir(exist_ok=True)
+        # Ensure directories exist (with parents)
+        self.maos_dir.mkdir(parents=True, exist_ok=True)
+        self.sessions_dir.mkdir(parents=True, exist_ok=True)
+        self.worktrees_dir.mkdir(parents=True, exist_ok=True)
         
         # State managers per session (lazy-loaded)
         self._state_managers: Dict[str, MAOSStateManager] = {}

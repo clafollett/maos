@@ -13,7 +13,8 @@ from typing import Dict, Optional
 sys.path.insert(0, str(Path(__file__).parent.parent))  # Get to maos directory
 # Import MAOS backend utilities
 try:
-    from maos.utils.backend import MAOSBackend, extract_file_path_from_tool_input, PROJECT_ROOT
+    from utils.backend import MAOSBackend, extract_file_path_from_tool_input
+    from utils.path_utils import PROJECT_ROOT
 except ImportError:
     # Fallback if backend not available
     MAOSBackend = None

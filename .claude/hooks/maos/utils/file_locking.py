@@ -46,7 +46,7 @@ class MAOSFileLockManager:
             # Fall back to current working directory
             return Path.cwd()
     
-    def _lock_path_to_key(self, file_path: str) -> str:
+    def _hash_path_to_lock_key(self, file_path: str) -> str:
         """Convert file path to lock key using SHA-256 hash (safe for filesystem, guaranteed unique)"""
         # Use SHA-256 hash to guarantee uniqueness and prevent path traversal attacks
         hash_obj = hashlib.sha256(file_path.encode('utf-8'))
@@ -60,7 +60,7 @@ class MAOSFileLockManager:
         Returns True if lock acquired, False if timeout or conflict.
         Uses atomic directory creation - no race conditions possible.
         """
-        lock_key = self._lock_path_to_key(file_path)
+        lock_key = self._hash_path_to_lock_key(file_path)
         lock_dir = self.locks_dir / f"{lock_key}.lock"
         
         start_time = time.time()
@@ -114,7 +114,7 @@ class MAOSFileLockManager:
         
         Returns True if lock released, False if lock not owned by agent.
         """
-        lock_key = self._lock_path_to_key(file_path)
+        lock_key = self._hash_path_to_lock_key(file_path)
         lock_dir = self.locks_dir / f"{lock_key}.lock"
         
         if not lock_dir.exists():
@@ -148,7 +148,7 @@ class MAOSFileLockManager:
     
     def _force_release_lock(self, file_path: str, reason: str):
         """Force release a lock (for cleanup/recovery)"""
-        lock_key = self._lock_path_to_key(file_path)
+        lock_key = self._hash_path_to_lock_key(file_path)
         lock_dir = self.locks_dir / f"{lock_key}.lock"
         
         if lock_dir.exists():
@@ -193,7 +193,7 @@ class MAOSFileLockManager:
     
     def is_locked(self, file_path: str, requesting_agent: str) -> bool:
         """Check if file is locked by another agent"""
-        lock_key = self._lock_path_to_key(file_path)
+        lock_key = self._hash_path_to_lock_key(file_path)
         lock_dir = self.locks_dir / f"{lock_key}.lock"
         
         if not lock_dir.exists():
@@ -218,7 +218,7 @@ class MAOSFileLockManager:
     
     def get_lock_info(self, file_path: str) -> Optional[Dict[str, Any]]:
         """Get information about current lock on file"""
-        lock_key = self._lock_path_to_key(file_path)
+        lock_key = self._hash_path_to_lock_key(file_path)
         lock_dir = self.locks_dir / f"{lock_key}.lock"
         
         if not lock_dir.exists():
@@ -268,7 +268,10 @@ class MAOSFileLockManager:
         """Clean up all stale locks in session"""
         cleaned_count = 0
         
-        for lock_dir in self.locks_dir.glob("*.lock"):
+        # Create list first to avoid modifying directory during iteration
+        lock_dirs = list(self.locks_dir.glob("*.lock"))
+        
+        for lock_dir in lock_dirs:
             if self._is_stale_lock(lock_dir):
                 try:
                     metadata_file = lock_dir / "metadata.json"

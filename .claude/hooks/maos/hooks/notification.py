@@ -12,7 +12,6 @@ import os
 import sys
 import subprocess
 import random
-import time
 from pathlib import Path
 
 try:
@@ -25,7 +24,7 @@ except ImportError:
 
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from utils.path_utils import LOGS_DIR, TTS_DIR
 from utils.config import is_notification_tts_enabled, get_active_tts_provider
 from utils.async_logging import log_hook_data_sync
 
@@ -34,20 +33,15 @@ def get_tts_script_path():
     """
     Determine which TTS script to use based on configuration.
     """
-    # Get current script directory and construct tts path
-    # Notification hook is in hooks/ subdirectory, TTS scripts are in tts/ subdirectory
-    maos_dir = Path(__file__).parent.parent  # Go up from hooks/ to maos/
-    tts_dir = maos_dir / "tts"
-    
     # Get active provider from config
     provider = get_active_tts_provider()
     
-    # Map providers to script paths (updated for new structure)
+    # Map providers to script paths using TTS_DIR constant
     script_map = {
-        "macos": tts_dir / "macos.py",
-        "elevenlabs": tts_dir / "elevenlabs.py", 
-        "openai": tts_dir / "openai.py",
-        "pyttsx3": tts_dir / "pyttsx3.py"
+        "macos": TTS_DIR / "macos.py",
+        "elevenlabs": TTS_DIR / "elevenlabs.py", 
+        "openai": TTS_DIR / "openai.py",
+        "pyttsx3": TTS_DIR / "pyttsx3.py"
     }
     
     tts_script = script_map.get(provider)
@@ -103,16 +97,9 @@ def main():
             # Don't exit - notifications should still work
         
         # 🚀 FIRE TTS IMMEDIATELY - TOP PRIORITY
-        start_time = time.time()
-        tts_fired = False
-        
         # Fire TTS only if --notify flag is set AND not generic waiting message
         if args.notify and input_data.get('message') != 'Claude is waiting for your input':
-            tts_fired = fire_tts_notification()
-        
-        tts_time = time.time() - start_time
-        if tts_fired:
-            print(f"🚀 Notification TTS fired in {tts_time*1000:.2f}ms", file=sys.stderr)
+            fire_tts_notification()
         
         # 📝 LOGGING IN FIRE-AND-FORGET MODE (don't wait)
         # Enhance Claude Code's input with our timestamp

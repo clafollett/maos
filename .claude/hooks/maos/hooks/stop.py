@@ -24,7 +24,7 @@ except ImportError:
 # Add path resolution for proper imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from utils.config import is_response_tts_enabled, is_completion_tts_enabled, get_engineer_name, get_active_tts_provider
-from utils.path_utils import PROJECT_ROOT, LOGS_DIR
+from utils.path_utils import PROJECT_ROOT, LOGS_DIR, TTS_DIR
 from utils.async_logging import log_hook_data_sync
 
 
@@ -45,20 +45,15 @@ def get_completion_messages():
 
 def get_tts_script_path():
     """Determine which TTS script to use based on configuration."""
-    # Get current script directory and construct tts path
-    # Stop hook is in hooks/ subdirectory, TTS scripts are in tts/ subdirectory  
-    maos_dir = Path(__file__).parent.parent  # Go up from hooks/ to maos/
-    tts_dir = maos_dir / "tts"
-    
     # Get active provider from config
     provider = get_active_tts_provider()
     
-    # Map providers to script paths (updated for new structure)
+    # Map providers to script paths using TTS_DIR constant
     script_map = {
-        "macos": tts_dir / "macos.py",
-        "elevenlabs": tts_dir / "elevenlabs.py",
-        "openai": tts_dir / "openai.py", 
-        "pyttsx3": tts_dir / "pyttsx3.py"
+        "macos": TTS_DIR / "macos.py",
+        "elevenlabs": TTS_DIR / "elevenlabs.py",
+        "openai": TTS_DIR / "openai.py", 
+        "pyttsx3": TTS_DIR / "pyttsx3.py"
     }
     
     tts_script = script_map.get(provider)
@@ -137,10 +132,8 @@ def fire_response_tts(input_data):
         if not latest_response:
             return False
         
-        # Get script directory and construct path to response TTS
-        # Stop hook is in hooks/ subdirectory, TTS scripts are in tts/ subdirectory
-        maos_dir = Path(__file__).parent.parent  # Go up from hooks/ to maos/
-        tts_script = maos_dir / "tts" / "response.py"
+        # Get response TTS script using TTS_DIR constant
+        tts_script = TTS_DIR / "response.py"
         
         if not tts_script.exists():
             return False
