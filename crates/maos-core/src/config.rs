@@ -40,6 +40,38 @@ pub struct SystemConfig {
     pub enable_metrics: bool,
 }
 
+/// Hook processing configuration
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct HookConfig {
+    /// Maximum input size in megabytes
+    #[serde(default = "default_max_input_size_mb")]
+    pub max_input_size_mb: u64,
+
+    /// Maximum total processing time in milliseconds
+    #[serde(default = "default_max_processing_time_ms")]
+    pub max_processing_time_ms: u64,
+
+    /// Maximum JSON nesting depth
+    #[serde(default = "default_max_json_depth")]
+    pub max_json_depth: u32,
+
+    /// Timeout for individual stdin read operations in milliseconds
+    #[serde(default = "default_stdin_read_timeout_ms")]
+    pub stdin_read_timeout_ms: u64,
+}
+
+impl Default for HookConfig {
+    fn default() -> Self {
+        Self {
+            max_input_size_mb: default_max_input_size_mb(),
+            max_processing_time_ms: default_max_processing_time_ms(),
+            max_json_depth: default_max_json_depth(),
+            stdin_read_timeout_ms: default_stdin_read_timeout_ms(),
+        }
+    }
+}
+
 /// Security validation configuration
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -85,9 +117,11 @@ pub struct TtsConfig {
     #[serde(default = "default_tts_responses")]
     pub responses: TtsFeatureConfig,
 
+    /// TTS for task completion notifications
     #[serde(default = "default_tts_completion")]
     pub completion: TtsFeatureConfig,
 
+    /// TTS for system notifications
     #[serde(default = "default_tts_notifications")]
     pub notifications: TtsFeatureConfig,
 
@@ -100,15 +134,19 @@ pub struct TtsConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TtsVoiceConfigs {
+    /// macOS built-in TTS configuration
     #[serde(default = "default_macos_voice_config")]
     pub macos: MacOsVoiceConfig,
 
+    /// ElevenLabs TTS API configuration
     #[serde(default = "default_elevenlabs_voice_config")]
     pub elevenlabs: ElevenLabsVoiceConfig,
 
+    /// OpenAI TTS API configuration
     #[serde(default = "default_openai_voice_config")]
     pub openai: OpenAiVoiceConfig,
 
+    /// Pyttsx3 cross-platform TTS configuration
     #[serde(default = "default_pyttsx3_voice_config")]
     pub pyttsx3: Pyttsx3VoiceConfig,
 }
@@ -117,12 +155,15 @@ pub struct TtsVoiceConfigs {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct MacOsVoiceConfig {
+    /// Voice name (e.g., "Alex", "Samantha")
     #[serde(default = "default_macos_voice")]
     pub voice: String,
 
+    /// Speech rate in words per minute
     #[serde(default = "default_macos_rate")]
     pub rate: u32,
 
+    /// Audio quality setting (0-127)
     #[serde(default = "default_macos_quality")]
     pub quality: u32,
 }
@@ -131,12 +172,15 @@ pub struct MacOsVoiceConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ElevenLabsVoiceConfig {
+    /// Voice ID from ElevenLabs (e.g., "IKne3meq5aSn9XLyUdCD" for Charlie)
     #[serde(default = "default_elevenlabs_voice_id")]
     pub voice_id: String,
 
+    /// ElevenLabs model to use (e.g., "eleven_turbo_v2_5")
     #[serde(default = "default_elevenlabs_model")]
     pub model: String,
 
+    /// Audio output format (e.g., "mp3_44100_128")
     #[serde(default = "default_elevenlabs_output_format")]
     pub output_format: String,
 
@@ -148,9 +192,11 @@ pub struct ElevenLabsVoiceConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OpenAiVoiceConfig {
+    /// OpenAI TTS model ("tts-1" or "tts-1-hd")
     #[serde(default = "default_openai_model")]
     pub model: String,
 
+    /// Voice name ("alloy", "echo", "fable", "onyx", "nova", "shimmer")
     #[serde(default = "default_openai_voice")]
     pub voice: String,
 
@@ -162,12 +208,15 @@ pub struct OpenAiVoiceConfig {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Pyttsx3VoiceConfig {
+    /// Voice name ("default" or system-specific voice name)
     #[serde(default = "default_pyttsx3_voice")]
     pub voice: String,
 
+    /// Speech rate in words per minute (typical range: 100-300)
     #[serde(default = "default_pyttsx3_rate")]
     pub rate: u32,
 
+    /// Audio volume level (0.0 to 1.0)
     #[serde(default = "default_pyttsx3_volume")]
     pub volume: f32,
 }
@@ -176,6 +225,7 @@ pub struct Pyttsx3VoiceConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TtsFeatureConfig {
+    /// Enable TTS for this specific feature
     #[serde(default = "default_feature_enabled")]
     pub enabled: bool,
 }
@@ -184,6 +234,7 @@ pub struct TtsFeatureConfig {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EngineerConfig {
+    /// Engineer's name for personalized TTS messages (empty for generic messages)
     #[serde(default = "default_engineer_name")]
     pub name: String,
 }
@@ -222,15 +273,20 @@ pub struct WorktreeConfig {
     pub max_worktrees: u32,
 }
 
-/// Logging level.
+/// Logging level for filtering log output
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "lowercase")]
 pub enum LogLevel {
+    /// Most verbose logging level, includes all debug information
     Trace,
+    /// Debug information for troubleshooting
     Debug,
+    /// General informational messages (default level)
     #[default]
     Info,
+    /// Warning messages for potentially problematic situations
     Warn,
+    /// Error messages for failures and critical issues
     Error,
 }
 
@@ -291,6 +347,9 @@ pub struct MaosConfig {
     /// Security validation settings
     pub security: SecurityConfig,
 
+    /// Hook processing settings
+    pub hooks: HookConfig,
+
     /// TTS provider settings
     pub tts: TtsConfig,
 
@@ -304,7 +363,9 @@ pub struct MaosConfig {
     pub logging: LoggingConfig,
 }
 
-// Keep backward compatibility alias
+/// Legacy type alias for backward compatibility
+///
+/// @deprecated Use `MaosConfig` directly instead of `Config`
 pub type Config = MaosConfig;
 
 impl Default for MaosConfig {
@@ -320,6 +381,7 @@ impl Default for MaosConfig {
                 allowed_tools: default_allowed_tools(),
                 blocked_paths: Vec::new(),
             },
+            hooks: HookConfig::default(),
             tts: TtsConfig {
                 enabled: default_tts_enabled(),
                 provider: default_tts_provider(),
@@ -351,12 +413,59 @@ impl Default for MaosConfig {
 }
 
 impl MaosConfig {
-    /// Load configuration (currently just returns defaults)
+    /// Load MAOS configuration with default values
+    ///
+    /// Creates a new configuration instance with sensible defaults for all settings.
+    /// This is the primary entry point for configuration loading.
+    ///
+    /// # Returns
+    ///
+    /// * `Result<Self>` - Configuration instance with default values
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let config = MaosConfig::load().unwrap();
+    /// assert_eq!(config.logging.level.to_string(), "info");
+    /// assert_eq!(config.tts.provider, "pyttsx3");
+    /// ```
     pub fn load() -> Result<Self> {
         Ok(Self::default())
     }
 
-    /// Get API key for provider using cascading resolution: env vars → config.json
+    /// Get API key for TTS provider using cascading resolution
+    ///
+    /// Resolves API keys using priority order: environment variables → config.json.
+    /// Supports ElevenLabs and OpenAI TTS providers with automatic key discovery.
+    ///
+    /// # Arguments
+    ///
+    /// * `provider` - TTS provider name ("elevenlabs" or "openai")
+    ///
+    /// # Returns
+    ///
+    /// * `Some(String)` - API key if found and non-empty
+    /// * `None` - If provider unsupported or no key found
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let config = MaosConfig::default();
+    ///
+    /// // Check for ElevenLabs API key (from ELEVENLABS_API_KEY env var)
+    /// if let Some(key) = config.get_api_key("elevenlabs") {
+    ///     println!("ElevenLabs key found: {}...", &key[..8]);
+    /// }
+    ///
+    /// // Check for OpenAI API key (from OPENAI_API_KEY env var)
+    /// if let Some(key) = config.get_api_key("openai") {
+    ///     println!("OpenAI key found: {}...", &key[..8]);
+    /// }
+    /// ```
     pub fn get_api_key(&self, provider: &str) -> Option<String> {
         use std::env;
 
@@ -392,9 +501,42 @@ impl MaosConfig {
         })
     }
 
-    /// Get the active TTS provider based on config and API key availability.
+    /// Get the active TTS provider with intelligent fallback
     ///
-    /// Respects user's configured provider but falls back gracefully if API keys unavailable.
+    /// Determines which TTS provider to use based on configuration and API key availability.
+    /// For API-based providers (ElevenLabs, OpenAI), verifies API key presence before selection.
+    /// Automatically falls back to local providers if API keys are missing.
+    ///
+    /// # Provider Priority
+    ///
+    /// 1. **User-configured provider** (if API key available for API providers)
+    /// 2. **pyttsx3 fallback** (if API provider configured but key missing)
+    /// 3. **Local providers** (macos, pyttsx3) always available
+    ///
+    /// # Returns
+    ///
+    /// * `String` - Active provider name ready for use
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let mut config = MaosConfig::default();
+    ///
+    /// // With local provider configured (always available)
+    /// config.tts.provider = "macos".to_string();
+    /// assert_eq!(config.get_active_tts_provider(), "macos"); // Direct use
+    ///
+    /// // With pyttsx3 provider configured
+    /// config.tts.provider = "pyttsx3".to_string();
+    /// assert_eq!(config.get_active_tts_provider(), "pyttsx3"); // Always available
+    ///
+    /// // API-based providers depend on environment variables:
+    /// // - ElevenLabs needs ELEVENLABS_API_KEY
+    /// // - OpenAI needs OPENAI_API_KEY
+    /// // They fall back to pyttsx3 if keys are missing
+    /// ```
     pub fn get_active_tts_provider(&self) -> String {
         let provider = &self.tts.provider;
 
@@ -412,37 +554,178 @@ impl MaosConfig {
         provider.clone()
     }
 
-    /// Check if TTS master switch is enabled
+    /// Check if TTS functionality is globally enabled
+    ///
+    /// Returns the master TTS switch status. When disabled, all TTS features are off
+    /// regardless of individual feature settings.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if TTS globally enabled, false otherwise
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let config = MaosConfig::default();
+    /// if config.is_tts_enabled() {
+    ///     println!("TTS is available");
+    /// }
+    /// ```
     pub fn is_tts_enabled(&self) -> bool {
         self.tts.enabled
     }
 
-    /// Check if response TTS is enabled (master switch AND responses.enabled)
+    /// Check if response TTS is enabled
+    ///
+    /// Verifies both global TTS enabled AND response-specific TTS enabled.
+    /// Used for speaking Claude's responses during conversations.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if response TTS should be used
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let config = MaosConfig::default();
+    /// if config.is_response_tts_enabled() {
+    ///     // Speak Claude's response
+    /// }
+    /// ```
     pub fn is_response_tts_enabled(&self) -> bool {
         self.tts.enabled && self.tts.responses.enabled
     }
 
-    /// Check if completion TTS is enabled (master switch AND completion.enabled)
+    /// Check if completion TTS is enabled
+    ///
+    /// Verifies both global TTS enabled AND completion-specific TTS enabled.
+    /// Used for speaking task completion notifications.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if completion TTS should be used
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let config = MaosConfig::default();
+    /// if config.is_completion_tts_enabled() {
+    ///     // Announce task completion
+    /// }
+    /// ```
     pub fn is_completion_tts_enabled(&self) -> bool {
         self.tts.enabled && self.tts.completion.enabled
     }
 
-    /// Check if notification TTS is enabled (master switch AND notifications.enabled)
+    /// Check if notification TTS is enabled
+    ///
+    /// Verifies both global TTS enabled AND notification-specific TTS enabled.
+    /// Used for speaking system notifications and alerts.
+    ///
+    /// # Returns
+    ///
+    /// * `bool` - True if notification TTS should be used
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let config = MaosConfig::default();
+    /// if config.is_notification_tts_enabled() {
+    ///     // Announce system notification
+    /// }
+    /// ```
     pub fn is_notification_tts_enabled(&self) -> bool {
         self.tts.enabled && self.tts.notifications.enabled
     }
 
-    /// Get the maximum text length for TTS processing
+    /// Get the maximum text length limit for TTS processing
+    ///
+    /// Returns the character limit for TTS input to prevent overly long speech.
+    /// Text exceeding this limit should be truncated or split.
+    ///
+    /// # Returns
+    ///
+    /// * `u32` - Maximum characters allowed (default: 2000)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let config = MaosConfig::default();
+    /// let max_chars = config.get_text_length_limit();
+    ///
+    /// let text = "Long response text...";
+    /// if text.len() > max_chars as usize {
+    ///     // Truncate or split text
+    /// }
+    /// ```
     pub fn get_text_length_limit(&self) -> u32 {
         self.tts.text_length_limit
     }
 
-    /// Get the timeout in seconds for TTS operations
+    /// Get the timeout for TTS operations
+    ///
+    /// Returns the maximum time to wait for TTS operations to complete.
+    /// Operations exceeding this timeout should be cancelled.
+    ///
+    /// # Returns
+    ///
+    /// * `u32` - Timeout in seconds (default: 120)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    /// use std::time::Duration;
+    ///
+    /// let config = MaosConfig::default();
+    /// let timeout = Duration::from_secs(config.get_tts_timeout() as u64);
+    ///
+    /// // Use timeout for TTS operations
+    /// // tokio::time::timeout(timeout, tts_operation()).await
+    /// ```
     pub fn get_tts_timeout(&self) -> u32 {
         self.tts.timeout
     }
 
-    /// Validate configuration
+    /// Validate configuration settings for correctness
+    ///
+    /// Performs comprehensive validation of all configuration values to ensure
+    /// they are within valid ranges and logically consistent.
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(())` - Configuration is valid
+    /// * `Err(ConfigError)` - Configuration contains invalid values
+    ///
+    /// # Validation Rules
+    ///
+    /// - `max_execution_time_ms` must be greater than 0
+    /// - TTS timeout must be reasonable (handled by defaults)
+    /// - Path configurations must be valid (when applicable)
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// let config = MaosConfig::default();
+    /// config.validate().expect("Default config should be valid");
+    ///
+    /// // Invalid config example
+    /// let mut bad_config = MaosConfig::default();
+    /// bad_config.system.max_execution_time_ms = 0;
+    /// assert!(bad_config.validate().is_err());
+    /// ```
     pub fn validate(&self) -> Result<()> {
         // Validate execution time
         if self.system.max_execution_time_ms == 0 {
@@ -463,7 +746,23 @@ impl MaosConfig {
 pub struct ConfigLoader {}
 
 impl ConfigLoader {
-    /// Create a new config loader
+    /// Create a new configuration loader
+    ///
+    /// Initializes a ConfigLoader for loading MAOS configuration from various sources.
+    /// The loader supports JSON files, JSON strings, environment variables, and readers.
+    ///
+    /// # Returns
+    ///
+    /// * `Self` - New ConfigLoader instance ready for use
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::ConfigLoader;
+    ///
+    /// let loader = ConfigLoader::new();
+    /// // Use loader to load from various sources
+    /// ```
     pub fn new() -> Self {
         Self::default()
     }
@@ -481,6 +780,28 @@ impl ConfigLoader {
     }
 
     /// Load configuration from a JSON string
+    ///
+    /// Parses a JSON string into a MAOS configuration with automatic defaults merging.
+    /// Missing fields use default values via serde's `#[serde(default)]` attributes.
+    ///
+    /// # Arguments
+    ///
+    /// * `json` - JSON string containing configuration
+    ///
+    /// # Returns
+    ///
+    /// * `Result<MaosConfig>` - Validated configuration or error
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::ConfigLoader;
+    ///
+    /// let loader = ConfigLoader::new();
+    /// let json = r#"{"tts": {"enabled": false}}"#;
+    /// let config = loader.load_from_str(json).unwrap();
+    /// assert!(!config.tts.enabled);
+    /// ```
     pub fn load_from_str(&self, json: &str) -> Result<MaosConfig> {
         // Use serde's built-in merging by deserializing with defaults
         // The #[serde(default)] attributes handle the merging automatically
@@ -492,7 +813,30 @@ impl ConfigLoader {
         Ok(config)
     }
 
-    /// Load configuration from any reader providing JSON bytes
+    /// Load configuration from any reader providing JSON data
+    ///
+    /// Reads JSON data from any source implementing `Read` (files, strings, network, etc.)
+    /// and parses it into a validated MAOS configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `reader` - Any reader providing JSON bytes
+    ///
+    /// # Returns
+    ///
+    /// * `Result<MaosConfig>` - Validated configuration or error
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::ConfigLoader;
+    /// use std::io::Cursor;
+    ///
+    /// let loader = ConfigLoader::new();
+    /// let json_data = r#"{"logging": {"level": "debug"}}"#;
+    /// let reader = Cursor::new(json_data);
+    /// let config = loader.load_from_reader(reader).unwrap();
+    /// ```
     pub fn load_from_reader<R: Read>(&self, mut reader: R) -> Result<MaosConfig> {
         // Read and parse JSON
         let mut buf = String::new();
@@ -502,13 +846,71 @@ impl ConfigLoader {
         self.load_from_str(&buf)
     }
 
-    /// Load configuration from a file path containing JSON
+    /// Load configuration from a JSON file
+    ///
+    /// Opens and reads a JSON configuration file from the filesystem,
+    /// parsing it into a validated MAOS configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `path` - Path to JSON configuration file
+    ///
+    /// # Returns
+    ///
+    /// * `Result<MaosConfig>` - Validated configuration or error
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// use maos_core::config::ConfigLoader;
+    /// use std::path::Path;
+    ///
+    /// let loader = ConfigLoader::new();
+    /// let config = loader.load_from_path(Path::new("maos.json")).unwrap();
+    /// ```
     pub fn load_from_path(&self, path: &Path) -> Result<MaosConfig> {
         let file = File::open(path)?;
         self.load_from_reader(file)
     }
 
     /// Load configuration with environment variable overrides
+    ///
+    /// Creates configuration from defaults and applies environment variable overrides.
+    /// Supports a predefined set of environment variables for common configuration options.
+    ///
+    /// # Supported Environment Variables
+    ///
+    /// - `MAOS_SYSTEM_MAX_EXECUTION_TIME_MS` - System execution timeout
+    /// - `MAOS_SYSTEM_WORKSPACE_ROOT` - Workspace root directory
+    /// - `MAOS_SECURITY_ENABLE_VALIDATION` - Security validation toggle
+    /// - `ELEVENLABS_API_KEY` - ElevenLabs TTS API key
+    /// - `OPENAI_API_KEY` - OpenAI TTS API key
+    /// - `MAOS_LOGGING_LEVEL` - Log level (trace, debug, info, warn, error)
+    /// - `MAOS_LOGGING_FORMAT` - Log format (json, text)
+    /// - `MAOS_LOGGING_OUTPUT` - Log output (stdout, stderr, session_file)
+    ///
+    /// # Arguments
+    ///
+    /// * `env_vars` - HashMap of environment variable name-value pairs
+    ///
+    /// # Returns
+    ///
+    /// * `Result<MaosConfig>` - Configuration with environment overrides applied
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use maos_core::config::ConfigLoader;
+    /// use std::collections::HashMap;
+    ///
+    /// let loader = ConfigLoader::new();
+    /// let mut env_vars = HashMap::new();
+    /// env_vars.insert("MAOS_LOGGING_LEVEL".to_string(), "debug".to_string());
+    /// env_vars.insert("ELEVENLABS_API_KEY".to_string(), "sk-test123".to_string());
+    ///
+    /// let config = loader.load_with_env(env_vars).unwrap();
+    /// assert_eq!(config.logging.level.to_string(), "debug");
+    /// ```
     pub fn load_with_env(&self, env_vars: HashMap<String, String>) -> Result<MaosConfig> {
         // Start with defaults
         let mut config = MaosConfig::default();
@@ -590,6 +992,23 @@ fn default_true() -> bool {
 }
 fn default_allowed_tools() -> Vec<String> {
     vec!["*".to_string()]
+}
+
+// Hook configuration defaults
+fn default_max_input_size_mb() -> u64 {
+    10 // 10MB - reasonable for most hook payloads
+}
+
+fn default_max_processing_time_ms() -> u64 {
+    5_000 // 5 seconds - allows for worktree creation and GitHub ops
+}
+
+fn default_max_json_depth() -> u32 {
+    64 // Reasonable nesting limit to prevent JSON bombs
+}
+
+fn default_stdin_read_timeout_ms() -> u64 {
+    100 // 100ms per read operation
 }
 // TTS configuration defaults
 fn default_tts_enabled() -> bool {
