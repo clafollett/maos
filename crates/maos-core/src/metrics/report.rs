@@ -9,21 +9,72 @@ use std::collections::HashMap;
 use std::time::Duration;
 
 /// Statistics for execution times of operations
+///
+/// Provides comprehensive performance metrics for analyzing operation timing patterns.
+/// Includes percentile calculations to identify performance outliers and bottlenecks.
+///
+/// # Usage
+///
+/// Use this struct to monitor Claude Code hook execution performance and identify
+/// operations that exceed performance targets.
+///
+/// # Example
+///
+/// ```rust
+/// use maos_core::metrics::report::ExecutionStats;
+/// use std::time::Duration;
+///
+/// let durations = vec![
+///     Duration::from_millis(5),   // Fast operation
+///     Duration::from_millis(15),  // Typical operation
+///     Duration::from_millis(50),  // Slow operation
+/// ];
+///
+/// let stats = ExecutionStats::from_durations(&durations);
+/// println!("Average: {:.1}ms, P95: {:.1}ms", stats.avg_ms, stats.p95_ms);
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ExecutionStats {
-    /// Number of samples collected
+    /// Total number of execution time samples collected
+    ///
+    /// Indicates the statistical significance of the measurements.
+    /// Larger sample sizes provide more reliable statistics.
     pub count: usize,
-    /// Average execution time in milliseconds
+
+    /// Arithmetic mean execution time in milliseconds
+    ///
+    /// Useful for understanding typical performance but can be skewed
+    /// by outliers. Compare with median (p50_ms) to detect skewness.
     pub avg_ms: f64,
-    /// Maximum execution time in milliseconds
+
+    /// Worst-case execution time in milliseconds
+    ///
+    /// Critical for identifying performance spikes that could impact
+    /// user experience or violate SLA requirements.
     pub max_ms: f64,
-    /// Minimum execution time in milliseconds
+
+    /// Best-case execution time in milliseconds
+    ///
+    /// Represents optimal performance under ideal conditions.
+    /// Large min/max gaps indicate inconsistent performance.
     pub min_ms: f64,
-    /// 50th percentile (median) in milliseconds
+
+    /// Median (50th percentile) execution time in milliseconds
+    ///
+    /// The middle value when all execution times are sorted.
+    /// More robust than average for skewed distributions.
     pub p50_ms: f64,
-    /// 95th percentile in milliseconds
+
+    /// 95th percentile execution time in milliseconds
+    ///
+    /// Only 5% of operations take longer than this value.
+    /// Key metric for performance SLAs and user experience monitoring.
     pub p95_ms: f64,
-    /// 99th percentile in milliseconds
+
+    /// 99th percentile execution time in milliseconds
+    ///
+    /// Only 1% of operations take longer than this value.
+    /// Used to identify rare but severe performance problems.
     pub p99_ms: f64,
 }
 
@@ -78,15 +129,53 @@ impl ExecutionStats {
 }
 
 /// Statistics for memory usage of operations
+///
+/// Tracks memory consumption patterns to identify memory leaks, inefficient
+/// allocations, and operations that may cause out-of-memory conditions.
+///
+/// # Usage
+///
+/// Monitor these metrics to ensure MAOS stays within memory budgets and
+/// identify operations that consume excessive memory resources.
+///
+/// # Example
+///
+/// ```rust
+/// use maos_core::metrics::report::MemoryStats;
+///
+/// let memory_samples = vec![
+///     1024 * 1024,      // 1MB baseline
+///     2 * 1024 * 1024,  // 2MB during operation
+///     1024 * 1024,      // 1MB after cleanup
+/// ];
+///
+/// let stats = MemoryStats::from_samples(&memory_samples);
+/// println!("Peak memory: {}MB", stats.max_bytes / (1024 * 1024));
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MemoryStats {
-    /// Number of samples collected
+    /// Total number of memory usage samples collected
+    ///
+    /// More samples provide better insight into memory usage patterns
+    /// and help identify memory leaks or gradual increases.
     pub count: usize,
-    /// Average memory usage in bytes
+
+    /// Average memory usage across all samples in bytes
+    ///
+    /// Indicates typical memory consumption during operation.
+    /// Combine with max_bytes to understand memory efficiency.
     pub avg_bytes: usize,
-    /// Maximum memory usage in bytes
+
+    /// Peak memory usage observed in bytes
+    ///
+    /// Critical for capacity planning and preventing out-of-memory errors.
+    /// High values may indicate memory leaks or inefficient algorithms.
     pub max_bytes: usize,
-    /// Minimum memory usage in bytes
+
+    /// Minimum memory usage observed in bytes
+    ///
+    /// Represents baseline memory usage when the operation is idle.
+    /// Large min/max differences indicate significant memory fluctuation.
     pub min_bytes: usize,
 }
 
@@ -126,15 +215,51 @@ impl MemoryStats {
 }
 
 /// Complete metrics report containing all collected performance data
+///
+/// Aggregates all performance metrics collected during a MAOS session into
+/// a comprehensive report suitable for monitoring, analysis, and debugging.
+///
+/// # Usage
+///
+/// This report is typically generated at session end or periodically for
+/// long-running sessions. It provides a complete view of system performance
+/// across all operations and can be exported for external analysis.
+///
+/// # Example
+///
+/// ```rust
+/// use maos_core::metrics::report::MetricsReport;
+///
+/// let mut report = MetricsReport::new();
+/// // Metrics would be populated by the collector during operation
+///
+/// println!("Report generated at: {}", report.generated_at);
+/// println!("Operations monitored: {}", report.execution_stats.len());
+/// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MetricsReport {
-    /// Execution time statistics by operation name
+    /// Execution time statistics grouped by operation name
+    ///
+    /// Maps operation names (e.g., "pre_tool_use", "post_tool_use") to their
+    /// respective execution time statistics. Use to identify slow operations.
     pub execution_stats: HashMap<String, ExecutionStats>,
-    /// Memory usage statistics by operation name
+
+    /// Memory usage statistics grouped by operation name
+    ///
+    /// Maps operation names to their memory consumption patterns.
+    /// Critical for identifying memory leaks and resource-intensive operations.
     pub memory_stats: HashMap<String, MemoryStats>,
-    /// Error counts by error type/operation name
+
+    /// Error occurrence counts grouped by error type or operation name
+    ///
+    /// Tracks how frequently different types of errors occur.
+    /// Use for reliability monitoring and identifying problematic operations.
     pub error_counts: HashMap<String, usize>,
-    /// Timestamp when this report was generated
+
+    /// UTC timestamp indicating when this report was generated
+    ///
+    /// Enables temporal analysis and correlation with external events.
+    /// All timestamps are in UTC for consistency across time zones.
     pub generated_at: DateTime<Utc>,
 }
 

@@ -192,7 +192,7 @@ impl Display for HookEvent {
             HookEvent::PreCompact => event_constants::PRE_COMPACT,
             HookEvent::SessionStart => event_constants::SESSION_START,
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -200,7 +200,7 @@ impl std::str::FromStr for HookEvent {
     type Err = String;
 
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        HookEvent::try_from_str(s).ok_or_else(|| format!("Invalid hook event: {}", s))
+        HookEvent::try_from_str(s).ok_or_else(|| format!("Invalid hook event: {s}"))
     }
 }
 
@@ -273,7 +273,7 @@ mod tests {
         // as_str() and Display should return the same string
         for event in HookEvent::all() {
             assert_eq!(event.as_str(), event.to_string());
-            assert_eq!(event.as_str(), format!("{}", event));
+            assert_eq!(event.as_str(), format!("{event}"));
         }
     }
 

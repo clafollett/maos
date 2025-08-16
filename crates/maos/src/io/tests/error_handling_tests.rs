@@ -48,7 +48,7 @@ async fn test_no_double_unwrap_panic() {
             assert!(message.contains("Mock failure"));
         }
         other => {
-            panic!("Expected InvalidInput error, got: {:?}", other);
+            panic!("Expected InvalidInput error, got: {other:?}");
         }
     }
 }

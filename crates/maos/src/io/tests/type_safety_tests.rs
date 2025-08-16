@@ -238,8 +238,7 @@ fn test_commands_hook_event_name_consistency() {
         let enum_name = command.to_hook_event().as_str();
         assert_eq!(
             string_name, enum_name,
-            "Inconsistency for command: {:?}",
-            command
+            "Inconsistency for command: {command:?}"
         );
     }
 }

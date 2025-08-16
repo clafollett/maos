@@ -18,3 +18,5 @@ type-complexity-threshold = 60
 
 # Misc settings
 msrv = "1.88.0" # Minimum Supported Rust Version (matches current stable)
+
+# Modern Rust standards - enable inline format arg checking

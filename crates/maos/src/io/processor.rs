@@ -222,8 +222,7 @@ impl StdinProcessor {
                     if depth > max_depth {
                         return Err(MaosError::InvalidInput {
                             message: format!(
-                                "JSON nesting depth {} exceeds maximum {}",
-                                depth, max_depth
+                                "JSON nesting depth {depth} exceeds maximum {max_depth}"
                             ),
                         });
                     }

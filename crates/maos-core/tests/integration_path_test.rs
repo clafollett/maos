@@ -100,10 +100,7 @@ fn test_end_to_end_workspace_isolation() {
 
         assert!(
             canonical.starts_with(&canonical_workspace),
-            "File should be within workspace: {}, canonical: {:?}, canonical_workspace: {:?}",
-            file_path,
-            canonical,
-            canonical_workspace
+            "File should be within workspace: {file_path}, canonical: {canonical:?}, canonical_workspace: {canonical_workspace:?}"
         );
     }
 
@@ -120,8 +117,7 @@ fn test_end_to_end_workspace_isolation() {
         let path = PathBuf::from(file_path);
         assert!(
             validator.is_blocked_path(&path),
-            "Should block file: {}",
-            file_path
+            "Should block file: {file_path}"
         );
     }
 
@@ -137,7 +133,7 @@ fn test_end_to_end_workspace_isolation() {
     for attack_path in attack_paths {
         let path = PathBuf::from(attack_path);
         let result = validator.validate_workspace_path(&path, &workspace1);
-        assert!(result.is_err(), "Should block attack: {}", attack_path);
+        assert!(result.is_err(), "Should block attack: {attack_path}");
     }
 }
 
@@ -159,16 +155,13 @@ fn test_path_utilities_integration() {
         let normalized = normalize_path(&input_path);
         assert_eq!(
             normalized, expected_path,
-            "Normalization failed for: {}",
-            input
+            "Normalization failed for: {input}"
         );
 
         // Test path equality
         assert!(
             paths_equal(&input_path, &expected_path),
-            "Paths should be equal: {} vs {}",
-            input,
-            expected
+            "Paths should be equal: {input} vs {expected}"
         );
 
         // Test that normalized paths are equal to themselves
@@ -219,27 +212,19 @@ fn test_relative_path_with_workspace_scenarios() {
             Some(expected_str) => {
                 assert!(
                     result.is_some(),
-                    "Should find relative path from {} to {}",
-                    base_str,
-                    target_str
+                    "Should find relative path from {base_str} to {target_str}"
                 );
                 let relative = result.unwrap();
                 assert_eq!(
                     relative,
                     PathBuf::from(expected_str),
-                    "Wrong relative path from {} to {}: got {:?}, expected {}",
-                    base_str,
-                    target_str,
-                    relative,
-                    expected_str
+                    "Wrong relative path from {base_str} to {target_str}: got {relative:?}, expected {expected_str}"
                 );
             }
             None => {
                 assert!(
                     result.is_none(),
-                    "Should not find relative path from {} to {}",
-                    base_str,
-                    target_str
+                    "Should not find relative path from {base_str} to {target_str}"
                 );
             }
         }
@@ -268,16 +253,13 @@ fn test_cross_platform_compatibility() {
         let normalized = normalize_path(&input_path);
         assert_eq!(
             normalized, expected_path,
-            "Cross-platform normalization failed: {} -> expected {}, got {:?}",
-            input, expected, normalized
+            "Cross-platform normalization failed: {input} -> expected {expected}, got {normalized:?}"
         );
 
         // Test path equality works across separator styles
         assert!(
             paths_equal(&input_path, &expected_path),
-            "Cross-platform paths should be equal: {} vs {}",
-            input,
-            expected
+            "Cross-platform paths should be equal: {input} vs {expected}"
         );
     }
 }
@@ -299,14 +281,12 @@ fn test_unicode_path_handling() {
         let normalized = normalize_path(&input_path);
         assert_eq!(
             normalized, expected_path,
-            "Unicode normalization failed: {}",
-            input
+            "Unicode normalization failed: {input}"
         );
 
         assert!(
             paths_equal(&input_path, &expected_path),
-            "Unicode paths should be equal: {}",
-            input
+            "Unicode paths should be equal: {input}"
         );
     }
 
@@ -323,7 +303,7 @@ fn test_unicode_path_handling() {
     for attack in unicode_attacks {
         let path = PathBuf::from(attack);
         let result = validator.validate_workspace_path(&path, temp_dir.path());
-        assert!(result.is_err(), "Should block Unicode attack: {}", attack);
+        assert!(result.is_err(), "Should block Unicode attack: {attack}");
     }
 }
 
@@ -349,7 +329,7 @@ fn test_performance_with_deep_nesting() {
     );
 
     // Test validation of deep paths (should pass)
-    let valid_deep = PathBuf::from(format!("{}/file.txt", deep_path));
+    let valid_deep = PathBuf::from(format!("{deep_path}/file.txt"));
     let result = validator.validate_workspace_path(&valid_deep, temp_dir.path());
     assert!(result.is_ok(), "Should allow deep valid paths");
 

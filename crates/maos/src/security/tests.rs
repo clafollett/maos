@@ -210,7 +210,7 @@ fn test_error_message_sanitization() {
     // Create an error with potentially sensitive information
     let sensitive_path = "/home/user/.ssh/id_rsa";
     let error = MaosError::InvalidInput {
-        message: format!("Failed to read file: {}", sensitive_path),
+        message: format!("Failed to read file: {sensitive_path}"),
     };
 
     let error_string = error.to_string();

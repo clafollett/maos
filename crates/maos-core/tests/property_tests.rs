@@ -204,9 +204,9 @@ mod paths_equal_properties {
         /// Property: Equivalent traversal patterns should be equal
         #[test]
         fn paths_equal_equivalent_traversals(base in "[a-zA-Z]{1,10}", file in "[a-zA-Z]{1,10}") {
-            let path1 = PathBuf::from(format!("{}/{}", base, file));
-            let path2 = PathBuf::from(format!("{}/./{}", base, file));
-            let path3 = PathBuf::from(format!("{}/sub/../{}", base, file));
+            let path1 = PathBuf::from(format!("{base}/{file}"));
+            let path2 = PathBuf::from(format!("{base}/./{file}"));
+            let path3 = PathBuf::from(format!("{base}/sub/../{file}"));
 
             prop_assert!(paths_equal(&path1, &path2),
                 "Equivalent paths should be equal: {:?} vs {:?}", path1, path2);
@@ -365,7 +365,7 @@ mod path_validator_properties {
             let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
 
             let path = match subdir {
-                Some(dir) => PathBuf::from(format!("{}/{}", dir, file_name)),
+                Some(dir) => PathBuf::from(format!("{dir}/{file_name}")),
                 None => PathBuf::from(file_name),
             };
 

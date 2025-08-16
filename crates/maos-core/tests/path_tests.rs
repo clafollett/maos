@@ -567,8 +567,7 @@ mod path_validator_tests {
         // Should contain session and agent identifiers in some form
         assert!(
             path_str.contains(&session_id.to_string()) || path_str.contains(&agent_type),
-            "Path should contain session or agent identifiers: {}",
-            path_str
+            "Path should contain session or agent identifiers: {path_str}"
         );
     }
 
@@ -638,8 +637,7 @@ mod path_validator_tests {
         let path_len = workspace_path.to_string_lossy().len();
         assert!(
             path_len < MAX_PATH_LENGTH,
-            "Path should be reasonable length: {} chars",
-            path_len
+            "Path should be reasonable length: {path_len} chars"
         );
         assert!(
             path_len > temp_dir.to_string_lossy().len(),

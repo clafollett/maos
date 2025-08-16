@@ -146,10 +146,10 @@ fn bench_path_validator_construction(c: &mut Criterion) {
             |b, &(num_roots, num_patterns)| {
                 b.iter(|| {
                     let roots = (0..num_roots)
-                        .map(|i| temp_dir.join(format!("root_{}", i)))
+                        .map(|i| temp_dir.join(format!("root_{i}")))
                         .collect();
                     let patterns = (0..num_patterns)
-                        .map(|i| format!("**/*pattern_{}.tmp", i))
+                        .map(|i| format!("**/*pattern_{i}.tmp"))
                         .collect();
 
                     PathValidator::new(black_box(roots), black_box(patterns))

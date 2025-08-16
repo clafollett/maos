@@ -21,7 +21,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
         crate::MaosError::Config(crate::ConfigError::InvalidValue {
             field: "log_level".to_string(),
             value: level_filter.to_string(),
-            reason: format!("Invalid log level: {}", e),
+            reason: format!("Invalid log level: {e}"),
         })
     })?;
 
@@ -36,7 +36,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
                     crate::MaosError::Config(crate::ConfigError::InvalidValue {
                         field: "logging".to_string(),
                         value: "subscriber".to_string(),
-                        reason: format!("Failed to initialize tracing subscriber: {}", e),
+                        reason: format!("Failed to initialize tracing subscriber: {e}"),
                     })
                 })?;
         }
@@ -49,7 +49,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
                     crate::MaosError::Config(crate::ConfigError::InvalidValue {
                         field: "logging".to_string(),
                         value: "subscriber".to_string(),
-                        reason: format!("Failed to initialize tracing subscriber: {}", e),
+                        reason: format!("Failed to initialize tracing subscriber: {e}"),
                     })
                 })?;
         }
@@ -62,7 +62,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
                     crate::MaosError::Config(crate::ConfigError::InvalidValue {
                         field: "logging".to_string(),
                         value: "subscriber".to_string(),
-                        reason: format!("Failed to initialize tracing subscriber: {}", e),
+                        reason: format!("Failed to initialize tracing subscriber: {e}"),
                     })
                 })?;
         }
@@ -77,7 +77,7 @@ pub fn init_logging(config: &LoggingConfig) -> Result<()> {
                     crate::MaosError::Config(crate::ConfigError::InvalidValue {
                         field: "logging".to_string(),
                         value: "subscriber".to_string(),
-                        reason: format!("Failed to initialize tracing subscriber: {}", e),
+                        reason: format!("Failed to initialize tracing subscriber: {e}"),
                     })
                 })?;
         }

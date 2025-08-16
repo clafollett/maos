@@ -43,7 +43,7 @@ fn benchmark_concurrent_logging(c: &mut Criterion) {
                         .map(|i| {
                             let logger = Arc::clone(&logger);
                             thread::spawn(move || {
-                                logger.write(&format!("Thread {} entry", i)).unwrap();
+                                logger.write(&format!("Thread {i} entry")).unwrap();
                             })
                         })
                         .collect();

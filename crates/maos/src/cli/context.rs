@@ -51,7 +51,7 @@ impl CliContext {
                 // 🎯 PROPER STDOUT CONTROL: Handle output at application boundary
                 if let Some(output) = result.output {
                     // Only the main application should control stdout, not the library
-                    print!("{}", output);
+                    print!("{output}");
                 }
                 result.exit_code
             }

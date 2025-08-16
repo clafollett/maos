@@ -50,11 +50,7 @@ fn test_valid_paths_accepted() {
 
     // 🎯 Should accept valid paths within workspace
     let result = valid_input.validate_paths(workspace);
-    assert!(
-        result.is_ok(),
-        "Valid paths should be accepted: {:?}",
-        result
-    );
+    assert!(result.is_ok(), "Valid paths should be accepted: {result:?}");
 }
 
 #[test]
@@ -86,8 +82,7 @@ fn test_path_traversal_variants_blocked() {
         let result = malicious_input.validate_paths(workspace);
         assert!(
             result.is_err(),
-            "Attack pattern should be blocked: {}",
-            attack_path
+            "Attack pattern should be blocked: {attack_path}"
         );
     }
 }
@@ -157,7 +152,7 @@ fn test_relative_paths_within_workspace() {
     let result = valid_relative_input.validate_paths(workspace);
 
     // For now, document expected behavior - may need path canonicalization
-    println!("Relative path validation result: {:?}", result);
+    println!("Relative path validation result: {result:?}");
 }
 
 #[test]
@@ -196,7 +191,6 @@ fn test_workspace_boundary_validation() {
     let result = boundary_input.validate_paths(workspace);
     assert!(
         result.is_ok(),
-        "Workspace root should be allowed: {:?}",
-        result
+        "Workspace root should be allowed: {result:?}"
     );
 }

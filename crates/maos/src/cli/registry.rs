@@ -77,7 +77,7 @@ impl HandlerRegistry {
         self.handlers
             .get(key)
             .ok_or_else(|| MaosError::InvalidInput {
-                message: format!("No handler found for command: {}", key),
+                message: format!("No handler found for command: {key}"),
             })
     }
 
@@ -271,8 +271,7 @@ mod tests {
         // Should be O(1) - well under 1 microsecond
         assert!(
             avg_lookup.as_nanos() < 1000,
-            "Lookup too slow: {:?}",
-            avg_lookup
+            "Lookup too slow: {avg_lookup:?}"
         );
     }
 }

@@ -78,7 +78,7 @@ impl CommandHandler for NotificationHandler {
 
         Ok(CommandResult {
             exit_code: ExitCode::Success,
-            output: Some(format!("Notification processed: {}", message)),
+            output: Some(format!("Notification processed: {message}")),
             metrics: ExecutionMetrics::default(),
         })
     }

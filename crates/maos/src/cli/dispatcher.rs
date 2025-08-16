@@ -465,7 +465,7 @@ mod tests {
             assert_eq!(limit, 100);
             assert!(message.contains("exceeded maximum time limit"));
         } else {
-            panic!("Expected ResourceLimit error, got: {:?}", result);
+            panic!("Expected ResourceLimit error, got: {result:?}");
         }
     }
 }

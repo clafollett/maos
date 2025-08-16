@@ -77,7 +77,7 @@ impl CommandHandler for UserPromptSubmitHandler {
 
         Ok(CommandResult {
             exit_code: ExitCode::Success,
-            output: Some(format!("User prompt processed: {}", message)),
+            output: Some(format!("User prompt processed: {message}")),
             metrics: ExecutionMetrics::default(),
         })
     }

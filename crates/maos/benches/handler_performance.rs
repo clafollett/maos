@@ -223,7 +223,7 @@ fn benchmark_concurrent_execution(c: &mut Criterion) {
     let inputs: Vec<HookInput> = (0..10)
         .map(|i| {
             let mut input = create_hook_input(NOTIFICATION);
-            input.message = Some(format!("Concurrent message {}", i));
+            input.message = Some(format!("Concurrent message {i}"));
             input
         })
         .collect();

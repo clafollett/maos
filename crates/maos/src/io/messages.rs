@@ -184,8 +184,7 @@ impl HookInput {
                 {
                     return Err(MaosError::InvalidInput {
                         message: format!(
-                            "Invalid trigger value: {}. Must be 'manual' or 'auto'",
-                            trigger
+                            "Invalid trigger value: {trigger}. Must be 'manual' or 'auto'"
                         ),
                     });
                 }
@@ -205,8 +204,7 @@ impl HookInput {
                 {
                     return Err(MaosError::InvalidInput {
                         message: format!(
-                            "Invalid source value: {}. Must be 'startup', 'resume', or 'clear'",
-                            source
+                            "Invalid source value: {source}. Must be 'startup', 'resume', or 'clear'"
                         ),
                     });
                 }
@@ -276,8 +274,7 @@ impl HookInput {
                 {
                     return Err(MaosError::InvalidInput {
                         message: format!(
-                            "Invalid trigger value: {}. Must be 'manual' or 'auto'",
-                            trigger
+                            "Invalid trigger value: {trigger}. Must be 'manual' or 'auto'"
                         ),
                     });
                 }
@@ -297,8 +294,7 @@ impl HookInput {
                 {
                     return Err(MaosError::InvalidInput {
                         message: format!(
-                            "Invalid source value: {}. Must be 'startup', 'resume', or 'clear'",
-                            source
+                            "Invalid source value: {source}. Must be 'startup', 'resume', or 'clear'"
                         ),
                     });
                 }

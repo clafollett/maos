@@ -5,7 +5,7 @@
 
 use crate::cli::Commands;
 use crate::cli::registry::HandlerRegistry;
-use maos_core::config::MaosConfig;
+use maos_core::{config::MaosConfig, hook_constants::PRE_TOOL_USE};
 use std::sync::Arc;
 use tokio::time::{Duration, sleep};
 
@@ -23,7 +23,7 @@ async fn test_concurrent_handler_access() {
                 for j in 0..100 {
                     let command = Commands::PreToolUse;
                     let handler = registry.get_handler(&command);
-                    assert!(handler.is_ok(), "Thread {} iteration {} failed", i, j);
+                    assert!(handler.is_ok(), "Thread {i} iteration {j} failed");
 
                     // Small delay to increase chance of race conditions if they existed
                     if j % 10 == 0 {
@@ -54,7 +54,7 @@ async fn test_concurrent_registry_read_write() {
                 for j in 0..50 {
                     let command = Commands::Notify;
                     let handler = registry.get_handler(&command);
-                    assert!(handler.is_ok(), "Reader {} iteration {} failed", i, j);
+                    assert!(handler.is_ok(), "Reader {i} iteration {j} failed");
                 }
             })
         })
@@ -88,7 +88,7 @@ async fn test_concurrent_registry_read_write() {
                 }
 
                 for j in 0..25 {
-                    let key = format!("dynamic_handler_{}_{}", i, j);
+                    let key = format!("dynamic_handler_{i}_{j}");
                     registry.register(key, Box::new(DynamicHandler));
                 }
             })
@@ -131,7 +131,7 @@ async fn test_handler_references_are_safe() {
 
                 // Use the handler reference
                 let name = handler_ref.name();
-                assert_eq!(name, "pre_tool_use");
+                assert_eq!(name, PRE_TOOL_USE);
 
                 // Reference should remain valid
                 drop(handler_ref);
@@ -172,9 +172,7 @@ async fn test_no_deadlocks_under_stress() {
                     let handler = registry.get_handler(command);
                     assert!(
                         handler.is_ok(),
-                        "Stress test failed at thread {} iteration {}",
-                        i,
-                        j
+                        "Stress test failed at thread {i} iteration {j}"
                     );
 
                     // Random micro-delays to increase scheduling unpredictability

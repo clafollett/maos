@@ -332,7 +332,7 @@ mod cli_tests {
     #[test]
     fn test_commands_have_debug() {
         let cmd = Commands::PreToolUse;
-        let debug_str = format!("{:?}", cmd);
+        let debug_str = format!("{cmd:?}");
         assert!(debug_str.contains("PreToolUse"));
     }
 

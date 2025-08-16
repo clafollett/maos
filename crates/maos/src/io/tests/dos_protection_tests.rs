@@ -164,11 +164,7 @@ fn test_performance_under_limit() {
     let elapsed = start.elapsed();
 
     // Should complete very quickly (well under 1ms)
-    assert!(
-        elapsed.as_millis() < 10,
-        "Validation too slow: {:?}",
-        elapsed
-    );
+    assert!(elapsed.as_millis() < 10, "Validation too slow: {elapsed:?}");
 }
 
 #[tokio::test]
@@ -237,9 +233,9 @@ async fn test_concurrent_size_validation() {
                 let result = proc.validate_size(size);
 
                 if size <= proc.max_size() {
-                    assert!(result.is_ok(), "Size {} should be valid", size);
+                    assert!(result.is_ok(), "Size {size} should be valid");
                 } else {
-                    assert!(result.is_err(), "Size {} should be invalid", size);
+                    assert!(result.is_err(), "Size {size} should be invalid");
                 }
             }
         });

@@ -841,7 +841,7 @@ fn test_schema_error_display() {
         errors: vec!["Missing field: tool_name".to_string()],
     };
 
-    let display = format!("{}", error);
+    let display = format!("{error}");
     assert!(display.contains("HookInput"));
     assert!(display.contains("Missing field: tool_name"));
 }

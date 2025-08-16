@@ -33,7 +33,7 @@ fn benchmark_concurrent_metrics(c: &mut Criterion) {
                             let metrics = Arc::clone(&metrics);
                             thread::spawn(move || {
                                 metrics.record_execution_time(
-                                    &format!("op_{}", i),
+                                    &format!("op_{i}"),
                                     Duration::from_micros(100),
                                 );
                             })

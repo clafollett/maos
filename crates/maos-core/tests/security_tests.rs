@@ -40,8 +40,7 @@ mod path_traversal_attacks {
             let result = validator.validate_workspace_path(&attack_path, &temp_dir);
             assert!(
                 result.is_err(),
-                "Should block unicode path traversal: {}",
-                attack
+                "Should block unicode path traversal: {attack}"
             );
         }
     }
@@ -77,9 +76,7 @@ mod path_traversal_attacks {
 
                     assert!(
                         canonical.starts_with(&canonical_workspace),
-                        "Should stay within workspace even with invalid UTF-8: {:?} vs {:?}",
-                        canonical,
-                        canonical_workspace
+                        "Should stay within workspace even with invalid UTF-8: {canonical:?} vs {canonical_workspace:?}"
                     );
                 }
                 Err(_) => {
@@ -106,8 +103,7 @@ mod path_traversal_attacks {
             let result = validator.validate_workspace_path(&attack_path, &temp_dir);
             assert!(
                 result.is_err(),
-                "Should block case variation attack: {}",
-                attack
+                "Should block case variation attack: {attack}"
             );
         }
     }
@@ -139,10 +135,7 @@ mod path_traversal_attacks {
 
                     assert!(
                         canonical.starts_with(&canonical_workspace),
-                        "Should stay within workspace bounds for symlink traversal: {} -> {:?} vs {:?}",
-                        attack,
-                        canonical,
-                        canonical_workspace
+                        "Should stay within workspace bounds for symlink traversal: {attack} -> {canonical:?} vs {canonical_workspace:?}"
                     );
                 }
                 Err(_) => {
@@ -209,10 +202,7 @@ mod path_injection_attacks {
 
                     assert!(
                         canonical.starts_with(&canonical_workspace),
-                        "Should stay within workspace for null byte injection: {:?} -> {:?} vs {:?}",
-                        attack,
-                        canonical,
-                        canonical_workspace
+                        "Should stay within workspace for null byte injection: {attack:?} -> {canonical:?} vs {canonical_workspace:?}"
                     );
                 }
                 Err(_) => {
@@ -250,10 +240,7 @@ mod path_injection_attacks {
 
                     assert!(
                         canonical.starts_with(&canonical_workspace),
-                        "Should stay within workspace for newline injection: {:?} -> {:?} vs {:?}",
-                        attack,
-                        canonical,
-                        canonical_workspace
+                        "Should stay within workspace for newline injection: {attack:?} -> {canonical:?} vs {canonical_workspace:?}"
                     );
                 }
                 Err(_) => {
@@ -285,8 +272,7 @@ mod path_injection_attacks {
 
                 assert!(
                     canonical.starts_with(&canonical_workspace),
-                    "Should stay within workspace for control char: {:?}",
-                    attack
+                    "Should stay within workspace for control char: {attack:?}"
                 );
             }
         }
@@ -318,7 +304,7 @@ mod glob_evasion_attacks {
 
             // Verify the blocking logic is working as expected
             if attack.ends_with(".secret") || attack.ends_with(".key") {
-                assert!(is_blocked, "Should block pattern match: {}", attack);
+                assert!(is_blocked, "Should block pattern match: {attack}");
             } else {
                 // These are evasion attempts that should NOT be blocked by our current patterns
                 // This validates that our patterns work correctly without being overly broad
@@ -354,8 +340,7 @@ mod glob_evasion_attacks {
             let is_secure = is_blocked || validation_result.is_err();
             assert!(
                 is_secure,
-                "Attack should be blocked by at least one layer: {}",
-                attack
+                "Attack should be blocked by at least one layer: {attack}"
             );
         }
     }
@@ -387,9 +372,7 @@ mod normalization_bypass_attacks {
                 // URL decoding worked if we see regular path separators
                 assert!(
                     normalized_str.contains("/") && !normalized_str.contains("%2F"),
-                    "URL encoded path should be decoded: {} -> {}",
-                    attack,
-                    normalized_str
+                    "URL encoded path should be decoded: {attack} -> {normalized_str}"
                 );
             } else {
                 // For regular paths, check that dangerous patterns are resolved
@@ -398,8 +381,7 @@ mod normalization_bypass_attacks {
                     || normalized_str.starts_with("../../"); // These are safe relative patterns
                 assert!(
                     is_safe,
-                    "Normalized path should be safe: {} -> {}",
-                    attack, normalized_str
+                    "Normalized path should be safe: {attack} -> {normalized_str}"
                 );
             }
         }
@@ -461,9 +443,7 @@ mod normalization_bypass_attacks {
 
             assert!(
                 paths_equal(path1, path2),
-                "Equivalent paths should be equal: {} vs {}",
-                path1_str,
-                path2_str
+                "Equivalent paths should be equal: {path1_str} vs {path2_str}"
             );
         }
     }
@@ -536,16 +516,14 @@ mod workspace_isolation_attacks {
             // Generated workspace should still be within temp_dir
             assert!(
                 workspace.starts_with(&temp_dir),
-                "Malicious agent type should not escape workspace: {:?}",
-                workspace
+                "Malicious agent type should not escape workspace: {workspace:?}"
             );
 
             // The workspace should contain the malicious string as-is (not interpreted)
             let workspace_str = workspace.to_string_lossy();
             assert!(
                 workspace_str.contains(&malicious_agent),
-                "Agent type should be included literally: {}",
-                workspace_str
+                "Agent type should be included literally: {workspace_str}"
             );
         }
     }

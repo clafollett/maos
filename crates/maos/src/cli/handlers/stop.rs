@@ -87,7 +87,7 @@ impl CommandHandler for StopHandler {
 
         Ok(CommandResult {
             exit_code: ExitCode::Success,
-            output: Some(format!("Stop hook executed with status: {}", status)),
+            output: Some(format!("Stop hook executed with status: {status}")),
             metrics: ExecutionMetrics::default(),
         })
     }
