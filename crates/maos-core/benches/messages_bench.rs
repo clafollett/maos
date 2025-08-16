@@ -2,9 +2,10 @@
 //!
 //! Run with: cargo bench -p maos-core
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use maos_core::messages::{HookInput, HookResponse, NotificationMessage, SchemaValidator};
 use serde_json::json;
+use std::hint::black_box;
 
 fn bench_hook_input_parsing(c: &mut Criterion) {
     // Test PreToolUse event

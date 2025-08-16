@@ -2,9 +2,10 @@
 //!
 //! Run with: cargo bench -p maos
 
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use maos::io::HookInput;
 use serde_json::json;
+use std::hint::black_box;
 
 fn bench_hook_input_parsing(c: &mut Criterion) {
     // Small message (1KB)

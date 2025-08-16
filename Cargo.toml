@@ -10,10 +10,46 @@ license = "MIT"
 repository = "https://github.com/clafollett/maos"
 
 [workspace.dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-thiserror = "2.0"
-anyhow = "1.0"
-clap = { version = "4.0", features = ["derive"] }
-tokio = { version = "1", features = ["rt", "macros"] }
-uuid = { version = "1.11", features = ["v4", "serde"] }
+# Core serialization
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0.142"
+
+# Error handling
+thiserror = "2.0.15"
+anyhow = "1.0.99"
+
+# CLI and async runtime
+clap = { version = "4.5.45", features = ["derive"] }
+tokio = { version = "1.47.1", features = ["rt", "macros"] }
+
+# Utilities
+uuid = { version = "1.18.0", features = ["v4", "serde"] }
+bytes = "1.10.1"
+async-trait = "0.1.89"
+chrono = { version = "0.4.41", features = ["serde"] }
+
+# File operations
+dunce = "1.0.5"
+glob = "0.3.3"
+globset = "0.4.16"
+dirs = "6.0.0"
+
+# Logging and tracing
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter", "json", "fmt"] }
+
+# Concurrency and compression
+parking_lot = "0.12.4"
+flate2 = "1.1.2"
+
+# JSON schema validation
+jsonschema = "0.32.1"
+schemars = "1.0.4"
+
+# Development dependencies
+criterion = { version = "0.7.0", features = ["async_tokio"] }
+proptest = "1.7.0"
+tempfile = "3.20.0"
+assert_cmd = "2.0.17"
+predicates = "3.1.3"
+futures = "0.3.31"

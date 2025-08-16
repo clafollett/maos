@@ -42,14 +42,17 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "pre_tool_use",
+            "hook_event_name": maos_core::hook_constants::PRE_TOOL_USE,
             "tool_name": "Bash",
             "tool_input": {"command": "ls -la"}
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
         assert_eq!(input.session_id, "sess_123");
-        assert_eq!(input.hook_event_name, "pre_tool_use");
+        assert_eq!(
+            input.hook_event_name,
+            maos_core::hook_constants::PRE_TOOL_USE
+        );
         assert_eq!(input.tool_name.unwrap(), "Bash");
         assert!(input.tool_input.is_some());
     }
@@ -60,14 +63,17 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "post_tool_use",
+            "hook_event_name": maos_core::hook_constants::POST_TOOL_USE,
             "tool_name": "Bash",
             "tool_input": {"command": "ls"},
             "tool_response": {"output": "file1.txt\nfile2.txt"}
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
-        assert_eq!(input.hook_event_name, "post_tool_use");
+        assert_eq!(
+            input.hook_event_name,
+            maos_core::hook_constants::POST_TOOL_USE
+        );
         assert!(input.tool_response.is_some());
     }
 
@@ -77,12 +83,15 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "notification",
+            "hook_event_name": maos_core::hook_constants::NOTIFICATION,
             "message": "Task completed successfully"
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
-        assert_eq!(input.hook_event_name, "notification");
+        assert_eq!(
+            input.hook_event_name,
+            maos_core::hook_constants::NOTIFICATION
+        );
         assert_eq!(input.message.unwrap(), "Task completed successfully");
     }
 
@@ -92,12 +101,15 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "user_prompt_submit",
+            "hook_event_name": maos_core::hook_constants::USER_PROMPT_SUBMIT,
             "prompt": "Please help me fix this bug"
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
-        assert_eq!(input.hook_event_name, "user_prompt_submit");
+        assert_eq!(
+            input.hook_event_name,
+            maos_core::hook_constants::USER_PROMPT_SUBMIT
+        );
         assert_eq!(input.prompt.unwrap(), "Please help me fix this bug");
     }
 
@@ -107,12 +119,12 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "stop",
+            "hook_event_name": maos_core::hook_constants::STOP,
             "stop_hook_active": true
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
-        assert_eq!(input.hook_event_name, "stop");
+        assert_eq!(input.hook_event_name, maos_core::hook_constants::STOP);
         assert!(input.stop_hook_active.unwrap());
     }
 
@@ -122,12 +134,15 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "subagent_stop",
+            "hook_event_name": maos_core::hook_constants::SUBAGENT_STOP,
             "stop_hook_active": false
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
-        assert_eq!(input.hook_event_name, "subagent_stop");
+        assert_eq!(
+            input.hook_event_name,
+            maos_core::hook_constants::SUBAGENT_STOP
+        );
         assert!(!input.stop_hook_active.unwrap());
     }
 
@@ -137,13 +152,16 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "pre_compact",
+            "hook_event_name": maos_core::hook_constants::PRE_COMPACT,
             "trigger": "auto",
             "custom_instructions": "Keep recent context"
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
-        assert_eq!(input.hook_event_name, "pre_compact");
+        assert_eq!(
+            input.hook_event_name,
+            maos_core::hook_constants::PRE_COMPACT
+        );
         assert_eq!(input.trigger.unwrap(), "auto");
         assert_eq!(input.custom_instructions.unwrap(), "Keep recent context");
     }
@@ -154,12 +172,15 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "session_start",
+            "hook_event_name": maos_core::hook_constants::SESSION_START,
             "source": "startup"
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
-        assert_eq!(input.hook_event_name, "session_start");
+        assert_eq!(
+            input.hook_event_name,
+            maos_core::hook_constants::SESSION_START
+        );
         assert_eq!(input.source.unwrap(), "startup");
     }
 
@@ -183,12 +204,12 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "stop"
+            "hook_event_name": maos_core::hook_constants::STOP
             // stop_hook_active is optional
         });
 
         let input: HookInput = serde_json::from_value(json).unwrap();
-        assert_eq!(input.hook_event_name, "stop");
+        assert_eq!(input.hook_event_name, maos_core::hook_constants::STOP);
         assert!(input.stop_hook_active.is_none());
     }
 
@@ -200,7 +221,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "pre_tool_use".to_string(),
+            hook_event_name: maos_core::hook_constants::PRE_TOOL_USE.to_string(),
             tool_name: Some("Bash".to_string()),
             tool_input: Some(json!({"command": "ls"})),
             tool_response: None,
@@ -217,7 +238,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "notification".to_string(),
+            hook_event_name: maos_core::hook_constants::NOTIFICATION.to_string(),
             tool_name: None,
             tool_input: None,
             tool_response: None,
@@ -237,7 +258,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "pre_tool_use".to_string(),
+            hook_event_name: maos_core::hook_constants::PRE_TOOL_USE.to_string(),
             tool_name: Some("Bash".to_string()),
             tool_input: None,
             tool_response: None,
@@ -254,7 +275,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "notification".to_string(),
+            hook_event_name: maos_core::hook_constants::NOTIFICATION.to_string(),
             tool_name: None,
             tool_input: None,
             tool_response: None,
@@ -276,7 +297,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "pre_tool_use".to_string(),
+            hook_event_name: maos_core::hook_constants::PRE_TOOL_USE.to_string(),
             tool_name: Some("Bash".to_string()),
             tool_input: Some(json!({"command": "ls"})),
             tool_response: None,
@@ -302,7 +323,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "notification".to_string(),
+            hook_event_name: maos_core::hook_constants::NOTIFICATION.to_string(),
             tool_name: None,
             tool_input: None,
             tool_response: None,
@@ -335,7 +356,7 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "notification",
+            "hook_event_name": maos_core::hook_constants::NOTIFICATION,
             "message": "Test",
             "extra_field": "should be ignored",
             "another_extra": 123
@@ -352,7 +373,7 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "pre_tool_use",
+            "hook_event_name": maos_core::hook_constants::PRE_TOOL_USE,
             "tool_name": "Write",
             "tool_input": {"content": large_data.clone()}
         });
@@ -371,7 +392,7 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "notification",
+            "hook_event_name": maos_core::hook_constants::NOTIFICATION,
             "message": "Test"
         });
 
@@ -396,7 +417,7 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "pre_tool_use",
+            "hook_event_name": maos_core::hook_constants::PRE_TOOL_USE,
             "tool_name": "Write",
             "tool_input": {
                 "content": "x".repeat(10000)  // 10KB
@@ -424,7 +445,7 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "post_tool_use",
+            "hook_event_name": maos_core::hook_constants::POST_TOOL_USE,
             "tool_name": "Read",
             "tool_input": {"file": "large.txt"},
             "tool_response": {
@@ -466,7 +487,7 @@ mod io_tests {
             "session_id": "sess_123",
             "transcript_path": "/tmp/transcript.jsonl",
             "cwd": "/workspace",
-            "hook_event_name": "notification",
+            "hook_event_name": maos_core::hook_constants::NOTIFICATION,
             "message": "x".repeat(1000)
         });
 
@@ -541,7 +562,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "pre_tool_use".to_string(),
+            hook_event_name: maos_core::hook_constants::PRE_TOOL_USE.to_string(),
             tool_name: None,  // Missing required field for pre_tool_use
             tool_input: None, // Missing required field for pre_tool_use
             tool_response: None,
@@ -562,7 +583,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "session_start".to_string(),
+            hook_event_name: maos_core::hook_constants::SESSION_START.to_string(),
             tool_name: None,
             tool_input: None,
             tool_response: None,
@@ -588,7 +609,7 @@ mod io_tests {
             session_id: "sess_123".to_string(),
             transcript_path: PathBuf::from("/tmp/transcript.jsonl"),
             cwd: PathBuf::from("/workspace"),
-            hook_event_name: "pre_compact".to_string(),
+            hook_event_name: maos_core::hook_constants::PRE_COMPACT.to_string(),
             tool_name: None,
             tool_input: None,
             tool_response: None,

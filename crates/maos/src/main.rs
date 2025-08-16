@@ -1,39 +1,27 @@
 use clap::Parser;
-use maos::cli::{Cli, Commands};
+use maos::cli::{Cli, CliContext};
+use maos_core::ExitCode;
 
-fn main() -> std::process::ExitCode {
+#[tokio::main]
+async fn main() -> std::process::ExitCode {
+    // Parse command line arguments
     let cli = Cli::parse();
 
-    // Log the command being processed
-    eprintln!("MAOS: Processing {} hook", cli.command.hook_event_name());
+    // Build the CLI context with dispatcher and handlers
+    match CliContext::build().await {
+        Ok(context) => {
+            // Execute the command through the dispatcher
+            let exit_code = context.execute(cli.command).await;
 
-    // For now, acknowledge the command and exit successfully
-    match cli.command {
-        Commands::PreToolUse => {
-            eprintln!("Ready to intercept tool execution");
+            // Convert MAOS exit code to process exit code
+            match exit_code {
+                ExitCode::Success => std::process::ExitCode::SUCCESS,
+                _ => std::process::ExitCode::from(exit_code as u8),
+            }
         }
-        Commands::PostToolUse => {
-            eprintln!("Ready to process tool result");
-        }
-        Commands::Notify => {
-            eprintln!("Ready to handle notification");
-        }
-        Commands::Stop { chat } => {
-            eprintln!("Session ending (chat export: {})", chat);
-        }
-        Commands::SubagentStop => {
-            eprintln!("Subagent completed");
-        }
-        Commands::UserPromptSubmit { validate } => {
-            eprintln!("Processing user prompt (validate: {})", validate);
-        }
-        Commands::PreCompact => {
-            eprintln!("Preparing for conversation compaction");
-        }
-        Commands::SessionStart => {
-            eprintln!("Session initialized");
+        Err(err) => {
+            eprintln!("Error initializing MAOS: {}", err);
+            std::process::ExitCode::FAILURE
         }
     }
-
-    std::process::ExitCode::SUCCESS
 }

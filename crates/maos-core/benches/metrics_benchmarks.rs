@@ -1,6 +1,7 @@
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use maos_core::metrics::PerformanceMetrics;
 use maos_core::timed_operation;
+use std::hint::black_box;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;

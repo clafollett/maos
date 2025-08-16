@@ -3,9 +3,10 @@
 //! This benchmark suite measures the performance of core path operations
 //! to ensure they meet performance requirements for high-frequency usage.
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use maos_core::path::{PathValidator, normalize_path, paths_equal, relative_path};
 use maos_core::{AgentType, SessionId};
+use std::hint::black_box;
 use std::path::{Path, PathBuf};
 
 /// Benchmark normalize_path function with various path complexities

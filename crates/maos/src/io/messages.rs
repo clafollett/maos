@@ -26,13 +26,13 @@ use std::path::PathBuf;
 ///     "session_id": "sess_123",
 ///     "transcript_path": "/tmp/transcript.jsonl",
 ///     "cwd": "/workspace",
-///     "hook_event_name": "pre_tool_use",
+///     "hook_event_name": maos_core::hook_constants::PRE_TOOL_USE,
 ///     "tool_name": "Bash",
 ///     "tool_input": {"command": "ls"}
 /// });
 ///
 /// let input: HookInput = serde_json::from_value(json).unwrap();
-/// assert_eq!(input.hook_event_name, "pre_tool_use");
+/// assert_eq!(input.hook_event_name, maos_core::hook_constants::PRE_TOOL_USE);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HookInput {
@@ -91,12 +91,32 @@ pub struct HookInput {
     pub source: Option<String>,
 }
 
+impl Default for HookInput {
+    fn default() -> Self {
+        Self {
+            session_id: String::new(),
+            transcript_path: PathBuf::new(),
+            cwd: PathBuf::new(),
+            hook_event_name: String::new(),
+            tool_name: None,
+            tool_input: None,
+            tool_response: None,
+            message: None,
+            prompt: None,
+            stop_hook_active: None,
+            trigger: None,
+            custom_instructions: None,
+            source: None,
+        }
+    }
+}
+
 impl HookInput {
     /// Check if this is a tool-related event
     pub fn is_tool_event(&self) -> bool {
         matches!(
             self.hook_event_name.as_str(),
-            "pre_tool_use" | "post_tool_use"
+            maos_core::hook_constants::PRE_TOOL_USE | maos_core::hook_constants::POST_TOOL_USE
         )
     }
 
@@ -108,14 +128,14 @@ impl HookInput {
     /// Validate that required fields are present for the hook type
     pub fn validate(&self) -> Result<()> {
         match self.hook_event_name.as_str() {
-            "pre_tool_use" => {
+            maos_core::hook_constants::PRE_TOOL_USE => {
                 if self.tool_name.is_none() || self.tool_input.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "pre_tool_use requires tool_name and tool_input".to_string(),
                     });
                 }
             }
-            "post_tool_use" => {
+            maos_core::hook_constants::POST_TOOL_USE => {
                 if self.tool_name.is_none()
                     || self.tool_input.is_none()
                     || self.tool_response.is_none()
@@ -126,21 +146,21 @@ impl HookInput {
                     });
                 }
             }
-            "notification" => {
+            maos_core::hook_constants::NOTIFICATION => {
                 if self.message.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "notification requires message".to_string(),
                     });
                 }
             }
-            "user_prompt_submit" => {
+            maos_core::hook_constants::USER_PROMPT_SUBMIT => {
                 if self.prompt.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "user_prompt_submit requires prompt".to_string(),
                     });
                 }
             }
-            "pre_compact" => {
+            maos_core::hook_constants::PRE_COMPACT => {
                 if self.trigger.is_none() || self.custom_instructions.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "pre_compact requires trigger and custom_instructions".to_string(),
@@ -160,7 +180,7 @@ impl HookInput {
                     });
                 }
             }
-            "session_start" => {
+            maos_core::hook_constants::SESSION_START => {
                 if self.source.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "session_start requires source".to_string(),
@@ -181,7 +201,7 @@ impl HookInput {
                     });
                 }
             }
-            "stop" | "subagent_stop" => {
+            maos_core::hook_constants::STOP | maos_core::hook_constants::SUBAGENT_STOP => {
                 // stop_hook_active is optional
             }
             _ => {

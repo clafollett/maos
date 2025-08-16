@@ -154,6 +154,11 @@ impl StdinProcessor {
         Ok(&self.buffer)
     }
 
+    /// Read HookInput from stdin
+    pub async fn read_hook_input(&mut self) -> Result<crate::io::HookInput> {
+        self.read_json().await
+    }
+
     /// Validate JSON depth to prevent JSON bomb attacks
     pub fn validate_json_depth_static(input: &[u8], max_depth: u32) -> Result<()> {
         let mut depth = 0u32;

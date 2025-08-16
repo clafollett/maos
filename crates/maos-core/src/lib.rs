@@ -38,17 +38,11 @@ pub mod types;
 pub mod config;
 pub mod constants;
 pub mod error;
+pub mod hook_events;
 pub mod logging;
 pub mod messages;
 pub mod metrics;
 pub mod path;
-
-// Re-export commonly used types
-pub use types::{
-    agent::{AgentCapabilities, AgentId, AgentInfo, AgentStatus, AgentType},
-    session::{Session, SessionId, SessionStatus},
-    tool::{ToolCall, ToolCallId, ToolResult},
-};
 
 // Re-export error types
 pub use error::{
@@ -56,5 +50,15 @@ pub use error::{
     PathValidationError, Result, SecurityError, SessionError, ValidationError,
 };
 
+// Re-export hook event types
+pub use hook_events::{HookEvent, category_constants, constants as hook_constants};
+
 // Re-export metrics types
 pub use metrics::{ExecutionStats, MemoryStats, MetricsReport, PerformanceMetrics};
+
+// Re-export commonly used types
+pub use types::{
+    agent::{AgentCapabilities, AgentId, AgentInfo, AgentStatus, AgentType},
+    session::{Session, SessionId, SessionStatus},
+    tool::{ToolCall, ToolCallId, ToolResult},
+};
