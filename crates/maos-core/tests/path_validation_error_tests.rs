@@ -17,7 +17,8 @@ mod path_validation_error_tests {
         };
         let display = format!("{}", error);
         assert!(display.contains("Path traversal attempt blocked"));
-        assert!(display.contains("../../../etc/passwd"));
+        // 🔒 SECURITY TEST: Path info should NOT be leaked
+        assert!(!display.contains("../../../etc/passwd"));
     }
 
     #[test]
@@ -27,17 +28,19 @@ mod path_validation_error_tests {
             workspace: PathBuf::from("/workspace"),
         };
         let display = format!("{}", error);
-        assert!(display.contains("Path outside workspace"));
-        assert!(display.contains("/etc/passwd"));
-        assert!(display.contains("/workspace"));
+        assert!(display.contains("Path outside allowed workspace boundary"));
+        // 🔒 SECURITY TEST: Sensitive path info should NOT be leaked
+        assert!(!display.contains("/etc/passwd"));
+        assert!(!display.contains("/workspace"));
     }
 
     #[test]
     fn test_blocked_path_error_display() {
         let error = PathValidationError::BlockedPath(PathBuf::from("/workspace/.git/hooks"));
         let display = format!("{}", error);
-        assert!(display.contains("Blocked path pattern"));
-        assert!(display.contains(".git/hooks"));
+        assert!(display.contains("Access to path blocked by security policy"));
+        // 🔒 SECURITY TEST: Specific blocked path should NOT be leaked
+        assert!(!display.contains(".git/hooks"));
     }
 
     #[test]
@@ -46,8 +49,9 @@ mod path_validation_error_tests {
         let error =
             PathValidationError::CanonicalizationFailed(PathBuf::from("/nonexistent"), io_error);
         let display = format!("{}", error);
-        assert!(display.contains("Canonicalization failed"));
-        assert!(display.contains("/nonexistent"));
+        assert!(display.contains("Path canonicalization failed"));
+        // 🔒 SECURITY TEST: Specific path should NOT be leaked
+        assert!(!display.contains("/nonexistent"));
     }
 
     #[test]
@@ -55,8 +59,9 @@ mod path_validation_error_tests {
         let io_error = std::io::Error::new(std::io::ErrorKind::NotFound, "No such directory");
         let error = PathValidationError::InvalidWorkspace(PathBuf::from("/invalid"), io_error);
         let display = format!("{}", error);
-        assert!(display.contains("Invalid workspace"));
-        assert!(display.contains("/invalid"));
+        assert!(display.contains("Invalid or inaccessible workspace"));
+        // 🔒 SECURITY TEST: Workspace path should NOT be leaked
+        assert!(!display.contains("/invalid"));
     }
 
     #[test]

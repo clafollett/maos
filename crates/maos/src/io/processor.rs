@@ -30,6 +30,8 @@ use tokio::io::{AsyncReadExt, stdin};
 /// ```
 pub struct StdinProcessor {
     buffer: BytesMut,
+    /// 🔥 EFFICIENCY FIX: Reusable read buffer to avoid repeated allocations
+    read_buffer: Vec<u8>,
     config: HookConfig,
 }
 
@@ -38,6 +40,7 @@ impl StdinProcessor {
     pub fn new(config: HookConfig) -> Self {
         Self {
             buffer: BytesMut::with_capacity(8192), // 8KB initial capacity
+            read_buffer: vec![0u8; 8192],          // 🔥 EFFICIENCY FIX: Pre-allocated read buffer
             config,
         }
     }
@@ -94,17 +97,23 @@ impl StdinProcessor {
         let processing_timeout_ms = self.config.max_processing_time_ms;
         let max_depth = self.config.max_json_depth;
 
-        // Read from stdin with total processing timeout
+        // 🔥 CRITICAL FIX: Clean error handling (no more double unwrap anti-pattern)
         let start_time = std::time::Instant::now();
-        let input = tokio::time::timeout(
+        let input = match tokio::time::timeout(
             Duration::from_millis(processing_timeout_ms),
             self.read_to_buffer_with_timeout(stdin_timeout_ms),
         )
         .await
-        .map_err(|_| MaosError::Timeout {
-            operation: "total_processing".to_string(),
-            timeout_ms: processing_timeout_ms,
-        })??;
+        {
+            Ok(Ok(buffer)) => buffer,
+            Ok(Err(io_err)) => return Err(io_err), // Inner I/O error
+            Err(_timeout) => {
+                return Err(MaosError::Timeout {
+                    operation: "total_processing".to_string(),
+                    timeout_ms: processing_timeout_ms,
+                });
+            }
+        };
 
         // Validate JSON depth before parsing
         Self::validate_json_depth_static(input, max_depth)?;
@@ -126,13 +135,13 @@ impl StdinProcessor {
         self.buffer.clear();
 
         let mut stdin = stdin();
-        let mut temp_buffer = vec![0u8; 8192];
+        // 🔥 EFFICIENCY FIX: Use pre-allocated reusable buffer instead of creating new vec
 
         loop {
             // Apply timeout to each read operation
             let n = tokio::time::timeout(
                 Duration::from_millis(timeout_ms),
-                stdin.read(&mut temp_buffer),
+                stdin.read(&mut self.read_buffer),
             )
             .await
             .map_err(|_| MaosError::Timeout {
@@ -147,8 +156,7 @@ impl StdinProcessor {
 
             // Check size before adding to buffer
             self.validate_size(self.buffer.len() + n)?;
-
-            self.buffer.extend_from_slice(&temp_buffer[..n]);
+            self.buffer.extend_from_slice(&self.read_buffer[..n]);
         }
 
         Ok(&self.buffer)

@@ -169,7 +169,7 @@ pub struct MacOsVoiceConfig {
 }
 
 /// ElevenLabs TTS configuration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ElevenLabsVoiceConfig {
     /// Voice ID from ElevenLabs (e.g., "IKne3meq5aSn9XLyUdCD" for Charlie)
@@ -185,11 +185,25 @@ pub struct ElevenLabsVoiceConfig {
     pub output_format: String,
 
     /// Optional API key (prefer environment variable)
+    /// 🔒 SECURITY FIX: Never serialize API keys to prevent leakage
+    #[serde(skip_serializing)]
     pub api_key: Option<String>,
 }
 
+// 🔒 SECURITY FIX: Custom Debug to mask API keys
+impl std::fmt::Debug for ElevenLabsVoiceConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ElevenLabsVoiceConfig")
+            .field("voice_id", &self.voice_id)
+            .field("model", &self.model)
+            .field("output_format", &self.output_format)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
+}
+
 /// OpenAI TTS configuration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OpenAiVoiceConfig {
     /// OpenAI TTS model ("tts-1" or "tts-1-hd")
@@ -201,7 +215,20 @@ pub struct OpenAiVoiceConfig {
     pub voice: String,
 
     /// Optional API key (prefer environment variable)
+    /// 🔒 SECURITY FIX: Never serialize API keys to prevent leakage
+    #[serde(skip_serializing)]
     pub api_key: Option<String>,
+}
+
+// 🔒 SECURITY FIX: Custom Debug to mask API keys
+impl std::fmt::Debug for OpenAiVoiceConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenAiVoiceConfig")
+            .field("model", &self.model)
+            .field("voice", &self.voice)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
 }
 
 /// Pyttsx3 TTS configuration

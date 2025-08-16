@@ -1,9 +1,10 @@
 //! Hook message types compatible with Claude Code JSON format
 
+use maos_core::path::PathValidator;
 use maos_core::{MaosError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// Hook input message from Claude Code
 ///
@@ -210,6 +211,110 @@ impl HookInput {
                 });
             }
         }
+
+        Ok(())
+    }
+
+    /// 🔥 CRITICAL SECURITY FIX: Validate all path fields against workspace boundaries
+    ///
+    /// This method prevents path traversal attacks by ensuring that all path fields
+    /// (transcript_path, cwd) are contained within the specified workspace directory.
+    ///
+    /// # Security
+    ///
+    /// Without this validation, malicious JSON input could access arbitrary files:
+    /// ```json
+    /// {
+    ///   "transcript_path": "../../../etc/passwd",
+    ///   "cwd": "/root/.ssh",
+    ///   "hook_event_name": "pre_tool_use"
+    /// }
+    /// ```
+    ///
+    /// # Arguments
+    ///
+    /// * `workspace` - The trusted workspace directory that all paths must be within
+    ///
+    /// # Errors
+    ///
+    /// Returns `MaosError::InvalidInput` if any path field attempts to escape
+    /// the workspace boundary or contains malicious path components.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use std::path::{Path, PathBuf};
+    /// use maos::io::HookInput;
+    ///
+    /// let input = HookInput {
+    ///     transcript_path: PathBuf::from("/workspace/transcript.jsonl"),
+    ///     cwd: PathBuf::from("/workspace/project"),
+    ///     hook_event_name: "pre_tool_use".to_string(),
+    ///     ..Default::default()
+    /// };
+    ///
+    /// let workspace = Path::new("/workspace");
+    /// input.validate_paths(workspace).unwrap(); // ✅ Safe - within workspace
+    ///
+    /// let malicious_input = HookInput {
+    ///     transcript_path: PathBuf::from("../../../etc/passwd"),
+    ///     cwd: PathBuf::from("/root/.ssh"),
+    ///     hook_event_name: "pre_tool_use".to_string(),
+    ///     ..Default::default()
+    /// };
+    ///
+    /// assert!(malicious_input.validate_paths(workspace).is_err()); // ❌ Blocked
+    /// ```
+    pub fn validate_paths(&self, workspace: &Path) -> Result<()> {
+        // 🚨 SECURITY: Check for empty paths first
+        if self.transcript_path.as_os_str().is_empty() {
+            return Err(MaosError::InvalidInput {
+                message: "Empty transcript path not allowed".to_string(),
+            });
+        }
+
+        if self.cwd.as_os_str().is_empty() {
+            return Err(MaosError::InvalidInput {
+                message: "Empty working directory not allowed".to_string(),
+            });
+        }
+
+        // 🚨 SECURITY: Check for URL schemes that shouldn't be in paths
+        if let Some(transcript_str) = self.transcript_path.to_str()
+            && transcript_str.contains("://")
+        {
+            return Err(MaosError::InvalidInput {
+                message: "URL schemes not allowed in transcript path".to_string(),
+            });
+        }
+
+        if let Some(cwd_str) = self.cwd.to_str()
+            && cwd_str.contains("://")
+        {
+            return Err(MaosError::InvalidInput {
+                message: "URL schemes not allowed in working directory".to_string(),
+            });
+        }
+
+        let validator = PathValidator::new(
+            vec![workspace.to_path_buf()],
+            vec![], // No additional blocked patterns needed - workspace isolation is sufficient
+        );
+
+        // 🛡️ Validate transcript path is within workspace
+        validator
+            .validate_workspace_path(&self.transcript_path, workspace)
+            .map_err(|_e| MaosError::InvalidInput {
+                message:
+                    "Invalid transcript path: Security violation detected (path traversal blocked)"
+                        .to_string(),
+            })?;
+
+        // 🛡️ Validate CWD is within workspace
+        validator.validate_workspace_path(&self.cwd, workspace)
+            .map_err(|_e| MaosError::InvalidInput {
+                message: "Invalid working directory: Security violation detected (path traversal blocked)".to_string(),
+            })?;
 
         Ok(())
     }

@@ -18,12 +18,14 @@ serde_json = { workspace = true }
 anyhow = { workspace = true }
 bytes = { workspace = true }
 async-trait = { workspace = true }
+dashmap = { workspace = true }
 
 [dev-dependencies]
 assert_cmd = { workspace = true }
 predicates = { workspace = true }
 criterion = { workspace = true }
 futures = { workspace = true }
+tempfile = { workspace = true }
 
 [[bench]]
 name = "io_bench"

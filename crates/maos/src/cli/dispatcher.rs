@@ -6,18 +6,24 @@ use maos_core::config::MaosConfig;
 use maos_core::{ExitCode, PerformanceMetrics, Result};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+use tokio::sync::Mutex;
 
-#[cfg(test)]
 use async_trait::async_trait;
 
-/// Trait for input providers (allows mocking in tests)
-#[cfg(test)]
+/// Type alias for async-safe input provider to reduce type complexity
+/// Uses tokio::sync::Mutex for proper async compatibility
+type ThreadSafeInputProvider = Arc<Mutex<Box<dyn InputProvider>>>;
+
+/// 🔥 CRITICAL FIX: Always available trait for input providers (clean architecture)
+///
+/// This trait abstracts input reading to allow proper dependency injection
+/// instead of conditional compilation anti-patterns.
 #[async_trait]
 pub trait InputProvider: Send + Sync {
     async fn read_hook_input(&mut self) -> Result<HookInput>;
 }
 
-#[cfg(test)]
+/// Production implementation using actual stdin
 #[async_trait]
 impl InputProvider for StdinProcessor {
     async fn read_hook_input(&mut self) -> Result<HookInput> {
@@ -26,18 +32,20 @@ impl InputProvider for StdinProcessor {
 }
 
 /// Command dispatcher that routes commands to appropriate handlers
+///
+/// 🔥 CRITICAL FIX: Immutable dispatcher with thread-safe input provider
+/// Clean architecture with dependency injection and no mutable state
 pub struct CommandDispatcher {
     pub config: Arc<MaosConfig>,
     metrics: Arc<PerformanceMetrics>,
     pub registry: HandlerRegistry,
-    #[cfg(test)]
-    input_provider: Box<dyn InputProvider>,
-    #[cfg(not(test))]
-    stdin_processor: StdinProcessor,
+    input_provider: ThreadSafeInputProvider,
 }
 
 impl CommandDispatcher {
-    /// Create a new command dispatcher
+    /// Create a new command dispatcher with production stdin processor
+    ///
+    /// 🔥 CRITICAL FIX: Clean constructor using dependency injection
     pub async fn new(config: Arc<MaosConfig>, metrics: Arc<PerformanceMetrics>) -> Result<Self> {
         let registry = HandlerRegistry::build(&config).await?;
         let stdin_processor = StdinProcessor::new(config.hooks.clone());
@@ -46,15 +54,14 @@ impl CommandDispatcher {
             config,
             metrics,
             registry,
-            #[cfg(test)]
-            input_provider: Box::new(stdin_processor),
-            #[cfg(not(test))]
-            stdin_processor,
+            input_provider: Arc::new(Mutex::new(Box::new(stdin_processor))),
         })
     }
 
-    /// Create dispatcher with mock input provider (for testing)
-    #[cfg(test)]
+    /// Create dispatcher with custom input provider
+    ///
+    /// 🔥 CRITICAL FIX: Always available for clean dependency injection
+    /// This enables both testing with mocks and custom input sources
     pub async fn new_with_input_provider(
         config: Arc<MaosConfig>,
         metrics: Arc<PerformanceMetrics>,
@@ -66,12 +73,14 @@ impl CommandDispatcher {
             config,
             metrics,
             registry,
-            input_provider,
+            input_provider: Arc::new(Mutex::new(input_provider)),
         })
     }
 
     /// Dispatch command to appropriate handler
-    pub async fn dispatch(&mut self, command: Commands) -> Result<ExitCode> {
+    ///
+    /// 🔥 CRITICAL FIX: Now immutable - no &mut self needed for thread safety
+    pub async fn dispatch(&self, command: Commands) -> Result<ExitCode> {
         let start_time = Instant::now();
 
         // Read input if command expects it
@@ -110,16 +119,12 @@ impl CommandDispatcher {
         Ok(result.exit_code)
     }
 
-    /// Read input from stdin
-    async fn read_input(&mut self) -> Result<HookInput> {
-        #[cfg(test)]
-        {
-            self.input_provider.read_hook_input().await
-        }
-        #[cfg(not(test))]
-        {
-            self.stdin_processor.read_hook_input().await
-        }
+    /// Read input using dependency-injected provider
+    ///
+    /// 🔥 CRITICAL FIX: Async-safe access with tokio::sync::Mutex
+    async fn read_input(&self) -> Result<HookInput> {
+        let mut guard = self.input_provider.lock().await;
+        guard.read_hook_input().await
     }
 
     /// Record metrics for the operation
@@ -194,7 +199,7 @@ mod tests {
         });
 
         // Create dispatcher with mock input
-        let mut dispatcher =
+        let dispatcher =
             CommandDispatcher::new_with_input_provider(config, metrics, input_provider)
                 .await
                 .unwrap();
@@ -233,7 +238,7 @@ mod tests {
             should_fail: false,
         });
 
-        let mut dispatcher =
+        let dispatcher =
             CommandDispatcher::new_with_input_provider(config, metrics.clone(), input_provider)
                 .await
                 .unwrap();
@@ -266,7 +271,7 @@ mod tests {
             should_fail: true,
         });
 
-        let mut dispatcher = CommandDispatcher::new_with_input_provider(
+        let dispatcher = CommandDispatcher::new_with_input_provider(
             config.clone(),
             metrics.clone(),
             input_provider,
@@ -284,7 +289,7 @@ mod tests {
             should_fail: false,
         });
 
-        let mut dispatcher =
+        let dispatcher =
             CommandDispatcher::new_with_input_provider(config, metrics, input_provider)
                 .await
                 .unwrap();
@@ -337,7 +342,7 @@ mod tests {
             should_fail: false,
         });
 
-        let mut dispatcher =
+        let dispatcher =
             CommandDispatcher::new_with_input_provider(config, metrics, input_provider)
                 .await
                 .unwrap();

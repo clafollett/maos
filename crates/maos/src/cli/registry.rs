@@ -1,25 +1,31 @@
 //! Handler registry for managing command handlers
 
 use crate::cli::{Commands, handler::CommandHandler};
+use dashmap::DashMap;
 use maos_core::config::MaosConfig;
 use maos_core::{MaosError, Result};
-use std::collections::HashMap;
 
-/// Type alias for command handler storage
-type HandlerMap = HashMap<String, Box<dyn CommandHandler>>;
+/// Type alias for thread-safe command handler storage
+///
+/// 🔥 CRITICAL FIX: Using DashMap instead of HashMap for thread safety
+/// HashMap would cause data races in concurrent access scenarios
+type HandlerMap = DashMap<String, Box<dyn CommandHandler>>;
 
-/// Registry for command handlers with lazy initialization
+/// Type alias for DashMap reference to reduce type complexity
+type HandlerRef<'a> = dashmap::mapref::one::Ref<'a, String, Box<dyn CommandHandler>>;
+
+/// Registry for command handlers with thread-safe concurrent access
+///
+/// 🔥 CRITICAL FIX: No more conditional compilation anti-pattern
+/// Using DashMap provides both thread safety and testing access
 pub struct HandlerRegistry {
-    #[cfg(test)]
-    pub handlers: HandlerMap,
-    #[cfg(not(test))]
     handlers: HandlerMap,
 }
 
 impl HandlerRegistry {
     /// Build handler registry with all command handlers
     pub async fn build(_config: &MaosConfig) -> Result<Self> {
-        let mut handlers = HashMap::new();
+        let handlers = DashMap::new();
 
         // Register all handler implementations using constants
         use crate::cli::handlers::*;
@@ -61,29 +67,83 @@ impl HandlerRegistry {
         Ok(Self { handlers })
     }
 
-    /// Get handler for specific command
-    pub fn get_handler(&self, command: &Commands) -> Result<&dyn CommandHandler> {
+    /// Get handler for specific command (thread-safe concurrent access)
+    ///
+    /// 🔥 CRITICAL FIX: Now uses DashMap for safe concurrent access
+    /// Returns a reference that's safe to use from multiple threads
+    pub fn get_handler(&self, command: &Commands) -> Result<HandlerRef<'_>> {
         let key = command.hook_event_name();
 
         self.handlers
             .get(key)
-            .map(|h| h.as_ref())
             .ok_or_else(|| MaosError::InvalidInput {
                 message: format!("No handler found for command: {}", key),
             })
     }
 
     /// Register a handler (useful for testing)
-    pub fn register(&mut self, key: String, handler: Box<dyn CommandHandler>) {
+    ///
+    /// 🔥 CRITICAL FIX: No longer needs &mut self - DashMap supports concurrent writes
+    pub fn register(&self, key: String, handler: Box<dyn CommandHandler>) {
         self.handlers.insert(key, handler);
     }
 
-    /// Get number of registered handlers
+    /// Get the total number of registered command handlers
+    ///
+    /// # Returns
+    ///
+    /// The count of handlers currently stored in the registry. In a fully
+    /// initialized registry, this should be 8 (one for each Claude Code hook event).
+    ///
+    /// # Thread Safety
+    ///
+    /// This method is thread-safe and can be called concurrently from multiple
+    /// threads without any synchronization overhead.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use maos::cli::HandlerRegistry;
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let config = MaosConfig::default();
+    ///     let registry = HandlerRegistry::build(&config).await.unwrap();
+    ///     
+    ///     assert_eq!(registry.len(), 8); // All 8 hook handlers registered
+    /// }
+    /// ```
     pub fn len(&self) -> usize {
         self.handlers.len()
     }
 
-    /// Check if registry is empty
+    /// Check if the handler registry contains no registered handlers
+    ///
+    /// # Returns
+    ///
+    /// `true` if the registry contains zero handlers, `false` otherwise.
+    /// A properly initialized registry should never be empty.
+    ///
+    /// # Thread Safety
+    ///
+    /// This method is thread-safe and can be called concurrently from multiple
+    /// threads without any synchronization overhead.
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use maos::cli::HandlerRegistry;
+    /// use maos_core::config::MaosConfig;
+    ///
+    /// #[tokio::main]
+    /// async fn main() {
+    ///     let config = MaosConfig::default();
+    ///     let registry = HandlerRegistry::build(&config).await.unwrap();
+    ///     
+    ///     assert!(!registry.is_empty()); // Should have handlers
+    /// }
+    /// ```
     pub fn is_empty(&self) -> bool {
         self.handlers.is_empty()
     }
@@ -128,8 +188,8 @@ mod tests {
 
     #[test]
     fn test_registry_get_handler() {
-        let mut registry = HandlerRegistry {
-            handlers: HashMap::new(),
+        let registry = HandlerRegistry {
+            handlers: DashMap::new(),
         };
 
         // Register a test handler
@@ -143,8 +203,8 @@ mod tests {
 
         // Should find handler for PreToolUse command
         let command = Commands::PreToolUse;
-        let handler = registry.get_handler(&command).unwrap();
-        assert_eq!(handler.name(), "pre_tool_handler");
+        let handler_ref = registry.get_handler(&command).unwrap();
+        assert_eq!(handler_ref.name(), "pre_tool_handler");
 
         // Should fail for unregistered command
         let command = Commands::PostToolUse;
@@ -153,8 +213,8 @@ mod tests {
 
     #[test]
     fn test_registry_lazy_initialization() {
-        let mut registry = HandlerRegistry {
-            handlers: HashMap::new(),
+        let registry = HandlerRegistry {
+            handlers: DashMap::new(),
         };
 
         assert_eq!(registry.len(), 0);
@@ -176,8 +236,8 @@ mod tests {
     fn test_registry_handler_lookup_performance() {
         use std::time::Instant;
 
-        let mut registry = HandlerRegistry {
-            handlers: HashMap::new(),
+        let registry = HandlerRegistry {
+            handlers: DashMap::new(),
         };
 
         // Register all 8 handler types

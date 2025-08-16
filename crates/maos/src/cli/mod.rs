@@ -13,3 +13,6 @@ pub use registry::HandlerRegistry;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod thread_safety_tests;

@@ -6,8 +6,11 @@
 pub mod messages;
 pub mod processor;
 
-#[cfg(test)]
-mod tests;
-
 pub use messages::HookInput;
 pub use processor::StdinProcessor;
+
+#[cfg(test)]
+mod tests {
+    mod error_handling_tests;
+    mod security_tests;
+}

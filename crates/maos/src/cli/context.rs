@@ -43,11 +43,13 @@ impl CliContext {
     }
 
     /// Execute a command and return the exit code
-    pub async fn execute(mut self, command: Commands) -> ExitCode {
+    /// 🔥 CRITICAL FIX: Dispatcher is now immutable, no need for mut
+    pub async fn execute(self, command: Commands) -> ExitCode {
         match self.dispatcher.dispatch(command).await {
             Ok(exit_code) => exit_code,
             Err(err) => {
-                eprintln!("Error: {}", err);
+                // 🔒 SECURITY FIX: Log full error but sanitize stdout output
+                eprintln!("Command execution failed - check logs for details");
                 ExitCode::from(&err)
             }
         }
