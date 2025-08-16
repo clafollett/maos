@@ -56,16 +56,23 @@ pub enum Commands {
 impl Commands {
     /// Returns the Claude Code hook event name for this command
     pub fn hook_event_name(&self) -> &'static str {
-        use maos_core::hook_constants::*;
+        // 🔥 TYPE SAFETY: Use enum conversion for consistency
+        self.to_hook_event().as_str()
+    }
+
+    /// Convert command to strongly-typed HookEvent enum
+    /// 🔥 TYPE SAFETY ENHANCEMENT: Ensures consistent mapping
+    pub fn to_hook_event(&self) -> maos_core::hook_events::HookEvent {
+        use maos_core::hook_events::HookEvent;
         match self {
-            Commands::PreToolUse => PRE_TOOL_USE,
-            Commands::PostToolUse => POST_TOOL_USE,
-            Commands::Notify => NOTIFICATION,
-            Commands::Stop { .. } => STOP,
-            Commands::SubagentStop => SUBAGENT_STOP,
-            Commands::UserPromptSubmit { .. } => USER_PROMPT_SUBMIT,
-            Commands::PreCompact => PRE_COMPACT,
-            Commands::SessionStart => SESSION_START,
+            Commands::PreToolUse => HookEvent::PreToolUse,
+            Commands::PostToolUse => HookEvent::PostToolUse,
+            Commands::Notify => HookEvent::Notification,
+            Commands::Stop { .. } => HookEvent::Stop,
+            Commands::SubagentStop => HookEvent::SubagentStop,
+            Commands::UserPromptSubmit { .. } => HookEvent::UserPromptSubmit,
+            Commands::PreCompact => HookEvent::PreCompact,
+            Commands::SessionStart => HookEvent::SessionStart,
         }
     }
 

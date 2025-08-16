@@ -1,9 +1,9 @@
 //! Command dispatcher for routing commands to handlers
 
-use crate::cli::{Commands, registry::HandlerRegistry};
+use crate::cli::{Commands, handler::CommandResult, registry::HandlerRegistry};
 use crate::io::{HookInput, StdinProcessor};
 use maos_core::config::MaosConfig;
-use maos_core::{ExitCode, PerformanceMetrics, Result};
+use maos_core::{MaosError, PerformanceMetrics, Result};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::Mutex;
@@ -80,7 +80,8 @@ impl CommandDispatcher {
     /// Dispatch command to appropriate handler
     ///
     /// 🔥 CRITICAL FIX: Now immutable - no &mut self needed for thread safety
-    pub async fn dispatch(&self, command: Commands) -> Result<ExitCode> {
+    /// ✅ STDOUT CONTROL REMOVED: Returns full CommandResult with optional output
+    pub async fn dispatch(&self, command: Commands) -> Result<CommandResult> {
         let start_time = Instant::now();
 
         // Read input if command expects it
@@ -98,10 +99,43 @@ impl CommandDispatcher {
         handler.validate_input(&input)?;
         let validation_time = validation_start.elapsed();
 
-        // Execute handler
+        // Execute handler with timeout protection
         let handler_start = Instant::now();
-        let mut result = handler.execute(input).await?;
+        let execution_timeout = Duration::from_millis(self.config.system.max_execution_time_ms);
+
+        // 🛡️ RESOURCE LIMIT: Enforce maximum execution time to prevent runaway handlers
+        let mut result = match tokio::time::timeout(execution_timeout, handler.execute(input)).await
+        {
+            Ok(result) => result?,
+            Err(_timeout) => {
+                return Err(MaosError::ResourceLimit {
+                    resource: "execution_time".to_string(),
+                    limit: self.config.system.max_execution_time_ms,
+                    actual: execution_timeout.as_millis() as u64,
+                    message: format!(
+                        "Handler execution exceeded maximum time limit of {}ms",
+                        self.config.system.max_execution_time_ms
+                    ),
+                });
+            }
+        };
         let handler_time = handler_start.elapsed();
+
+        // 🛡️ RESOURCE LIMIT: Check memory usage after handler execution
+        let memory_usage = StdinProcessor::get_memory_usage();
+        let memory_limit_mb = self.config.hooks.max_input_size_mb; // Reuse input limit for memory
+        let memory_limit_bytes = (memory_limit_mb * 1024 * 1024) as usize;
+
+        if memory_usage > memory_limit_bytes {
+            tracing::warn!(
+                "High memory usage detected after handler execution: {} bytes ({}% of {}MB limit)",
+                memory_usage,
+                (memory_usage * 100) / memory_limit_bytes,
+                memory_limit_mb
+            );
+            // Note: We log but don't fail here since memory cleanup is async
+            // Future enhancement could add stricter memory enforcement
+        }
 
         // Update metrics
         result.metrics.validation_time = validation_time;
@@ -111,12 +145,13 @@ impl CommandDispatcher {
         // Record performance metrics
         self.record_metrics(handler.name(), result.metrics.total_time);
 
-        // Output result if present
-        if let Some(output) = result.output {
-            println!("{}", output);
+        // ✅ STDOUT CONTROL REMOVED: Return full result to caller
+        // Caller can extract output and decide how to handle it (stdout, logging, etc.)
+        if let Some(ref output) = result.output {
+            tracing::debug!("Handler produced output: {} chars", output.len());
         }
 
-        Ok(result.exit_code)
+        Ok(result)
     }
 
     /// Read input using dependency-injected provider
@@ -137,7 +172,7 @@ impl CommandDispatcher {
 mod tests {
     use super::*;
     use crate::cli::handler::{CommandHandler, CommandResult, ExecutionMetrics};
-    use maos_core::MaosError;
+    use maos_core::{ExitCode, MaosError};
 
     /// Mock input provider for testing
     struct MockInputProvider {
@@ -215,8 +250,8 @@ mod tests {
 
         // Dispatch should route to correct handler and read mock input
         let command = Commands::PreToolUse;
-        let exit_code = dispatcher.dispatch(command).await.unwrap();
-        assert_eq!(exit_code, ExitCode::Success);
+        let result = dispatcher.dispatch(command).await.unwrap();
+        assert_eq!(result.exit_code, ExitCode::Success);
     }
 
     #[tokio::test]
@@ -359,5 +394,78 @@ mod tests {
 
         // Should have taken at least 10ms due to async sleep
         assert!(elapsed >= Duration::from_millis(10));
+    }
+
+    #[tokio::test]
+    async fn test_execution_timeout_enforcement() {
+        // 🛡️ RESOURCE LIMIT TEST: Handlers exceeding max_execution_time_ms are terminated
+        let mut config = MaosConfig::default();
+        config.system.max_execution_time_ms = 100; // Very short timeout
+        let config = Arc::new(config);
+        let metrics = Arc::new(PerformanceMetrics::new());
+
+        let mock_input = HookInput {
+            session_id: "test_session".to_string(),
+            transcript_path: "/tmp/test.jsonl".into(),
+            cwd: "/tmp".into(),
+            hook_event_name: maos_core::hook_constants::SESSION_START.to_string(),
+            ..Default::default()
+        };
+
+        // Create a handler that takes longer than the timeout
+        struct SlowHandler;
+        #[async_trait]
+        impl CommandHandler for SlowHandler {
+            async fn execute(&self, _input: HookInput) -> Result<CommandResult> {
+                // Sleep for longer than the 100ms timeout
+                tokio::time::sleep(Duration::from_millis(200)).await;
+                Ok(CommandResult {
+                    exit_code: ExitCode::Success,
+                    output: Some("Should not reach here".to_string()),
+                    metrics: ExecutionMetrics::default(),
+                })
+            }
+            fn name(&self) -> &'static str {
+                "slow_handler"
+            }
+        }
+
+        let input_provider = Box::new(MockInputProvider {
+            input: mock_input,
+            should_fail: false,
+        });
+
+        let dispatcher = CommandDispatcher::new_with_input_provider(
+            config.clone(),
+            metrics.clone(),
+            input_provider,
+        )
+        .await
+        .unwrap();
+
+        // Replace with slow handler
+        dispatcher.registry.register(
+            maos_core::hook_constants::SESSION_START.to_string(),
+            Box::new(SlowHandler),
+        );
+
+        // Execute should timeout and return ResourceLimit error
+        let command = Commands::SessionStart;
+        let result = dispatcher.dispatch(command).await;
+
+        assert!(result.is_err());
+        if let Err(MaosError::ResourceLimit {
+            resource,
+            limit,
+            message,
+            ..
+        }) = result
+        {
+            assert_eq!(resource, "execution_time");
+            assert_eq!(limit, 100);
+            assert!(message.contains("exceeded maximum time limit"));
+        } else {
+            panic!("Expected ResourceLimit error, got: {:?}", result);
+        }
     }
 }

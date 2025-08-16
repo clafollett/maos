@@ -51,7 +51,7 @@ pub use error::{
 };
 
 // Re-export hook event types
-pub use hook_events::{HookEvent, category_constants, constants as hook_constants};
+pub use hook_events::{HookEvent, category_constants, event_constants as hook_constants};
 
 // Re-export metrics types
 pub use metrics::{ExecutionStats, MemoryStats, MetricsReport, PerformanceMetrics};

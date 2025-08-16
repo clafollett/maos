@@ -10,7 +10,7 @@ use std::fmt::{self, Display};
 /// These constants represent the exact strings that Claude Code sends in the
 /// `hook_event_name` field of JSON messages. They must match Claude Code's
 /// implementation exactly.
-pub mod constants {
+pub mod event_constants {
     /// Pre-tool execution hook event
     pub const PRE_TOOL_USE: &str = "pre_tool_use";
 
@@ -82,7 +82,9 @@ pub mod category_constants {
 ///
 /// This enum provides type safety and ensures all hook events are handled.
 /// Use this instead of raw strings when possible.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+///
+/// 🔥 TYPE SAFETY ENHANCEMENT: Supports serialization and string conversion
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum HookEvent {
     /// Pre-tool execution hook
     PreToolUse,
@@ -120,14 +122,14 @@ impl HookEvent {
     /// Parse hook event from string (fallible)
     pub fn try_from_str(s: &str) -> Option<Self> {
         match s {
-            constants::PRE_TOOL_USE => Some(HookEvent::PreToolUse),
-            constants::POST_TOOL_USE => Some(HookEvent::PostToolUse),
-            constants::NOTIFICATION => Some(HookEvent::Notification),
-            constants::STOP => Some(HookEvent::Stop),
-            constants::SUBAGENT_STOP => Some(HookEvent::SubagentStop),
-            constants::USER_PROMPT_SUBMIT => Some(HookEvent::UserPromptSubmit),
-            constants::PRE_COMPACT => Some(HookEvent::PreCompact),
-            constants::SESSION_START => Some(HookEvent::SessionStart),
+            event_constants::PRE_TOOL_USE => Some(HookEvent::PreToolUse),
+            event_constants::POST_TOOL_USE => Some(HookEvent::PostToolUse),
+            event_constants::NOTIFICATION => Some(HookEvent::Notification),
+            event_constants::STOP => Some(HookEvent::Stop),
+            event_constants::SUBAGENT_STOP => Some(HookEvent::SubagentStop),
+            event_constants::USER_PROMPT_SUBMIT => Some(HookEvent::UserPromptSubmit),
+            event_constants::PRE_COMPACT => Some(HookEvent::PreCompact),
+            event_constants::SESSION_START => Some(HookEvent::SessionStart),
             _ => None,
         }
     }
@@ -140,14 +142,14 @@ impl HookEvent {
     /// integration into Rust's formatting ecosystem.
     pub const fn as_str(&self) -> &'static str {
         match self {
-            HookEvent::PreToolUse => constants::PRE_TOOL_USE,
-            HookEvent::PostToolUse => constants::POST_TOOL_USE,
-            HookEvent::Notification => constants::NOTIFICATION,
-            HookEvent::Stop => constants::STOP,
-            HookEvent::SubagentStop => constants::SUBAGENT_STOP,
-            HookEvent::UserPromptSubmit => constants::USER_PROMPT_SUBMIT,
-            HookEvent::PreCompact => constants::PRE_COMPACT,
-            HookEvent::SessionStart => constants::SESSION_START,
+            HookEvent::PreToolUse => event_constants::PRE_TOOL_USE,
+            HookEvent::PostToolUse => event_constants::POST_TOOL_USE,
+            HookEvent::Notification => event_constants::NOTIFICATION,
+            HookEvent::Stop => event_constants::STOP,
+            HookEvent::SubagentStop => event_constants::SUBAGENT_STOP,
+            HookEvent::UserPromptSubmit => event_constants::USER_PROMPT_SUBMIT,
+            HookEvent::PreCompact => event_constants::PRE_COMPACT,
+            HookEvent::SessionStart => event_constants::SESSION_START,
         }
     }
 
@@ -181,14 +183,14 @@ impl HookEvent {
 impl Display for HookEvent {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let s = match self {
-            HookEvent::PreToolUse => constants::PRE_TOOL_USE,
-            HookEvent::PostToolUse => constants::POST_TOOL_USE,
-            HookEvent::Notification => constants::NOTIFICATION,
-            HookEvent::Stop => constants::STOP,
-            HookEvent::SubagentStop => constants::SUBAGENT_STOP,
-            HookEvent::UserPromptSubmit => constants::USER_PROMPT_SUBMIT,
-            HookEvent::PreCompact => constants::PRE_COMPACT,
-            HookEvent::SessionStart => constants::SESSION_START,
+            HookEvent::PreToolUse => event_constants::PRE_TOOL_USE,
+            HookEvent::PostToolUse => event_constants::POST_TOOL_USE,
+            HookEvent::Notification => event_constants::NOTIFICATION,
+            HookEvent::Stop => event_constants::STOP,
+            HookEvent::SubagentStop => event_constants::SUBAGENT_STOP,
+            HookEvent::UserPromptSubmit => event_constants::USER_PROMPT_SUBMIT,
+            HookEvent::PreCompact => event_constants::PRE_COMPACT,
+            HookEvent::SessionStart => event_constants::SESSION_START,
         };
         write!(f, "{}", s)
     }
@@ -202,13 +204,31 @@ impl std::str::FromStr for HookEvent {
     }
 }
 
+/// 🔥 TYPE SAFETY: Enable conversion from string references
+impl TryFrom<&str> for HookEvent {
+    type Error = String;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        s.parse()
+    }
+}
+
+/// 🔥 TYPE SAFETY: Enable conversion from owned strings
+impl TryFrom<String> for HookEvent {
+    type Error = String;
+
+    fn try_from(s: String) -> Result<Self, Self::Error> {
+        s.parse()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
     fn test_all_constants_are_valid() {
-        for &event_str in constants::ALL_EVENTS {
+        for &event_str in event_constants::ALL_EVENTS {
             assert!(HookEvent::try_from_str(event_str).is_some());
         }
     }
@@ -225,17 +245,23 @@ mod tests {
     #[test]
     fn test_display_trait() {
         // Test Display trait implementation
-        assert_eq!(HookEvent::PreToolUse.to_string(), constants::PRE_TOOL_USE);
-        assert_eq!(HookEvent::Notification.to_string(), constants::NOTIFICATION);
+        assert_eq!(
+            HookEvent::PreToolUse.to_string(),
+            event_constants::PRE_TOOL_USE
+        );
+        assert_eq!(
+            HookEvent::Notification.to_string(),
+            event_constants::NOTIFICATION
+        );
 
         // Test formatting integration
         assert_eq!(
             format!("{}", HookEvent::PreToolUse),
-            constants::PRE_TOOL_USE
+            event_constants::PRE_TOOL_USE
         );
         assert_eq!(
             format!("{}", HookEvent::SessionStart),
-            constants::SESSION_START
+            event_constants::SESSION_START
         );
 
         // Test Debug trait (automatically derived from Display)

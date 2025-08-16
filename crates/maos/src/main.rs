@@ -19,9 +19,10 @@ async fn main() -> std::process::ExitCode {
                 _ => std::process::ExitCode::from(exit_code as u8),
             }
         }
-        Err(_err) => {
-            // 🔒 SECURITY FIX: Don't leak error details to stdout/stderr
-            eprintln!("Error initializing MAOS - check logs for details");
+        Err(err) => {
+            // ✅ STDOUT CONTROL REMOVED: Use structured logging instead of eprintln!
+            tracing::error!("MAOS initialization failed: {err:?}");
+            tracing::warn!("Check application logs for detailed error information");
             std::process::ExitCode::FAILURE
         }
     }

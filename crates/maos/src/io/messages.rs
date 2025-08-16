@@ -127,7 +127,16 @@ impl HookInput {
     }
 
     /// Validate that required fields are present for the hook type
+    /// 🔥 TYPE SAFETY ENHANCEMENT: Uses enum-based validation when possible
     pub fn validate(&self) -> Result<()> {
+        // 🔥 TYPE SAFETY: Try enum-based validation first
+        if let Ok(event) =
+            maos_core::hook_events::HookEvent::try_from(self.hook_event_name.as_str())
+        {
+            return self.validate_typed_event(event);
+        }
+
+        // Fallback to string-based validation for unknown events
         match self.hook_event_name.as_str() {
             maos_core::hook_constants::PRE_TOOL_USE => {
                 if self.tool_name.is_none() || self.tool_input.is_none() {
@@ -209,6 +218,93 @@ impl HookInput {
                 return Err(MaosError::InvalidInput {
                     message: format!("Unknown hook event: {}", self.hook_event_name),
                 });
+            }
+        }
+
+        Ok(())
+    }
+
+    /// Type-safe validation using strongly-typed HookEvent enum
+    /// 🔥 TYPE SAFETY: Compile-time guaranteed complete coverage of all events
+    fn validate_typed_event(&self, event: maos_core::hook_events::HookEvent) -> Result<()> {
+        use maos_core::hook_events::HookEvent;
+
+        match event {
+            HookEvent::PreToolUse => {
+                if self.tool_name.is_none() || self.tool_input.is_none() {
+                    return Err(MaosError::InvalidInput {
+                        message: "pre_tool_use requires tool_name and tool_input".to_string(),
+                    });
+                }
+            }
+            HookEvent::PostToolUse => {
+                if self.tool_name.is_none()
+                    || self.tool_input.is_none()
+                    || self.tool_response.is_none()
+                {
+                    return Err(MaosError::InvalidInput {
+                        message: "post_tool_use requires tool_name, tool_input, and tool_response"
+                            .to_string(),
+                    });
+                }
+            }
+            HookEvent::Notification => {
+                if self.message.is_none() {
+                    return Err(MaosError::InvalidInput {
+                        message: "notification requires message".to_string(),
+                    });
+                }
+            }
+            HookEvent::UserPromptSubmit => {
+                if self.prompt.is_none() {
+                    return Err(MaosError::InvalidInput {
+                        message: "user_prompt_submit requires prompt".to_string(),
+                    });
+                }
+            }
+            HookEvent::PreCompact => {
+                if self.trigger.is_none() || self.custom_instructions.is_none() {
+                    return Err(MaosError::InvalidInput {
+                        message: "pre_compact requires trigger and custom_instructions".to_string(),
+                    });
+                }
+
+                // Validate trigger value
+                if let Some(trigger) = &self.trigger
+                    && trigger != "manual"
+                    && trigger != "auto"
+                {
+                    return Err(MaosError::InvalidInput {
+                        message: format!(
+                            "Invalid trigger value: {}. Must be 'manual' or 'auto'",
+                            trigger
+                        ),
+                    });
+                }
+            }
+            HookEvent::SessionStart => {
+                if self.source.is_none() {
+                    return Err(MaosError::InvalidInput {
+                        message: "session_start requires source".to_string(),
+                    });
+                }
+
+                // Validate source value with enum for type safety
+                if let Some(source) = &self.source
+                    && source != "startup"
+                    && source != "resume"
+                    && source != "clear"
+                {
+                    return Err(MaosError::InvalidInput {
+                        message: format!(
+                            "Invalid source value: {}. Must be 'startup', 'resume', or 'clear'",
+                            source
+                        ),
+                    });
+                }
+            }
+            HookEvent::Stop | HookEvent::SubagentStop => {
+                // stop_hook_active is optional for both
             }
         }
 

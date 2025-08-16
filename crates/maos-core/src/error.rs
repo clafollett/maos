@@ -72,6 +72,14 @@ pub enum MaosError {
     #[error("Invalid input: {message}")]
     InvalidInput { message: String },
 
+    #[error("Resource limit exceeded: {resource} limit={limit}, actual={actual} - {message}")]
+    ResourceLimit {
+        resource: String,
+        limit: u64,
+        actual: u64,
+        message: String,
+    },
+
     #[error("Operation timeout: {operation} took longer than {timeout_ms}ms")]
     Timeout { operation: String, timeout_ms: u64 },
 
@@ -117,6 +125,7 @@ pub enum ExitCode {
     ConfigError = 3,
     SecurityError = 4,
     TimeoutError = 5,
+    ResourceError = 6,
     InternalError = 99,
 }
 
@@ -125,6 +134,7 @@ impl From<&MaosError> for ExitCode {
         match error {
             MaosError::Security(_) => ExitCode::SecurityError,
             MaosError::Config(_) => ExitCode::ConfigError,
+            MaosError::ResourceLimit { .. } => ExitCode::ResourceError,
             MaosError::Timeout { .. } => ExitCode::TimeoutError,
             MaosError::Blocking { .. } => ExitCode::BlockingError,
             MaosError::Anyhow(_) => ExitCode::InternalError, // Unexpected errors map to 99

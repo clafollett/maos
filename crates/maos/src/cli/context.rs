@@ -44,12 +44,21 @@ impl CliContext {
 
     /// Execute a command and return the exit code
     /// 🔥 CRITICAL FIX: Dispatcher is now immutable, no need for mut
+    /// ✅ STDOUT CONTROL REMOVED: Now handles output at application boundary
     pub async fn execute(self, command: Commands) -> ExitCode {
         match self.dispatcher.dispatch(command).await {
-            Ok(exit_code) => exit_code,
+            Ok(result) => {
+                // 🎯 PROPER STDOUT CONTROL: Handle output at application boundary
+                if let Some(output) = result.output {
+                    // Only the main application should control stdout, not the library
+                    print!("{}", output);
+                }
+                result.exit_code
+            }
             Err(err) => {
-                // 🔒 SECURITY FIX: Log full error but sanitize stdout output
-                eprintln!("Command execution failed - check logs for details");
+                // ✅ STDOUT CONTROL REMOVED: Use structured logging instead of eprintln!
+                tracing::error!("Command execution failed: {err:?}");
+                tracing::warn!("Check application logs for detailed error information");
                 ExitCode::from(&err)
             }
         }

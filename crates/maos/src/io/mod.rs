@@ -11,6 +11,7 @@ pub use processor::StdinProcessor;
 
 #[cfg(test)]
 mod tests {
+    mod dos_protection_tests;
     mod error_handling_tests;
     mod security_tests;
 }
