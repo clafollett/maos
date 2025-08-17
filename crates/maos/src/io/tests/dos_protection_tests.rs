@@ -52,20 +52,7 @@ async fn test_warning_threshold_5mb() {
     assert!(processor.validate_size(just_above_half).is_ok());
 }
 
-#[test]
-fn test_memory_tracking_functionality() {
-    // 🛡️ Test Layer 3: Memory tracking works
-    let memory1 = StdinProcessor::get_memory_usage();
-
-    // Allocate some memory
-    let _large_vec: Vec<u8> = vec![0; 1024 * 1024]; // 1MB
-
-    let memory2 = StdinProcessor::get_memory_usage();
-
-    // Memory tracking should show some difference
-    // (exact values vary by platform and allocator)
-    assert!(memory1 != memory2 || memory1 > 0);
-}
+// Memory tracking tests moved to memory_dos_tests.rs for better organization
 
 #[tokio::test]
 async fn test_json_bomb_protection() {

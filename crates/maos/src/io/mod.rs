@@ -13,7 +13,7 @@ pub use processor::StdinProcessor;
 mod tests {
     mod dos_protection_tests;
     mod error_handling_tests;
-    mod memory_dos_tests;
+    mod memory_tests;
     mod security_tests;
     mod type_safety_tests;
 }

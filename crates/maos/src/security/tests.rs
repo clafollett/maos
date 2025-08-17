@@ -24,12 +24,21 @@ fn test_path_traversal_detection() {
 }
 
 #[test]
-fn test_windows_drive_escape() {
-    // Should detect drive escape attempts on Windows
-    if cfg!(windows) {
-        assert!(validate_path_safety(&PathBuf::from("C:/windows/system32")).is_err());
-        assert!(validate_path_safety(&PathBuf::from("D:\\sensitive")).is_err());
-    }
+fn test_drive_specifier_and_unc_attacks() {
+    // Drive specifier attacks should be blocked on ALL platforms (consistent security)
+    assert!(validate_path_safety(&PathBuf::from("C:/windows/system32")).is_err());
+    assert!(validate_path_safety(&PathBuf::from("D:\\sensitive")).is_err());
+    assert!(validate_path_safety(&PathBuf::from("E:malicious.exe")).is_err());
+
+    // UNC path attacks should be blocked on ALL platforms
+    assert!(validate_path_safety(&PathBuf::from("\\\\server\\share\\file")).is_err());
+    assert!(validate_path_safety(&PathBuf::from("//malicious-server/steal-data")).is_err());
+    assert!(validate_path_safety(&PathBuf::from("\\\\localhost\\c$\\windows")).is_err());
+    assert!(validate_path_safety(&PathBuf::from("\\\\.\\device\\physical-drive")).is_err());
+
+    // But legitimate absolute paths should still be allowed
+    assert!(validate_path_safety(&PathBuf::from("/absolute/unix/path")).is_ok());
+    assert!(validate_path_safety(&PathBuf::from("/usr/local/bin")).is_ok());
 }
 
 #[test]

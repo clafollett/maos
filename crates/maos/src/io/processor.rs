@@ -150,14 +150,23 @@ impl StdinProcessor {
 
         // 🛡️ DoS Protection Layer 5: Post-parsing memory validation
         let memory_after = Self::get_memory_usage();
-        let memory_growth = memory_after.saturating_sub(memory_before);
 
-        // Warn if parsing consumed excessive memory (>50MB growth)
-        if memory_growth > 50 * 1024 * 1024 {
-            tracing::warn!(
-                "High memory consumption during JSON parsing: {} bytes growth",
-                memory_growth
-            );
+        // Clean handling of optional memory tracking
+        match (memory_before, memory_after) {
+            (Some(before), Some(after)) => {
+                let memory_growth = after.saturating_sub(before);
+                // Warn if parsing consumed excessive memory (>50MB growth)
+                if memory_growth > 50 * 1024 * 1024 {
+                    tracing::warn!(
+                        "High memory consumption during JSON parsing: {} bytes growth",
+                        memory_growth
+                    );
+                }
+            }
+            _ => {
+                // Memory tracking unavailable, skip memory growth validation
+                tracing::debug!("Memory tracking unavailable for DoS protection");
+            }
         }
 
         result
@@ -240,7 +249,10 @@ impl StdinProcessor {
     /// Get current memory usage for DoS protection monitoring
     /// 🛡️ DoS Protection: Track memory consumption to detect attacks
     /// Made public for testing the memory tracking functionality
-    pub fn get_memory_usage() -> usize {
+    ///
+    /// Returns `Some(bytes)` if memory tracking is available on this platform,
+    /// `None` if memory tracking is unavailable (allows tests to skip accordingly)
+    pub fn get_memory_usage() -> Option<usize> {
         // ✅ PROPER IMPLEMENTATION: OS-specific memory tracking with Linux optimization
         #[cfg(target_os = "linux")]
         {
@@ -250,18 +262,50 @@ impl StdinProcessor {
                     if let Some(kb_str) = line.split_whitespace().nth(1)
                         && let Ok(kb) = kb_str.parse::<usize>()
                     {
-                        return kb * 1024; // Convert KB to bytes
+                        return Some(kb * 1024); // Convert KB to bytes
                     }
                 }
             }
         }
 
-        // ✅ CROSS-PLATFORM FALLBACK: Time-based approximation for non-Linux systems
-        // This provides basic DoS monitoring capability across all platforms
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .subsec_nanos() as usize
+        // ✅ MACOS IMPLEMENTATION: Use ps command for memory tracking
+        #[cfg(target_os = "macos")]
+        {
+            // macOS: Read RSS (Resident Set Size) via ps command
+            if let Ok(output) = std::process::Command::new("ps")
+                .args(["-o", "rss=", "-p"])
+                .arg(std::process::id().to_string())
+                .output()
+                && let Ok(rss_str) = String::from_utf8(output.stdout)
+                && let Ok(rss_kb) = rss_str.trim().parse::<usize>()
+            {
+                return Some(rss_kb * 1024); // Convert KB to bytes
+            }
+        }
+
+        // ✅ WINDOWS IMPLEMENTATION: Use Windows API for memory tracking
+        #[cfg(windows)]
+        {
+            use winapi::um::processthreadsapi::GetCurrentProcess;
+            use winapi::um::psapi::{GetProcessMemoryInfo, PROCESS_MEMORY_COUNTERS};
+
+            unsafe {
+                let mut counters: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
+                let result = GetProcessMemoryInfo(
+                    GetCurrentProcess(),
+                    &mut counters,
+                    std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+                );
+                if result != 0 {
+                    return Some(counters.WorkingSetSize as usize);
+                }
+            }
+        }
+
+        // ✅ FALLBACK: Honest unavailability for other platforms
+        // Return None to clearly indicate memory tracking is not available
+        // DoS protection can rely on other metrics (JSON size, execution time)
+        None
     }
 }
 

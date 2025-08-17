@@ -21,6 +21,10 @@ async-trait = { workspace = true }
 dashmap = { workspace = true }
 tracing = { workspace = true }
 
+# Windows-specific dependencies for memory tracking
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["processthreadsapi", "psapi", "handleapi"] }
+
 [dev-dependencies]
 assert_cmd = { workspace = true }
 predicates = { workspace = true }

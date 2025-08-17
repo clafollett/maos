@@ -46,11 +46,22 @@ pub mod validators {
             ));
         }
 
-        // Check for absolute path attempts from relative contexts
-        if cfg!(windows) && path_str.contains(':') && !path.is_absolute() {
+        // Check for drive specifier attacks (consistent across all platforms)
+        // This prevents both Windows drive attacks and similar colon-based attacks
+        if path_str.contains(':') && !path.is_absolute() {
             return Err(MaosError::Security(
                 maos_core::error::SecurityError::SuspiciousCommand {
                     command: format!("Relative path contains drive specifier: {path_str}"),
+                },
+            ));
+        }
+
+        // Check for UNC path attacks (\\server\share\file format)
+        // UNC paths can be used to access network shares or device paths maliciously
+        if path_str.starts_with("\\\\") || path_str.starts_with("//") {
+            return Err(MaosError::Security(
+                maos_core::error::SecurityError::SuspiciousCommand {
+                    command: format!("UNC path not allowed: {path_str}"),
                 },
             ));
         }
