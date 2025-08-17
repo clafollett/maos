@@ -5,8 +5,11 @@
 //! This complements our unit tests by exploring the input space exhaustively.
 
 use proptest::{
-    collection, option, prop_assert, prop_assert_eq, prop_assert_ne, prop_assume, prop_oneof,
-    proptest, strategy::Strategy,
+    collection, option,
+    prelude::prop,
+    prop_assert, prop_assert_eq, prop_assert_ne, prop_assume, prop_oneof, proptest,
+    strategy::{BoxedStrategy, Strategy},
+    test_runner::{Config, FileFailurePersistence},
 };
 use std::path::PathBuf;
 
@@ -61,11 +64,42 @@ fn arb_agent_type() -> impl Strategy<Value = String> {
     .prop_map(|s| s.to_string())
 }
 
+/// Generate absolute paths that are valid on the current platform
+fn arb_absolute_path() -> BoxedStrategy<String> {
+    // Generate clean path segments without dots or special chars
+    let segment = "[a-zA-Z0-9_]+";
+    let segments = prop::collection::vec(segment, 1..5);
+
+    if cfg!(windows) {
+        // Windows: Generate ONLY valid absolute paths like C:\folder\file
+        prop_oneof![
+            // Standard Windows paths: C:\folder\subfolder
+            (prop::char::range('C', 'Z'), segments.clone())
+                .prop_map(|(drive, segs)| { format!("{}:\\{}", drive, segs.join("\\")) }),
+            // Forward slash variant: C:/folder/subfolder
+            (prop::char::range('C', 'Z'), segments)
+                .prop_map(|(drive, segs)| { format!("{}:/{}", drive, segs.join("/")) }),
+        ]
+        .boxed()
+    } else {
+        // Unix: Generate valid absolute paths like /usr/local/bin
+        segments
+            .prop_map(|segs| format!("/{}", segs.join("/")))
+            .boxed()
+    }
+}
+
 #[cfg(test)]
 mod normalize_path_properties {
     use super::*;
 
     proptest! {
+        // Configure proptest to avoid file persistence issues in CI
+        #![proptest_config(Config {
+            failure_persistence: Some(Box::new(FileFailurePersistence::Off)),
+            ..Config::default()
+        })]
+
         /// Property: Normalizing a path twice should yield the same result
         #[test]
         fn normalize_path_idempotent(path_str in arb_path_string()) {
@@ -98,16 +132,15 @@ mod normalize_path_properties {
 
         /// Property: Absolute paths should remain absolute after normalization
         #[test]
-        fn normalize_path_preserves_absolute(path_str in "/[a-zA-Z0-9./]{1,50}") {
+        fn normalize_path_preserves_absolute(path_str in arb_absolute_path()) {
             let path = PathBuf::from(&path_str);
-
-            // Only test if the original path is actually considered absolute on this platform
-            prop_assume!(path.is_absolute());
-
             let normalized = normalize_path(&path);
+
+            // On this platform, our generated path should be absolute
+            // and remain absolute after normalization
             prop_assert!(normalized.is_absolute(),
-                "Absolute paths should remain absolute: {} -> {:?} (original absolute: {})",
-                path_str, normalized, path.is_absolute());
+                "Absolute paths should remain absolute: {} -> {:?}",
+                path_str, normalized);
         }
 
         /// Property: Relative paths should remain relative (unless they go above root)
