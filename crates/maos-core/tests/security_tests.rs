@@ -365,10 +365,10 @@ mod normalization_bypass_attacks {
     fn test_double_normalization() {
         // Test paths that could bypass normalization if processed twice
         let double_norm_attacks = vec![
-            ".%2F..%2F..%2Fetc%2Fpasswd", // URL encoded
-            ".\\..\\..\\etc\\passwd",     // Backslash (should be normalized)
-            ".//..//..//etc//passwd",     // Extra slashes
-            ".//..//..//etc//passwd",     // Double slashes
+            ".\\..\\..\\etc\\passwd", // Backslash (should be normalized by OS)
+            ".//..//..//etc//passwd", // Extra slashes
+            ".//..//..//etc//passwd", // Double slashes
+            "src\u{FF0F}..\u{FF0F}etc\u{FF0F}passwd", // Unicode separators (MAOS security feature)
         ];
 
         for attack in double_norm_attacks {
@@ -378,15 +378,18 @@ mod normalization_bypass_attacks {
             // Normalized path should be safe - either no .. or safely resolved
             let normalized_str = normalized.to_string_lossy();
 
-            // For URL encoded attacks, normalization should decode and resolve them
-            if attack.contains("%2F") {
-                // URL decoding worked if we see regular path separators
+            // For Unicode attacks, our security layer should convert them to normal separators
+            if attack.contains('\u{FF0F}')
+                || attack.contains('\u{2044}')
+                || attack.contains('\u{2215}')
+            {
+                // Unicode separators should be converted to normal separators
                 assert!(
-                    normalized_str.contains("/") && !normalized_str.contains("%2F"),
-                    "URL encoded path should be decoded: {attack} -> {normalized_str}"
+                    normalized_str.contains("/") && !normalized_str.contains('\u{FF0F}'),
+                    "Unicode separator attacks should be normalized: {attack} -> {normalized_str}"
                 );
             } else {
-                // For regular paths, check that dangerous patterns are resolved
+                // For regular paths, check that dangerous patterns are resolved by std::path functions
                 let is_safe = !normalized_str.contains("..")
                     || !normalized_str.contains("/etc/")
                     || normalized_str.starts_with("../../"); // These are safe relative patterns

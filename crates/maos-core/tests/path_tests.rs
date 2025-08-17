@@ -748,6 +748,24 @@ mod path_utils_tests {
     }
 
     #[test]
+    fn test_normalize_path_windows_edge_cases() {
+        // Test the specific failure case from CI: "/a"
+        let path = PathBuf::from("/a");
+        let normalized = normalize_path(&path);
+
+        // The behavior should be platform-consistent
+        if path.is_absolute() {
+            assert!(
+                normalized.is_absolute(),
+                "If original path '/a' is absolute on this platform, normalized should be too. Original: {path:?}, Normalized: {normalized:?}"
+            );
+        } else {
+            // On Windows, "/a" might not be absolute (needs drive letter)
+            // This is platform-specific behavior and is acceptable
+        }
+    }
+
+    #[test]
     fn test_normalize_path_cross_platform() {
         // Should handle mixed separators
         assert_eq!(

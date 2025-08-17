@@ -100,11 +100,14 @@ mod normalize_path_properties {
         #[test]
         fn normalize_path_preserves_absolute(path_str in "/[a-zA-Z0-9./]{1,50}") {
             let path = PathBuf::from(&path_str);
-            let normalized = normalize_path(&path);
 
+            // Only test if the original path is actually considered absolute on this platform
+            prop_assume!(path.is_absolute());
+
+            let normalized = normalize_path(&path);
             prop_assert!(normalized.is_absolute(),
-                "Absolute paths should remain absolute: {} -> {:?}",
-                path_str, normalized);
+                "Absolute paths should remain absolute: {} -> {:?} (original absolute: {})",
+                path_str, normalized, path.is_absolute());
         }
 
         /// Property: Relative paths should remain relative (unless they go above root)
