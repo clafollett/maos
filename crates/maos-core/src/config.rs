@@ -1012,7 +1012,28 @@ fn default_max_execution_time() -> u64 {
     60_000
 }
 fn default_workspace_root() -> PathBuf {
-    PathBuf::from("/tmp/maos")
+    // Use git repository root (like Claude Code hooks) + .maos subdirectory
+    // Equivalent to: $(git rev-parse --show-toplevel 2>/dev/null || pwd)
+    use std::process::Command;
+
+    let git_root = Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                String::from_utf8(output.stdout)
+                    .ok()
+                    .map(|s| PathBuf::from(s.trim()))
+            } else {
+                None
+            }
+        });
+
+    let base_dir =
+        git_root.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+
+    base_dir.join(".maos").join("workspaces")
 }
 fn default_true() -> bool {
     true

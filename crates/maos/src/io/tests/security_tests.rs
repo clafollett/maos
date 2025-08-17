@@ -6,7 +6,7 @@
 use crate::io::HookInput;
 use serde_json::json;
 use std::path::{Path, PathBuf};
-use tempfile::TempDir;
+// ✅ PROPER TEST: Using mock workspace, no OS file system dependencies
 
 #[tokio::test]
 async fn test_path_traversal_blocked() {
@@ -35,8 +35,7 @@ async fn test_path_traversal_blocked() {
 #[test]
 fn test_valid_paths_accepted() {
     // ✅ Test that legitimate paths within workspace are allowed
-    let temp_dir = TempDir::new().unwrap();
-    let workspace = temp_dir.path();
+    let workspace = Path::new("/mock/workspace");
 
     let valid_input = HookInput {
         session_id: "sess_123".to_string(),
@@ -136,8 +135,7 @@ fn test_error_messages_no_data_leak() {
 #[test]
 fn test_relative_paths_within_workspace() {
     // ✅ Test that relative paths staying within workspace are allowed
-    let temp_dir = TempDir::new().unwrap();
-    let workspace = temp_dir.path();
+    let workspace = Path::new("/mock/workspace");
 
     let valid_relative_input = HookInput {
         session_id: "sess_123".to_string(),
@@ -176,8 +174,7 @@ fn test_empty_paths_handled() {
 #[test]
 fn test_workspace_boundary_validation() {
     // 🧪 Test exact workspace boundary cases
-    let temp_dir = TempDir::new().unwrap();
-    let workspace = temp_dir.path();
+    let workspace = Path::new("/mock/workspace");
 
     // Test path exactly at workspace root
     let boundary_input = HookInput {

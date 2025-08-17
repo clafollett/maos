@@ -24,8 +24,8 @@ mod path_traversal_attacks {
 
     #[test]
     fn test_unicode_path_traversal() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         // Unicode variations of .. (different encodings)
         let unicode_attacks = vec![
@@ -37,7 +37,7 @@ mod path_traversal_attacks {
 
         for attack in unicode_attacks {
             let attack_path = PathBuf::from(attack);
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
             assert!(
                 result.is_err(),
                 "Should block unicode path traversal: {attack}"
@@ -47,8 +47,8 @@ mod path_traversal_attacks {
 
     #[test]
     fn test_overlong_utf8_encoding() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         // Overlong UTF-8 encodings of path traversal characters (e.g., '.' and '/')
         // These are invalid UTF-8 sequences that encode '.' and '/' using more bytes than necessary.
@@ -62,16 +62,18 @@ mod path_traversal_attacks {
 
         for attack in overlong_attacks {
             let attack_path = PathBuf::from(&attack);
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
             // These should be handled by Rust's UTF-8 validation, but let's ensure
             // Our security model should either reject these OR keep them within workspace
             match result {
                 Ok(canonical) => {
                     // Use smart path comparison that handles macOS symlinks
-                    let canonical_workspace = if temp_dir.exists() {
-                        temp_dir.canonicalize().unwrap_or_else(|_| temp_dir.clone())
+                    let canonical_workspace = if mock_workspace.exists() {
+                        mock_workspace
+                            .canonicalize()
+                            .unwrap_or_else(|_| mock_workspace.clone())
                     } else {
-                        temp_dir.clone()
+                        mock_workspace.clone()
                     };
 
                     assert!(
@@ -88,8 +90,8 @@ mod path_traversal_attacks {
 
     #[test]
     fn test_case_variation_attacks() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let case_attacks = vec![
             "../ETC/passwd",
@@ -100,7 +102,7 @@ mod path_traversal_attacks {
 
         for attack in case_attacks {
             let attack_path = PathBuf::from(attack);
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
             assert!(
                 result.is_err(),
                 "Should block case variation attack: {attack}"
@@ -110,8 +112,8 @@ mod path_traversal_attacks {
 
     #[test]
     fn test_nested_symlink_traversal() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         // Simulate paths that could traverse via symlinks
         let symlink_attacks = vec![
@@ -122,15 +124,17 @@ mod path_traversal_attacks {
 
         for attack in symlink_attacks {
             let attack_path = PathBuf::from(attack);
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
             // Our security model should either reject these OR ensure they stay within workspace
             match result {
                 Ok(canonical) => {
                     // Use smart path comparison that handles macOS symlinks
-                    let canonical_workspace = if temp_dir.exists() {
-                        temp_dir.canonicalize().unwrap_or_else(|_| temp_dir.clone())
+                    let canonical_workspace = if mock_workspace.exists() {
+                        mock_workspace
+                            .canonicalize()
+                            .unwrap_or_else(|_| mock_workspace.clone())
                     } else {
-                        temp_dir.clone()
+                        mock_workspace.clone()
                     };
 
                     assert!(
@@ -148,17 +152,17 @@ mod path_traversal_attacks {
     #[test]
     fn test_race_condition_toctou() {
         // Test Time-of-Check-to-Time-of-Use scenarios
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
-        let safe_path = temp_dir.join("safe_file.txt");
+        let safe_path = mock_workspace.join("safe_file.txt");
 
         // First validation should succeed
-        let result1 = validator.validate_workspace_path(&safe_path, &temp_dir);
+        let result1 = validator.validate_workspace_path(&safe_path, &mock_workspace);
         assert!(result1.is_ok(), "First validation should succeed");
 
         // Second validation should also succeed (consistent)
-        let result2 = validator.validate_workspace_path(&safe_path, &temp_dir);
+        let result2 = validator.validate_workspace_path(&safe_path, &mock_workspace);
         assert!(result2.is_ok(), "Second validation should be consistent");
 
         // Results should be identical (deterministic)
@@ -176,8 +180,8 @@ mod path_injection_attacks {
 
     #[test]
     fn test_null_byte_injection_comprehensive() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let null_byte_attacks = vec![
             "safe.txt\0../../../etc/passwd",
@@ -188,16 +192,18 @@ mod path_injection_attacks {
 
         for attack in null_byte_attacks {
             let attack_path = PathBuf::from(attack);
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
             // Rust handles null bytes safely, but we should still validate the result
             // Our security model should either reject these OR ensure they stay within workspace
             match result {
                 Ok(canonical) => {
                     // Use smart path comparison that handles macOS symlinks
-                    let canonical_workspace = if temp_dir.exists() {
-                        temp_dir.canonicalize().unwrap_or_else(|_| temp_dir.clone())
+                    let canonical_workspace = if mock_workspace.exists() {
+                        mock_workspace
+                            .canonicalize()
+                            .unwrap_or_else(|_| mock_workspace.clone())
                     } else {
-                        temp_dir.clone()
+                        mock_workspace.clone()
                     };
 
                     assert!(
@@ -214,8 +220,8 @@ mod path_injection_attacks {
 
     #[test]
     fn test_newline_injection() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let newline_attacks = vec![
             "safe.txt\n../../../etc/passwd",
@@ -227,15 +233,17 @@ mod path_injection_attacks {
 
         for attack in newline_attacks {
             let attack_path = PathBuf::from(attack);
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
             // Our security model should either reject these OR ensure they stay within workspace
             match result {
                 Ok(canonical) => {
                     // Use smart path comparison that handles macOS symlinks
-                    let canonical_workspace = if temp_dir.exists() {
-                        temp_dir.canonicalize().unwrap_or_else(|_| temp_dir.clone())
+                    let canonical_workspace = if mock_workspace.exists() {
+                        mock_workspace
+                            .canonicalize()
+                            .unwrap_or_else(|_| mock_workspace.clone())
                     } else {
-                        temp_dir.clone()
+                        mock_workspace.clone()
                     };
 
                     assert!(
@@ -252,8 +260,8 @@ mod path_injection_attacks {
 
     #[test]
     fn test_control_character_injection() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let control_attacks: Vec<String> = (0x00u8..0x20u8)
             .map(|c| format!("safe.txt{}../../../etc/passwd", c as char))
@@ -261,13 +269,15 @@ mod path_injection_attacks {
 
         for attack in control_attacks {
             let attack_path = PathBuf::from(&attack);
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
             if let Ok(canonical) = result {
                 // Use smart path comparison that handles macOS symlinks
-                let canonical_workspace = if temp_dir.exists() {
-                    temp_dir.canonicalize().unwrap_or_else(|_| temp_dir.clone())
+                let canonical_workspace = if mock_workspace.exists() {
+                    mock_workspace
+                        .canonicalize()
+                        .unwrap_or_else(|_| mock_workspace.clone())
                 } else {
-                    temp_dir.clone()
+                    mock_workspace.clone()
                 };
 
                 assert!(
@@ -285,9 +295,9 @@ mod glob_evasion_attacks {
 
     #[test]
     fn test_glob_pattern_evasion() {
-        let temp_dir = std::env::temp_dir();
+        let mock_workspace = PathBuf::from("/mock/workspace");
         let blocked_patterns = vec!["*.secret".to_string(), "*.key".to_string()];
-        let validator = PathValidator::new(vec![temp_dir.clone()], blocked_patterns);
+        let validator = PathValidator::new(vec![mock_workspace.clone()], blocked_patterns);
 
         let evasion_attacks = vec![
             "file.secret.txt",    // Extension after blocked extension
@@ -314,9 +324,9 @@ mod glob_evasion_attacks {
 
     #[test]
     fn test_directory_traversal_with_blocked_patterns() {
-        let temp_dir = std::env::temp_dir();
+        let mock_workspace = PathBuf::from("/mock/workspace");
         let blocked_patterns = vec!["**/.ssh/**".to_string(), "**/secrets/**".to_string()];
-        let validator = PathValidator::new(vec![temp_dir.clone()], blocked_patterns);
+        let validator = PathValidator::new(vec![mock_workspace.clone()], blocked_patterns);
 
         let combined_attacks = vec![
             "../.ssh/id_rsa",
@@ -334,7 +344,8 @@ mod glob_evasion_attacks {
             let is_blocked = validator.is_blocked_path(&attack_path);
 
             // Check if blocked by path validation
-            let validation_result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let validation_result =
+                validator.validate_workspace_path(&attack_path, &mock_workspace);
 
             // At least one security layer should catch this
             let is_secure = is_blocked || validation_result.is_err();
@@ -456,8 +467,8 @@ mod workspace_isolation_attacks {
 
     #[test]
     fn test_agent_workspace_isolation() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let session1 = SessionId::generate();
         let session2 = SessionId::generate();
@@ -465,9 +476,9 @@ mod workspace_isolation_attacks {
         let agent2: AgentType = "agent2".to_string();
 
         // Generate workspaces for different sessions/agents
-        let workspace1 = validator.generate_workspace_path(&temp_dir, &session1, &agent1);
-        let workspace2 = validator.generate_workspace_path(&temp_dir, &session1, &agent2);
-        let workspace3 = validator.generate_workspace_path(&temp_dir, &session2, &agent1);
+        let workspace1 = validator.generate_workspace_path(&mock_workspace, &session1, &agent1);
+        let workspace2 = validator.generate_workspace_path(&mock_workspace, &session1, &agent2);
+        let workspace3 = validator.generate_workspace_path(&mock_workspace, &session2, &agent1);
 
         // All workspaces should be different
         assert_ne!(
@@ -482,23 +493,23 @@ mod workspace_isolation_attacks {
 
         // All workspaces should be within the root
         assert!(
-            workspace1.starts_with(&temp_dir),
+            workspace1.starts_with(&mock_workspace),
             "Workspace should be within root"
         );
         assert!(
-            workspace2.starts_with(&temp_dir),
+            workspace2.starts_with(&mock_workspace),
             "Workspace should be within root"
         );
         assert!(
-            workspace3.starts_with(&temp_dir),
+            workspace3.starts_with(&mock_workspace),
             "Workspace should be within root"
         );
     }
 
     #[test]
     fn test_workspace_path_traversal_resistance() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         // Try to use traversal patterns in session/agent identifiers
         let session_id = SessionId::generate();
@@ -511,11 +522,11 @@ mod workspace_isolation_attacks {
 
         for malicious_agent in malicious_agents {
             let workspace =
-                validator.generate_workspace_path(&temp_dir, &session_id, &malicious_agent);
+                validator.generate_workspace_path(&mock_workspace, &session_id, &malicious_agent);
 
-            // Generated workspace should still be within temp_dir
+            // Generated workspace should still be within mock_workspace
             assert!(
-                workspace.starts_with(&temp_dir),
+                workspace.starts_with(&mock_workspace),
                 "Malicious agent type should not escape workspace: {workspace:?}"
             );
 

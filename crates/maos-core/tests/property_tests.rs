@@ -302,11 +302,11 @@ mod path_validator_properties {
             let session_id = SessionId::generate(); // Use generated session for deterministic test
             let agent_type: AgentType = agent_type_str.clone();
 
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
-            let workspace1 = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
-            let workspace2 = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
+            let workspace1 = validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
+            let workspace2 = validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
 
             prop_assert_eq!(workspace1, workspace2,
                 "Same inputs should generate same workspace: session={}, agent={}",
@@ -326,11 +326,11 @@ mod path_validator_properties {
             let session2 = SessionId::generate();
             let agent_type: AgentType = agent_type_str;
 
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
-            let workspace1 = validator.generate_workspace_path(&temp_dir, &session1, &agent_type);
-            let workspace2 = validator.generate_workspace_path(&temp_dir, &session2, &agent_type);
+            let workspace1 = validator.generate_workspace_path(&mock_workspace, &session1, &agent_type);
+            let workspace2 = validator.generate_workspace_path(&mock_workspace, &session2, &agent_type);
 
             prop_assert_ne!(workspace1, workspace2,
                 "Different sessions should generate different workspaces");
@@ -345,14 +345,14 @@ mod path_validator_properties {
             let session_id = SessionId::generate();
             let agent_type: AgentType = agent_type_str;
 
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
-            let workspace = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
+            let workspace = validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
 
-            prop_assert!(workspace.starts_with(&temp_dir),
+            prop_assert!(workspace.starts_with(&mock_workspace),
                 "Generated workspace should be within root: {:?} vs {:?}",
-                workspace, temp_dir);
+                workspace, mock_workspace);
         }
 
         /// Property: Valid paths within workspace should be accepted
@@ -361,37 +361,37 @@ mod path_validator_properties {
             file_name in "[a-zA-Z0-9][a-zA-Z0-9_-]{0,19}\\.(txt|rs|json|toml)",  // Start with alphanumeric, then allow hyphens
             subdir in option::of("[a-zA-Z0-9][a-zA-Z0-9_-]{0,14}")
         ) {
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
             let path = match subdir {
                 Some(dir) => PathBuf::from(format!("{dir}/{file_name}")),
                 None => PathBuf::from(file_name),
             };
 
-            let result = validator.validate_workspace_path(&path, &temp_dir);
+            let result = validator.validate_workspace_path(&path, &mock_workspace);
             prop_assert!(result.is_ok(),
-                "Valid path should be accepted: {:?} in {:?}", path, temp_dir);
+                "Valid path should be accepted: {:?} in {:?}", path, mock_workspace);
         }
 
         /// Property: Malicious paths should be rejected or contained
         #[test]
         fn path_validation_handles_malicious_paths(malicious_path in arb_malicious_path_string()) {
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
             let path = PathBuf::from(&malicious_path);
-            let result = validator.validate_workspace_path(&path, &temp_dir);
+            let result = validator.validate_workspace_path(&path, &mock_workspace);
 
             match result {
                 Ok(canonical) => {
                     // Use smart path comparison that handles macOS symlinks
-                    let canonical_workspace = if temp_dir.exists() {
-                        temp_dir
+                    let canonical_workspace = if mock_workspace.exists() {
+                        mock_workspace
                             .canonicalize()
-                            .unwrap_or_else(|_| temp_dir.clone())
+                            .unwrap_or_else(|_| mock_workspace.clone())
                     } else {
-                        temp_dir.clone()
+                        mock_workspace.clone()
                     };
 
                     // If accepted, must be contained within workspace
@@ -411,8 +411,8 @@ mod path_validator_properties {
             pattern in "\\*\\.(tmp|log|secret|key)",
             filename_base in "[a-zA-Z0-9_]{1,10}"
         ) {
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![pattern.clone()]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![pattern.clone()]);
 
             // Create filenames that should match the pattern
             let matching_files = vec![
@@ -445,21 +445,21 @@ mod security_properties {
             traversal_depth in 1u8..20u8,
             target_path in "[a-zA-Z0-9/]{1,30}"
         ) {
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
             // Create path traversal attack
             let attack = format!("{}{}", "../".repeat(traversal_depth as usize), target_path);
             let attack_path = PathBuf::from(attack.clone());
 
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
 
             match result {
                 Ok(canonical) => {
                     // If accepted, must still be within workspace bounds
-                    prop_assert!(canonical.starts_with(&temp_dir),
+                    prop_assert!(canonical.starts_with(&mock_workspace),
                         "Path traversal should not escape workspace: {} -> {:?} vs {:?}",
-                        attack, canonical, temp_dir);
+                        attack, canonical, mock_workspace);
                 }
                 Err(_) => {
                     // Rejection is the preferred security behavior
@@ -473,19 +473,19 @@ mod security_properties {
             base_attack in "\\.\\./etc/[a-z]+",
             unicode_sep in "[\u{FF0F}\u{2044}\u{2215}]"
         ) {
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
             // Replace normal slashes with Unicode equivalents
             let unicode_attack = base_attack.replace("/", &unicode_sep.to_string());
             let attack_path = PathBuf::from(&unicode_attack);
 
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
 
             match result {
                 Ok(canonical) => {
                     // Unicode attacks should not escape workspace if accepted
-                    prop_assert!(canonical.starts_with(&temp_dir),
+                    prop_assert!(canonical.starts_with(&mock_workspace),
                         "Unicode attack should not escape: {} -> {:?}",
                         unicode_attack, canonical);
                 }
@@ -502,19 +502,19 @@ mod security_properties {
             control_char in 0u8..32u8, // ASCII control characters range
             attack_suffix in "\\.\\./etc/passwd"
         ) {
-            let temp_dir = std::env::temp_dir();
-            let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+            let mock_workspace = PathBuf::from("/mock/workspace");
+            let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
             // Inject control character between safe path and attack
             let attack = format!("{}{}{}", base_path, control_char as char, attack_suffix);
             let attack_path = PathBuf::from(&attack);
 
-            let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+            let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
 
             match result {
                 Ok(canonical) => {
                     // Control character injection should not escape workspace
-                    prop_assert!(canonical.starts_with(&temp_dir),
+                    prop_assert!(canonical.starts_with(&mock_workspace),
                         "Control char injection should not escape: {:?} -> {:?}",
                         attack, canonical);
                 }

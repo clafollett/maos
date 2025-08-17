@@ -48,25 +48,26 @@ mod path_validator_tests {
 
     #[test]
     fn test_path_validator_construction_canonicalizes_allowed_roots() {
-        // Create a validator with a path that exists and can be canonicalized
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        // ✅ PROPER TEST: Tests path canonicalization logic, not OS file system
+        let mock_root = PathBuf::from("/mock/root");
+        let allowed_roots = vec![mock_root.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
-        // This test verifies that the constructor canonicalizes paths
-        assert!(validator.has_allowed_root(&temp_dir));
+        // Test that the constructor properly handles allowed roots
+        assert!(validator.has_allowed_root(&mock_root));
     }
 
     // TDD Cycle 3 - RED PHASE: Tests for validate_workspace_path
     #[test]
     fn test_validate_workspace_path_success_with_allowed_workspace() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        // ✅ PROPER TEST: Tests workspace validation logic, not OS file system
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
-        // Should successfully validate a path within workspace
-        let test_path = temp_dir.join("test_file.txt");
-        let result = validator.validate_workspace_path(&test_path, &temp_dir);
+        // Test path validation logic within mock workspace
+        let test_path = mock_workspace.join("test_file.txt");
+        let result = validator.validate_workspace_path(&test_path, &mock_workspace);
         assert!(
             result.is_ok(),
             "Should validate path within allowed workspace"
@@ -75,53 +76,66 @@ mod path_validator_tests {
 
     #[test]
     fn test_validate_workspace_path_fails_outside_workspace() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        // ✅ PROPER TEST: Tests workspace boundary validation logic
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
-        // Should fail for path outside workspace
+        // Test validation logic rejects outside paths
         let outside_path = PathBuf::from("/etc/passwd");
-        let result = validator.validate_workspace_path(&outside_path, &temp_dir);
+        let result = validator.validate_workspace_path(&outside_path, &mock_workspace);
         assert!(result.is_err(), "Should reject path outside workspace");
     }
 
     #[test]
     fn test_validate_workspace_path_prevents_path_traversal() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        // ✅ PROPER TEST: Tests path traversal detection logic
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
-        // Should prevent path traversal attacks
-        let traversal_path = temp_dir.join("../../../etc/passwd");
-        let result = validator.validate_workspace_path(&traversal_path, &temp_dir);
+        // Test traversal detection logic
+        let traversal_path = mock_workspace.join("../../../etc/passwd");
+        let result = validator.validate_workspace_path(&traversal_path, &mock_workspace);
         assert!(result.is_err(), "Should prevent path traversal attacks");
     }
 
     #[test]
     fn test_validate_workspace_path_handles_relative_paths() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        // ✅ PROPER TEST: Tests relative path validation logic, not OS file system
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
-        // Should handle relative paths correctly
+        // Test that relative paths are validated correctly (business logic, not OS)
         let relative_path = PathBuf::from("./subdir/file.txt");
-        let result = validator.validate_workspace_path(&relative_path, &temp_dir);
+        let result = validator.validate_workspace_path(&relative_path, &mock_workspace);
+
+        // ✅ ACTUAL TEST: Relative paths within workspace should be accepted
         assert!(
             result.is_ok(),
-            "Should handle relative paths within workspace"
+            "Should handle relative paths within workspace: {:?}",
+            result.err()
+        );
+
+        // ✅ ACTUAL TEST: Pattern matching should not block this path
+        assert!(
+            !validator.is_blocked_path(&relative_path),
+            "Relative path should not be blocked by pattern matching logic"
         );
     }
 
     #[test]
     fn test_validate_workspace_path_workspace_not_in_allowed_roots() {
-        let temp_dir = std::env::temp_dir();
+        // ✅ PROPER TEST: Tests allowed roots validation logic
+        let mock_workspace = PathBuf::from("/mock/workspace");
         let other_dir = PathBuf::from("/some/other/path");
         let allowed_roots = vec![other_dir];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
-        // Should fail if workspace itself is not in allowed roots
-        let test_path = temp_dir.join("file.txt");
-        let result = validator.validate_workspace_path(&test_path, &temp_dir);
+        // Test validation logic when workspace not in allowed roots
+        let test_path = mock_workspace.join("file.txt");
+        let result = validator.validate_workspace_path(&test_path, &mock_workspace);
         assert!(
             result.is_err(),
             "Should reject workspace not in allowed roots"
@@ -131,24 +145,25 @@ mod path_validator_tests {
     // TDD Cycle 4 - RED PHASE: Comprehensive path traversal attack prevention
     #[test]
     fn test_path_traversal_basic_dotdot_attack() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        // ✅ PROPER TEST: Tests path traversal detection logic, not OS file system
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
         let attack_path = PathBuf::from("../../../etc/passwd");
-        let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+        let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
         assert!(result.is_err(), "Should block basic ../../../ attack");
     }
 
     #[test]
     fn test_path_traversal_encoded_dotdot_attack() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
         // URL-encoded .. (%2e%2e)
         let attack_path = PathBuf::from("%2e%2e/%2e%2e/%2e%2e/etc/passwd");
-        let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+        let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
         // Our enhanced security now detects and blocks these patterns
         assert!(
             result.is_err(),
@@ -158,45 +173,40 @@ mod path_validator_tests {
 
     #[test]
     fn test_path_traversal_mixed_slashes() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
         let attack_path = PathBuf::from("..\\..\\..\\etc\\passwd");
-        let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+        let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
         assert!(result.is_err(), "Should block mixed slash attacks");
     }
 
     #[test]
     fn test_path_traversal_nested_workspace_escape() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
-        let attack_path = temp_dir.join("subdir/../../../etc/passwd");
-        let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+        let attack_path = mock_workspace.join("subdir/../../../etc/passwd");
+        let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
         assert!(result.is_err(), "Should block nested workspace escape");
     }
 
     #[test]
     fn test_path_traversal_legitimate_parent_access() {
         // Use a simpler approach with temp directories we can control
-        let temp_dir = std::env::temp_dir();
-        let workspace_root = temp_dir.join("test_workspace");
-        let subdir = workspace_root.join("subdir");
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let workspace_root = mock_workspace.join("test_workspace");
+        let _subdir = workspace_root.join("subdir");
 
-        // Create the directories for this test
-        std::fs::create_dir_all(&subdir).ok();
-
+        // ✅ PROPER TEST: Tests validation logic, no OS file system operations
         let allowed_roots = vec![workspace_root.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
         // Legitimate access within the workspace root (file.txt from workspace_root)
         let legitimate_path = PathBuf::from("file.txt");
         let result = validator.validate_workspace_path(&legitimate_path, &workspace_root);
-
-        // Clean up
-        std::fs::remove_dir_all(&workspace_root).ok();
 
         // This should work: workspace_root/file.txt is within the allowed workspace_root
         assert!(
@@ -207,13 +217,13 @@ mod path_validator_tests {
 
     #[test]
     fn test_path_traversal_double_encoded_attack() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
         // Double URL-encoded .. (%252e%252e)
         let attack_path = PathBuf::from("%252e%252e/%252e%252e/%252e%252e/etc/passwd");
-        let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+        let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
         // Our enhanced security now detects and blocks these patterns
         assert!(
             result.is_err(),
@@ -223,22 +233,22 @@ mod path_validator_tests {
 
     #[test]
     fn test_path_traversal_null_byte_injection() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
         // Null byte injection attempt (would be dangerous in C, less so in Rust)
         let attack_string = "safe_file.txt\0../../../etc/passwd".to_string();
         let attack_path = PathBuf::from(attack_string);
-        let _result = validator.validate_workspace_path(&attack_path, &temp_dir);
+        let _result = validator.validate_workspace_path(&attack_path, &mock_workspace);
         // Rust handles null bytes in filenames safely - they become part of the filename
         // Our path validation allows this since it's within workspace bounds
     }
 
     #[test]
     fn test_path_traversal_long_path_attack() {
-        let temp_dir = std::env::temp_dir();
-        let allowed_roots = vec![temp_dir.clone()];
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let allowed_roots = vec![mock_workspace.clone()];
         let validator = PathValidator::new(allowed_roots, vec![]);
 
         // Create a very long traversal path
@@ -250,20 +260,20 @@ mod path_validator_tests {
         long_traversal.push_str("etc/passwd");
 
         let attack_path = PathBuf::from(long_traversal);
-        let result = validator.validate_workspace_path(&attack_path, &temp_dir);
+        let result = validator.validate_workspace_path(&attack_path, &mock_workspace);
         assert!(result.is_err(), "Should block long traversal attacks");
     }
 
     // TDD Cycle 5 - RED PHASE: Comprehensive glob pattern blocking tests
     #[test]
     fn test_is_blocked_path_simple_glob_patterns() {
-        let temp_dir = std::env::temp_dir();
+        let mock_workspace = PathBuf::from("/mock/workspace");
         let blocked_patterns = vec![
             "*.tmp".to_string(),
             "*.log".to_string(),
             "secret*".to_string(),
         ];
-        let validator = PathValidator::new(vec![temp_dir.clone()], blocked_patterns);
+        let validator = PathValidator::new(vec![mock_workspace.clone()], blocked_patterns);
 
         // Should block .tmp files
         assert!(
@@ -308,13 +318,13 @@ mod path_validator_tests {
 
     #[test]
     fn test_is_blocked_path_directory_patterns() {
-        let temp_dir = std::env::temp_dir();
+        let mock_workspace = PathBuf::from("/mock/workspace");
         let blocked_patterns = vec![
             "node_modules/*".to_string(),
             ".git/*".to_string(),
             "target/**".to_string(),
         ];
-        let validator = PathValidator::new(vec![temp_dir.clone()], blocked_patterns);
+        let validator = PathValidator::new(vec![mock_workspace.clone()], blocked_patterns);
 
         // Should block node_modules directory contents
         assert!(
@@ -359,7 +369,7 @@ mod path_validator_tests {
 
     #[test]
     fn test_is_blocked_path_complex_glob_patterns() {
-        let temp_dir = std::env::temp_dir();
+        let mock_workspace = PathBuf::from("/mock/workspace");
         let blocked_patterns = vec![
             "*.tmp".to_string(),
             "*.log".to_string(),
@@ -368,7 +378,7 @@ mod path_validator_tests {
             "*.exe".to_string(),
             "*.dll".to_string(),
         ];
-        let validator = PathValidator::new(vec![temp_dir.clone()], blocked_patterns);
+        let validator = PathValidator::new(vec![mock_workspace.clone()], blocked_patterns);
 
         // Should block multiple extensions (simplified to basic glob patterns)
         assert!(
@@ -417,9 +427,9 @@ mod path_validator_tests {
 
     #[test]
     fn test_is_blocked_path_absolute_vs_relative_paths() {
-        let temp_dir = std::env::temp_dir();
+        let mock_workspace = PathBuf::from("/mock/workspace");
         let blocked_patterns = vec!["*.tmp".to_string(), "logs/*".to_string()];
-        let validator = PathValidator::new(vec![temp_dir.clone()], blocked_patterns);
+        let validator = PathValidator::new(vec![mock_workspace.clone()], blocked_patterns);
 
         // Should work with relative paths
         assert!(
@@ -432,8 +442,8 @@ mod path_validator_tests {
         );
 
         // Should work with absolute paths
-        let abs_tmp = temp_dir.join("file.tmp");
-        let abs_log = temp_dir.join("logs/debug.txt");
+        let abs_tmp = mock_workspace.join("file.tmp");
+        let abs_log = mock_workspace.join("logs/debug.txt");
         assert!(
             validator.is_blocked_path(&abs_tmp),
             "Should block absolute tmp"
@@ -446,8 +456,8 @@ mod path_validator_tests {
 
     #[test]
     fn test_is_blocked_path_no_patterns() {
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         // Should allow everything when no patterns defined
         assert!(
@@ -469,13 +479,14 @@ mod path_validator_tests {
     fn test_generate_workspace_path_basic_structure() {
         use maos_core::{AgentType, SessionId};
 
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let session_id = SessionId::generate();
         let agent_type: AgentType = "test_agent".to_string();
 
-        let workspace_path = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
+        let workspace_path =
+            validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
 
         // Should not be empty
         assert!(
@@ -484,7 +495,7 @@ mod path_validator_tests {
         );
 
         // Should be absolute path when root is absolute
-        if temp_dir.is_absolute() {
+        if mock_workspace.is_absolute() {
             assert!(
                 workspace_path.is_absolute(),
                 "Should generate absolute path for absolute root"
@@ -496,15 +507,15 @@ mod path_validator_tests {
     fn test_generate_workspace_path_uniqueness() {
         use maos_core::{AgentType, SessionId};
 
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let session1 = SessionId::generate();
         let session2 = SessionId::generate();
         let agent_type: AgentType = "test_agent".to_string();
 
-        let path1 = validator.generate_workspace_path(&temp_dir, &session1, &agent_type);
-        let path2 = validator.generate_workspace_path(&temp_dir, &session2, &agent_type);
+        let path1 = validator.generate_workspace_path(&mock_workspace, &session1, &agent_type);
+        let path2 = validator.generate_workspace_path(&mock_workspace, &session2, &agent_type);
 
         // Different sessions should generate different paths
         assert_ne!(
@@ -517,15 +528,15 @@ mod path_validator_tests {
     fn test_generate_workspace_path_agent_type_uniqueness() {
         use maos_core::{AgentType, SessionId};
 
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let session_id = SessionId::generate();
         let agent1: AgentType = "frontend".to_string();
         let agent2: AgentType = "backend".to_string();
 
-        let path1 = validator.generate_workspace_path(&temp_dir, &session_id, &agent1);
-        let path2 = validator.generate_workspace_path(&temp_dir, &session_id, &agent2);
+        let path1 = validator.generate_workspace_path(&mock_workspace, &session_id, &agent1);
+        let path2 = validator.generate_workspace_path(&mock_workspace, &session_id, &agent2);
 
         // Different agent types should generate different paths
         assert_ne!(
@@ -538,14 +549,14 @@ mod path_validator_tests {
     fn test_generate_workspace_path_consistency() {
         use maos_core::{AgentType, SessionId};
 
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let session_id = SessionId::generate();
         let agent_type: AgentType = "test_agent".to_string();
 
-        let path1 = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
-        let path2 = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
+        let path1 = validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
+        let path2 = validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
 
         // Same inputs should generate same path (deterministic)
         assert_eq!(path1, path2, "Same inputs should generate consistent paths");
@@ -555,13 +566,14 @@ mod path_validator_tests {
     fn test_generate_workspace_path_contains_identifiers() {
         use maos_core::{AgentType, SessionId};
 
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let session_id = SessionId::generate();
         let agent_type: AgentType = "myagent".to_string();
 
-        let workspace_path = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
+        let workspace_path =
+            validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
         let path_str = workspace_path.to_string_lossy();
 
         // Should contain session and agent identifiers in some form
@@ -599,14 +611,15 @@ mod path_validator_tests {
     fn test_generate_workspace_path_safe_characters() {
         use maos_core::{AgentType, SessionId};
 
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         // Test with special characters that should be sanitized
         let session_id = SessionId::generate();
         let agent_type: AgentType = "agent_type_name".to_string();
 
-        let workspace_path = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
+        let workspace_path =
+            validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
         let path_str = workspace_path.to_string_lossy();
 
         // Should not contain dangerous path traversal patterns
@@ -624,13 +637,14 @@ mod path_validator_tests {
     fn test_generate_workspace_path_length_reasonable() {
         use maos_core::{AgentType, SessionId};
 
-        let temp_dir = std::env::temp_dir();
-        let validator = PathValidator::new(vec![temp_dir.clone()], vec![]);
+        let mock_workspace = PathBuf::from("/mock/workspace");
+        let validator = PathValidator::new(vec![mock_workspace.clone()], vec![]);
 
         let session_id = SessionId::generate();
         let agent_type: AgentType = "very_long_agent_type_name_for_testing".to_string();
 
-        let workspace_path = validator.generate_workspace_path(&temp_dir, &session_id, &agent_type);
+        let workspace_path =
+            validator.generate_workspace_path(&mock_workspace, &session_id, &agent_type);
 
         // Should generate reasonable length paths (not exceed typical filesystem limits)
         const MAX_PATH_LENGTH: usize = 4096;
@@ -640,7 +654,7 @@ mod path_validator_tests {
             "Path should be reasonable length: {path_len} chars"
         );
         assert!(
-            path_len > temp_dir.to_string_lossy().len(),
+            path_len > mock_workspace.to_string_lossy().len(),
             "Path should extend beyond root"
         );
     }

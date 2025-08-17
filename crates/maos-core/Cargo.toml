@@ -24,7 +24,10 @@ schemars = { workspace = true }
 dirs = { workspace = true }
 
 [dev-dependencies]
+# Unit test dependencies (fast, no I/O)
 proptest = { workspace = true }
+
+# Integration test & benchmark dependencies (real I/O)
 criterion = { workspace = true }
 tempfile = { workspace = true }
 
@@ -43,3 +46,8 @@ harness = false
 [[bench]]
 name = "messages_bench"
 harness = false
+
+# Integration tests (real I/O)
+[[test]]
+name = "logging_integration"
+path = "tests/integration/logging_integration_tests.rs"
