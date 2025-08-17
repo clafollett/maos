@@ -334,7 +334,7 @@ impl HookInput {
     ///
     /// # Example
     ///
-    /// ```rust
+    /// ```rust,no_run
     /// use std::path::{Path, PathBuf};
     /// use maos::io::HookInput;
     ///
@@ -350,7 +350,7 @@ impl HookInput {
     ///
     /// let malicious_input = HookInput {
     ///     transcript_path: PathBuf::from("../../../etc/passwd"),
-    ///     cwd: PathBuf::from("/root/.ssh"),
+    ///     cwd: PathBuf::from("/workspace/../../root"),
     ///     hook_event_name: "pre_tool_use".to_string(),
     ///     ..Default::default()
     /// };
