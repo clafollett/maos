@@ -13,6 +13,7 @@ thiserror = { workspace = true }
 uuid = { workspace = true }
 chrono = { workspace = true }
 dunce = { workspace = true }
+path-clean = { workspace = true }
 glob = { workspace = true }
 globset = { workspace = true }
 tracing = { workspace = true }

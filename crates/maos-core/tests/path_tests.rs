@@ -700,10 +700,15 @@ mod path_utils_tests {
 
     #[test]
     fn test_normalize_path_edge_cases() {
-        // Should handle empty and root paths
-        assert_eq!(normalize_path(Path::new("")), PathBuf::from(""));
-        assert_eq!(normalize_path(Path::new(".")), PathBuf::from(""));
-        assert_eq!(normalize_path(Path::new("./")), PathBuf::from(""));
+        // Should handle empty and root paths (path-clean normalizes empty to ".")
+        assert_eq!(normalize_path(Path::new("")), PathBuf::from("."));
+        assert_eq!(normalize_path(Path::new(".")), PathBuf::from("."));
+        assert_eq!(normalize_path(Path::new("./")), PathBuf::from("."));
+
+        assert_eq!(
+            normalize_path(Path::new("./some/path")),
+            PathBuf::from("some/path")
+        );
 
         // Should handle too many parent references
         assert_eq!(

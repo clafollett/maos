@@ -3,12 +3,14 @@
 //! This module provides safe path manipulation functions that handle cross-platform
 //! differences while maintaining security properties.
 
+use path_clean::PathClean;
 use std::path::{Path, PathBuf};
 
-/// Normalize a path for MAOS multi-agent security with built-in Rust functions
+/// Normalize a path for MAOS multi-agent security using established Rust crates
 ///
 /// This function provides security-hardened path normalization for untrusted agent input by:
-/// - Using `std::path::absolute` for robust cross-platform path resolution
+/// - Using `dunce::simplified` for robust cross-platform path resolution
+/// - Using `path-clean` for proper component normalization
 /// - Preventing Unicode separator attack vectors (fullwidth solidus, etc.)
 /// - Ensuring consistent cross-platform behavior for agent workspace isolation
 ///
@@ -16,7 +18,7 @@ use std::path::{Path, PathBuf};
 ///
 /// - Blocks Unicode separator variants that could bypass security checks
 /// - Prevents agent path injection via alternative Unicode separators
-/// - Uses standard Rust path handling as the foundation for reliability
+/// - Uses established Rust crates instead of custom Windows-breaking logic
 ///
 /// # Examples
 ///
@@ -58,15 +60,17 @@ use std::path::{Path, PathBuf};
 ///
 /// ## Cross-Platform Compatibility
 ///
-/// Uses `std::path::absolute` for robust cross-platform path handling while maintaining
-/// relative path semantics when needed for agent workspace isolation.
+/// Uses `dunce::simplified` + `path-clean` for robust cross-platform path handling
+/// while preserving relative/absolute semantics for agent workspace isolation.
 pub fn normalize_path(path: &Path) -> PathBuf {
-    // Apply security transformations to prevent Unicode attack vectors
+    // 1. Apply MAOS security transformations to prevent Unicode attack vectors
     let secured_path = apply_security_transforms(path);
 
-    // Always use our component-based normalization for consistent behavior
-    // This ensures proper .. resolution for both absolute and relative paths
-    normalize_components(&secured_path)
+    // 2. Use path-clean for proper component normalization (handles ., .., etc.)
+    let cleaned = secured_path.clean();
+
+    // 3. Use dunce to handle Windows UNC paths and other platform quirks
+    dunce::simplified(&cleaned).to_path_buf()
 }
 
 /// Apply MAOS-specific security transformations to prevent agent attacks
@@ -93,45 +97,6 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
         PathBuf::from(secured)
     } else {
         path.to_path_buf()
-    }
-}
-
-/// Normalize paths using Rust's component iteration (minimal custom logic)
-fn normalize_components(path: &Path) -> PathBuf {
-    use std::path::Component;
-
-    let mut components = Vec::new();
-    let mut is_absolute = false;
-
-    for component in path.components() {
-        match component {
-            Component::Prefix(_) | Component::RootDir => {
-                is_absolute = true;
-                components.clear(); // Start fresh for absolute paths
-                if let Component::Prefix(_) = component {
-                    components.push(component); // Keep prefix for Windows
-                }
-            }
-            Component::CurDir => {} // Skip current directory
-            Component::ParentDir => {
-                if let Some(Component::Normal(_)) = components.last() {
-                    components.pop(); // Cancel out with normal component
-                } else if !is_absolute {
-                    components.push(component); // Keep .. for relative paths only
-                }
-                // For absolute paths, .. at root is ignored
-            }
-            Component::Normal(_) => components.push(component),
-        }
-    }
-
-    // Build the result, ensuring we maintain absolute/relative nature
-    if is_absolute {
-        std::iter::once(Component::RootDir)
-            .chain(components)
-            .collect()
-    } else {
-        components.into_iter().collect()
     }
 }
 
