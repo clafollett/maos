@@ -70,9 +70,9 @@ impl CommandHandler for PostToolUseHandler {
     /// [`CommandResult`]: crate::cli::handler::CommandResult
     /// [`MaosError::InvalidInput`]: maos_core::MaosError::InvalidInput
     async fn execute(&self, input: HookInput) -> Result<CommandResult> {
-        // TODO: (Implemented in PRD-06) Implement actual post_tool_use logic - see PRD-06 for result processing,
-        // metrics collection, resource cleanup, and progress tracking.
-        // For now, just a stub that validates and returns success
+        // NOTE: Full post_tool_use logic (result processing, metrics collection, resource cleanup,
+        // and progress tracking) is planned as a future enhancement in PRD-06.
+        // The current implementation intentionally provides basic validation and success response.
 
         // Validate required fields for post_tool_use
         if input.tool_name.is_none() {
@@ -138,7 +138,7 @@ mod tests {
     use maos_core::ExitCode;
     use maos_core::hook_constants::PRE_TOOL_USE;
 
-    // TODO: (Implemented in PRD-06) Expand tests for full business logic implementation including
+    // NOTE: Additional tests for full business logic implementation will be added with PRD-06.
     // result processing, metrics collection, and resource cleanup
 
     fn create_valid_hook_input() -> HookInput {

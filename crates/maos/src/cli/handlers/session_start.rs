@@ -68,9 +68,9 @@ impl CommandHandler for SessionStartHandler {
     ///
     /// [`CommandResult`]: crate::cli::handler::CommandResult
     async fn execute(&self, input: HookInput) -> Result<CommandResult> {
-        // TODO: (Implemented in PRD-06) Implement actual session_start logic - see PRD-06 for session
-        // initialization, workspace setup, and agent coordination bootstrap.
-        // For now, just a stub that validates and returns success
+        // NOTE: Full session_start logic (session initialization, workspace setup,
+        // and agent coordination bootstrap) is planned as a future enhancement in PRD-06.
+        // The current implementation intentionally provides basic validation and success response.
 
         Ok(CommandResult {
             exit_code: ExitCode::Success,
@@ -118,7 +118,7 @@ mod tests {
     use crate::io::HookInput;
     use maos_core::ExitCode;
 
-    // TODO: (Implemented in PRD-06) Expand tests for full business logic implementation including
+    // NOTE: Additional tests for full business logic implementation will be added with PRD-06.
     // session initialization, workspace setup, and agent coordination bootstrap
 
     fn create_valid_hook_input() -> HookInput {

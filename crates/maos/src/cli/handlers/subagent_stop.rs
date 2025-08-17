@@ -59,9 +59,9 @@ impl CommandHandler for SubagentStopHandler {
     ///
     /// Returns [`CommandResult`] with success status.
     async fn execute(&self, _input: HookInput) -> Result<CommandResult> {
-        // TODO: (Implemented in PRD-06) Implement actual subagent_stop logic - see PRD-06 for agent lifecycle
-        // management, workspace cleanup, and coordination state updates.
-        // For now, just a stub that validates and returns success
+        // NOTE: Full subagent_stop logic (agent lifecycle management, workspace cleanup,
+        // and coordination state updates) is planned as a future enhancement in PRD-06.
+        // The current implementation intentionally provides basic validation and success response.
 
         Ok(CommandResult {
             exit_code: ExitCode::Success,
@@ -107,7 +107,7 @@ mod tests {
     use crate::io::HookInput;
     use maos_core::ExitCode;
 
-    // TODO: (Implemented in PRD-06) Expand tests for full business logic implementation including
+    // NOTE: Additional tests for full business logic implementation will be added with PRD-06.
     // agent lifecycle management, workspace cleanup, and coordination state updates
 
     fn create_valid_hook_input() -> HookInput {

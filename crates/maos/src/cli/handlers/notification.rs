@@ -67,9 +67,9 @@ impl CommandHandler for NotificationHandler {
     ///
     /// [`CommandResult`]: crate::cli::handler::CommandResult
     async fn execute(&self, input: HookInput) -> Result<CommandResult> {
-        // TODO: (Implemented in PRD-06) Implement actual notification logic - see PRD-06 for TTS integration,
-        // notification urgency handling, and message formatting.
-        // For now, just a stub that validates and returns success
+        // NOTE: Full notification logic (TTS integration, notification urgency handling,
+        // and message formatting) is planned as a future enhancement in PRD-06.
+        // The current implementation intentionally provides basic validation and success response.
 
         // Process notification message
         let message = input
@@ -130,7 +130,7 @@ mod tests {
     use maos_core::ExitCode;
     use maos_core::hook_constants::STOP;
 
-    // TODO: (Implemented in PRD-06) Expand tests for full business logic implementation including
+    // NOTE: Additional tests for full business logic implementation will be added with PRD-06.
     // TTS integration, urgency handling, and system notification display
 
     fn create_valid_hook_input() -> HookInput {

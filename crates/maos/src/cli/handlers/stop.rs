@@ -78,9 +78,9 @@ impl CommandHandler for StopHandler {
     ///
     /// [`CommandResult`]: crate::cli::handler::CommandResult
     async fn execute(&self, input: HookInput) -> Result<CommandResult> {
-        // TODO: (Implemented in PRD-06) Implement actual stop logic - see PRD-06 for session cleanup,
-        // agent coordination termination, and chat transcript export handling.
-        // For now, just a stub that validates and returns success
+        // NOTE: Full stop logic (session cleanup, agent coordination termination,
+        // and chat transcript export handling) is planned as a future enhancement in PRD-06.
+        // The current implementation intentionally provides basic validation and success response.
 
         let hook_active = input.stop_hook_active.unwrap_or(false);
         let status = if hook_active { "active" } else { "inactive" };
@@ -138,7 +138,7 @@ mod tests {
     use crate::io::HookInput;
     use maos_core::ExitCode;
 
-    // TODO: (Implemented in PRD-06) Expand tests for full business logic implementation including
+    // NOTE: Additional tests for full business logic implementation will be added with PRD-06.
     // session cleanup, agent coordination termination, and chat transcript export
 
     fn create_valid_hook_input() -> HookInput {

@@ -67,9 +67,9 @@ impl CommandHandler for UserPromptSubmitHandler {
     ///
     /// [`CommandResult`]: crate::cli::handler::CommandResult
     async fn execute(&self, input: HookInput) -> Result<CommandResult> {
-        // TODO: (Implemented in PRD-06) Implement actual user_prompt_submit logic - see PRD-06 for prompt
-        // validation, context analysis, and intelligent task routing.
-        // For now, just a stub that validates and returns success
+        // NOTE: Full user_prompt_submit logic (prompt validation, context analysis,
+        // and intelligent task routing) is planned as a future enhancement in PRD-06.
+        // The current implementation intentionally provides basic validation and success response.
 
         let message = input
             .message
@@ -131,7 +131,7 @@ mod tests {
     use crate::io::HookInput;
     use maos_core::ExitCode;
 
-    // TODO: (Implemented in PRD-06) Expand tests for full business logic implementation including
+    // NOTE: Additional tests for full business logic implementation will be added with PRD-06.
     // prompt validation, context analysis, and intelligent task routing
 
     fn create_valid_hook_input() -> HookInput {
