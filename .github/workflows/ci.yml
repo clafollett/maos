@@ -26,9 +26,7 @@ jobs:
         uses: extractions/setup-just@v2
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: Swatinem/rust-cache@v2
-        with:
-          key: ${{ matrix.os }}-cargo-${{ hashFiles('**/Cargo.toml') }}
-      
+
       # Consolidated environment setup step
       - name: Setup Environment (Linux/macOS)
         if: runner.os != 'Windows'
