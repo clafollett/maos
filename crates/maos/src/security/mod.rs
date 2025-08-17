@@ -48,12 +48,29 @@ pub mod validators {
 
         // Check for drive specifier attacks (consistent across all platforms)
         // This prevents both Windows drive attacks and similar colon-based attacks
-        if path_str.contains(':') && !path.is_absolute() {
-            return Err(MaosError::Security(
-                maos_core::error::SecurityError::SuspiciousCommand {
-                    command: format!("Relative path contains drive specifier: {path_str}"),
-                },
-            ));
+        if path_str.contains(':') {
+            // Check for Windows drive patterns (C:, D:/, etc.) - block these on all platforms for consistency
+            if path_str.matches(':').count() == 1
+                && path_str.chars().nth(1) == Some(':')
+                && path_str
+                    .chars()
+                    .next()
+                    .is_some_and(|c| c.is_ascii_alphabetic())
+            {
+                return Err(MaosError::Security(
+                    maos_core::error::SecurityError::SuspiciousCommand {
+                        command: format!("Windows drive specifier not allowed: {path_str}"),
+                    },
+                ));
+            }
+            // Also block relative paths with colons (original logic)
+            if !path.is_absolute() {
+                return Err(MaosError::Security(
+                    maos_core::error::SecurityError::SuspiciousCommand {
+                        command: format!("Relative path contains drive specifier: {path_str}"),
+                    },
+                ));
+            }
         }
 
         // Check for UNC path attacks (\\server\share\file format)
