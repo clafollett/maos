@@ -112,12 +112,22 @@
 //! use maos_core::path::{normalize_path, paths_equal};
 //! use std::path::PathBuf;
 //!
-//! // Handle mixed separators
-//! let windows_path = PathBuf::from("src\\components\\ui.tsx");
-//! let unix_path = PathBuf::from("src/components/ui.tsx");
+//! // Platform-specific separator handling
+//! #[cfg(windows)]
+//! {
+//!     let windows_path = PathBuf::from("src\\components\\ui.tsx");
+//!     let forward_path = PathBuf::from("src/components/ui.tsx");
+//!     // Windows treats both as equivalent
+//!     assert!(paths_equal(&windows_path, &forward_path));
+//! }
 //!
-//! // Both normalize to the same canonical form
-//! assert!(paths_equal(&windows_path, &unix_path));
+//! #[cfg(not(windows))]
+//! {
+//!     let unix_path = PathBuf::from("src/components/ui.tsx");
+//!     let same_path = PathBuf::from("src/components/ui.tsx");
+//!     // Unix paths with forward slashes
+//!     assert!(paths_equal(&unix_path, &same_path));
+//! }
 //!
 //! // Complex traversals are resolved consistently
 //! let complex = PathBuf::from("./src/../lib/./utils/../mod.rs");

@@ -125,25 +125,41 @@ fn test_normalize_preserves_platform_semantics() {
 
 #[test]
 fn test_our_security_transforms() {
-    // Our normalize_path converts backslashes to forward slashes as part of security
-    // This test verifies the behavior
-    let path_with_backslash = PathBuf::from("some\\path\\file");
-    let normalized = normalize_path(&path_with_backslash);
+    // Test platform-specific handling of backslashes
+    #[cfg(windows)]
+    {
+        // On Windows, backslashes are path separators and are preserved
+        let path_with_backslash = PathBuf::from("some\\path\\file");
+        let normalized = normalize_path(&path_with_backslash);
+        let normalized_str = normalized.to_string_lossy();
+        // Windows keeps backslashes as legitimate separators
+        assert!(
+            normalized_str.contains("some")
+                && normalized_str.contains("path")
+                && normalized_str.contains("file")
+        );
+    }
 
-    // After normalization, backslashes should be converted to forward slashes
-    let normalized_str = normalized.to_string_lossy();
-    assert!(
-        !normalized_str.contains('\\') || cfg!(windows),
-        "Backslashes should be converted to forward slashes (except on Windows): {normalized:?}"
-    );
+    #[cfg(not(windows))]
+    {
+        // On Unix, backslashes are NOT separators - they're literal filename chars
+        let path_with_backslash = PathBuf::from("some\\path\\file");
+        let normalized = normalize_path(&path_with_backslash);
+        let normalized_str = normalized.to_string_lossy();
+        // Unix treats this as a single filename with backslashes in it
+        assert_eq!(
+            normalized_str, "some\\path\\file",
+            "On Unix, backslashes are literal characters, not separators: {normalized:?}"
+        );
+    }
 
-    // Unicode slashes should definitely be converted
+    // Unicode slashes should ALWAYS be converted for security
     let unicode_path = PathBuf::from("test\u{FF0F}file");
     let normalized_unicode = normalize_path(&unicode_path);
     let normalized_unicode_str = normalized_unicode.to_string_lossy();
 
     assert!(
         !normalized_unicode_str.contains('\u{FF0F}'),
-        "Unicode slashes should be converted to regular slashes: {normalized_unicode:?}"
+        "Unicode slashes should be converted to platform separators: {normalized_unicode:?}"
     );
 }

@@ -63,14 +63,15 @@ use std::path::{Path, PathBuf};
 /// Uses `dunce::simplified` + `path-clean` for robust cross-platform path handling
 /// while preserving relative/absolute semantics for agent workspace isolation.
 pub fn normalize_path(path: &Path) -> PathBuf {
-    // 1. Apply MAOS security transformations to prevent Unicode attack vectors
-    let secured_path = apply_security_transforms(path);
+    // 1. Use path-clean for proper component normalization (handles ., .., etc.)
+    let cleaned = path.clean();
 
-    // 2. Use path-clean for proper component normalization (handles ., .., etc.)
-    let cleaned = secured_path.clean();
+    // 2. Use dunce to handle Windows UNC paths and other platform quirks
+    let platform_normalized = dunce::simplified(&cleaned).to_path_buf();
 
-    // 3. Use dunce to handle Windows UNC paths and other platform quirks
-    dunce::simplified(&cleaned).to_path_buf()
+    // 3. Apply MAOS security transformations to prevent Unicode attack vectors
+    // AFTER platform normalization, so we work with the platform's conventions
+    apply_security_transforms(&platform_normalized)
 }
 
 /// Apply MAOS-specific security transformations to prevent agent attacks
@@ -78,17 +79,18 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
     const UNICODE_SLASHES: [char; 3] = ['\u{FF0F}', '\u{2044}', '\u{2215}'];
     let path_str = path.to_string_lossy();
 
-    // Apply security transforms if we detect potential attack vectors or cross-platform issues
-    let needs_transform = path_str
-        .chars()
-        .any(|c| UNICODE_SLASHES.contains(&c) || c == '\\');
+    // Only transform if we detect Unicode attack vectors
+    // Don't transform backslashes - they're legitimate on Windows after normalization
+    let needs_transform = path_str.chars().any(|c| UNICODE_SLASHES.contains(&c));
 
     if needs_transform {
+        // Use the platform's preferred separator when replacing Unicode attacks
+        let separator = std::path::MAIN_SEPARATOR;
         let secured: String = path_str
             .chars()
             .map(|c| {
-                if UNICODE_SLASHES.contains(&c) || c == '\\' {
-                    '/'
+                if UNICODE_SLASHES.contains(&c) {
+                    separator
                 } else {
                     c
                 }
@@ -120,10 +122,18 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
 ///     Path::new("src/main.rs")
 /// ));
 ///
-/// // Paths with different separators are equal after normalization
+/// // Platform-specific: Windows treats \ and / as equivalent
+/// #[cfg(windows)]
 /// assert!(paths_equal(
 ///     Path::new("src\\main.rs"),  // Windows-style
 ///     Path::new("src/main.rs")    // Unix-style
+/// ));
+///
+/// // On Unix, backslashes are literal characters in filenames
+/// #[cfg(not(windows))]
+/// assert!(!paths_equal(
+///     Path::new("src\\main.rs"),  // Single filename with backslash
+///     Path::new("src/main.rs")    // Path to main.rs in src directory
 /// ));
 /// ```
 ///
@@ -157,11 +167,24 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
 /// use maos_core::path::paths_equal;
 /// use std::path::Path;
 ///
-/// // Mixed separators are handled consistently
-/// assert!(paths_equal(
-///     Path::new("src/dir\\subdir/file.txt"),
-///     Path::new("src\\dir/subdir\\file.txt")
-/// ));
+/// // Platform-specific handling of separators
+/// #[cfg(windows)]
+/// {
+///     // Windows allows mixed separators
+///     assert!(paths_equal(
+///         Path::new("src/dir\\subdir/file.txt"),
+///         Path::new("src\\dir/subdir\\file.txt")
+///     ));
+/// }
+///
+/// #[cfg(not(windows))]
+/// {
+///     // Unix only recognizes forward slashes as separators
+///     assert!(paths_equal(
+///         Path::new("src/dir/subdir/file.txt"),
+///         Path::new("src/dir/subdir/file.txt")
+///     ));
+/// }
 /// ```
 ///
 /// # Use Cases
@@ -238,9 +261,16 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
-/// // Works with mixed separators
+/// // Platform-specific separator handling
+/// #[cfg(windows)]
 /// assert_eq!(
-///     relative_path(Path::new("src\\components"), Path::new("src/utils/helpers")),
+///     relative_path(Path::new("src\\components"), Path::new("src\\utils\\helpers")),
+///     Some(PathBuf::from("..\\utils\\helpers"))
+/// );
+///
+/// #[cfg(not(windows))]
+/// assert_eq!(
+///     relative_path(Path::new("src/components"), Path::new("src/utils/helpers")),
 ///     Some(PathBuf::from("../utils/helpers"))
 /// );
 /// ```

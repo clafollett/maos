@@ -383,10 +383,13 @@ mod normalization_bypass_attacks {
                 || attack.contains('\u{2044}')
                 || attack.contains('\u{2215}')
             {
-                // Unicode separators should be converted to normal separators
+                // Unicode separators should be converted and the path should be normalized
+                // We only care that Unicode attacks are neutralized, not which separator is used
                 assert!(
-                    normalized_str.contains("/") && !normalized_str.contains('\u{FF0F}'),
-                    "Unicode separator attacks should be normalized: {attack} -> {normalized_str}"
+                    !normalized_str.contains('\u{FF0F}')
+                        && !normalized_str.contains('\u{2044}')
+                        && !normalized_str.contains('\u{2215}'),
+                    "Unicode separator attacks should be neutralized: {attack} -> {normalized_str}"
                 );
             } else {
                 // For regular paths, check that dangerous patterns are resolved by std::path functions
@@ -403,16 +406,32 @@ mod normalization_bypass_attacks {
 
     #[test]
     fn test_normalization_consistency() {
-        // Test that equivalent traversal patterns normalize to the same result
+        // Test that equivalent traversal patterns normalize consistently
+        // Platform-specific: Windows and Unix handle separators differently
+
+        #[cfg(windows)]
         let equivalent_groups = [
-            // Group 1: Three levels up with different slash styles
+            // On Windows, both separator types work
             vec![
                 "../../../etc/passwd",
                 "..\\..\\..\\etc\\passwd",
                 "./../../../etc/passwd",
+            ],
+            vec![
+                "../../etc/passwd",
+                "..\\..\\etc\\passwd",
+                "./../../etc/passwd",
+            ],
+        ];
+
+        #[cfg(not(windows))]
+        let equivalent_groups = [
+            // On Unix, only forward slashes are separators
+            vec![
+                "../../../etc/passwd",
+                "./../../../etc/passwd",
                 "../../../etc/passwd", // Duplicate to test deterministic behavior
             ],
-            // Group 2: Two levels up
             vec![
                 "../../etc/passwd",
                 "./../../etc/passwd",
