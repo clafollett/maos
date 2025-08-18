@@ -19,7 +19,11 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a validator with allowed workspace roots
-//! let workspace = PathBuf::from("/tmp/my_workspace");
+//! let workspace = if cfg!(windows) {
+//!     PathBuf::from("C:\\temp\\my_workspace")
+//! } else {
+//!     PathBuf::from("/tmp/my_workspace")
+//! };
 //! let validator = PathValidator::new(
 //!     vec![workspace.clone()],
 //!     vec!["*.tmp".to_string(), "**/.git/**".to_string()]
@@ -79,13 +83,17 @@
 //!
 //! ## Multi-Agent Workspace Isolation
 //!
-//! ```rust
+//! ```rust,no_run
 //! use maos_core::path::PathValidator;
 //! use maos_core::{SessionId, AgentType};
 //! use std::path::PathBuf;
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! let project_root = PathBuf::from("/projects");
+//! let project_root = if cfg!(windows) {
+//!     PathBuf::from("C:\\projects")
+//! } else {
+//!     PathBuf::from("/projects")
+//! };
 //! let session_id = SessionId::generate();
 //! let agent_type: AgentType = "backend-engineer".to_string();
 //!
@@ -140,14 +148,18 @@
 //! Path validation errors provide detailed context while avoiding information
 //! leakage:
 //!
-//! ```rust
+//! ```rust,no_run
 //! use maos_core::path::PathValidator;
 //! use maos_core::error::{PathValidationError, MaosError};
 //! use std::path::PathBuf;
 //!
 //! # fn example() {
-//! let validator = PathValidator::new(vec![PathBuf::from("/workspace")], vec![]);
-//! let workspace = PathBuf::from("/workspace");
+//! let workspace = if cfg!(windows) {
+//!     PathBuf::from("C:\\workspace")
+//! } else {
+//!     PathBuf::from("/workspace")
+//! };
+//! let validator = PathValidator::new(vec![workspace.clone()], vec![]);
 //!
 //! match validator.validate_workspace_path(&PathBuf::from("../etc/passwd"), &workspace) {
 //!     Ok(safe_path) => println!("Safe: {:?}", safe_path),

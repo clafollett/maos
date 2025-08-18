@@ -307,8 +307,6 @@ impl HookInput {
         Ok(())
     }
 
-    /// 🔥 CRITICAL SECURITY FIX: Validate all path fields against workspace boundaries
-    ///
     /// This method prevents path traversal attacks by ensuring that all path fields
     /// (transcript_path, cwd) are contained within the specified workspace directory.
     ///
@@ -334,28 +332,50 @@ impl HookInput {
     ///
     /// # Example
     ///
-    /// ```rust,no_run
+    /// ```rust
     /// use std::path::{Path, PathBuf};
     /// use maos::io::HookInput;
     ///
+    /// # #[cfg(unix)]
+    /// # {
+    /// let workspace = Path::new("/workspace");
     /// let input = HookInput {
     ///     transcript_path: PathBuf::from("/workspace/transcript.jsonl"),
     ///     cwd: PathBuf::from("/workspace/project"),
     ///     hook_event_name: "pre_tool_use".to_string(),
     ///     ..Default::default()
     /// };
+    /// input.validate_paths(workspace).unwrap();
+    /// # }
     ///
-    /// let workspace = Path::new("/workspace");
-    /// input.validate_paths(workspace).unwrap(); // ✅ Safe - within workspace
-    ///
-    /// let malicious_input = HookInput {
-    ///     transcript_path: PathBuf::from("../../../etc/passwd"),
-    ///     cwd: PathBuf::from("/workspace/../../root"),
+    /// # #[cfg(windows)]
+    /// # {
+    /// let workspace = Path::new("C:\\workspace");
+    /// let input = HookInput {
+    ///     transcript_path: PathBuf::from("C:\\workspace\\transcript.jsonl"),
+    ///     cwd: PathBuf::from("C:\\workspace\\project"),
     ///     hook_event_name: "pre_tool_use".to_string(),
     ///     ..Default::default()
     /// };
+    /// input.validate_paths(workspace).unwrap();
+    /// # }
     ///
-    /// assert!(malicious_input.validate_paths(workspace).is_err()); // ❌ Blocked
+    /// // Path traversal attacks are blocked on all platforms
+    /// # #[cfg(any(unix, windows))]
+    /// # {
+    /// let workspace = if cfg!(windows) {
+    ///     Path::new("C:\\workspace")
+    /// } else {
+    ///     Path::new("/workspace")
+    /// };
+    /// let malicious_input = HookInput {
+    ///     transcript_path: PathBuf::from("../../../etc/passwd"),
+    ///     cwd: workspace.join("../../root"),
+    ///     hook_event_name: "pre_tool_use".to_string(),
+    ///     ..Default::default()
+    /// };
+    /// assert!(malicious_input.validate_paths(workspace).is_err());
+    /// # }
     /// ```
     pub fn validate_paths(&self, workspace: &Path) -> Result<()> {
         // 🚨 SECURITY: Check for empty paths first

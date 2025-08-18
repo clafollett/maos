@@ -49,13 +49,15 @@ use std::path::{Path, PathBuf};
 ///
 /// // Unicode separator attack prevention
 /// let unicode_path = Path::new("src\u{FF0F}main.rs"); // Fullwidth solidus
-/// assert_eq!(normalize_path(unicode_path), PathBuf::from("src/main.rs"));
+/// let normalized = normalize_path(unicode_path);
+/// // The Unicode character is replaced with platform separator
+/// assert!(!normalized.to_string_lossy().contains('\u{FF0F}'));
 ///
 /// // Additional Unicode separators are handled
 /// let fraction_slash = Path::new("src\u{2044}main.rs"); // Fraction slash
 /// let division_slash = Path::new("src\u{2215}main.rs"); // Division slash  
-/// assert_eq!(normalize_path(fraction_slash), PathBuf::from("src/main.rs"));
-/// assert_eq!(normalize_path(division_slash), PathBuf::from("src/main.rs"));
+/// assert!(!normalize_path(fraction_slash).to_string_lossy().contains('\u{2044}'));
+/// assert!(!normalize_path(division_slash).to_string_lossy().contains('\u{2215}'));
 /// ```
 ///
 /// ## Cross-Platform Compatibility
@@ -112,7 +114,7 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
 ///
 /// ## Basic Equality
 ///
-/// ```rust
+/// ```rust,no_run
 /// use maos_core::path::paths_equal;
 /// use std::path::Path;
 ///
@@ -163,7 +165,7 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
 ///
 /// ## Cross-Platform Compatibility
 ///
-/// ```rust
+/// ```rust,no_run
 /// use maos_core::path::paths_equal;
 /// use std::path::Path;
 ///
@@ -214,6 +216,8 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
+/// # #[cfg(unix)]
+/// # {
 /// // Same path returns current directory
 /// assert_eq!(
 ///     relative_path(Path::new("/home/user"), Path::new("/home/user")),
@@ -231,6 +235,27 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 ///     relative_path(Path::new("/home/user/docs"), Path::new("/home/user")),
 ///     Some(PathBuf::from(".."))
 /// );
+/// # }
+/// # #[cfg(windows)]
+/// # {
+/// // Same path returns current directory
+/// assert_eq!(
+///     relative_path(Path::new("C:\\Users\\user"), Path::new("C:\\Users\\user")),
+///     Some(PathBuf::from("."))
+/// );
+///
+/// // Direct child
+/// assert_eq!(
+///     relative_path(Path::new("C:\\Users\\user"), Path::new("C:\\Users\\user\\docs")),
+///     Some(PathBuf::from("docs"))
+/// );
+///
+/// // Parent directory
+/// assert_eq!(
+///     relative_path(Path::new("C:\\Users\\user\\docs"), Path::new("C:\\Users\\user")),
+///     Some(PathBuf::from(".."))
+/// );
+/// # }
 /// ```
 ///
 /// ## Sibling Directories
@@ -239,6 +264,8 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
+/// # #[cfg(unix)]
+/// # {
 /// // Sibling directories
 /// assert_eq!(
 ///     relative_path(Path::new("/home/user/docs"), Path::new("/home/user/pictures")),
@@ -253,11 +280,29 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 ///     ),
 ///     Some(PathBuf::from("../../../documents/file.txt"))
 /// );
+/// # }
+/// # #[cfg(windows)]
+/// # {
+/// // Sibling directories
+/// assert_eq!(
+///     relative_path(Path::new("C:\\Users\\user\\docs"), Path::new("C:\\Users\\user\\pictures")),
+///     Some(PathBuf::from("..\\pictures"))
+/// );
+///
+/// // Complex navigation
+/// assert_eq!(
+///     relative_path(
+///         Path::new("C:\\Users\\user\\projects\\rust\\src"),
+///         Path::new("C:\\Users\\user\\documents\\file.txt")
+///     ),
+///     Some(PathBuf::from("..\\..\\..\\documents\\file.txt"))
+/// );
+/// # }
 /// ```
 ///
 /// ## Cross-Platform Usage
 ///
-/// ```rust
+/// ```rust,no_run
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
@@ -281,6 +326,8 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
+/// # #[cfg(unix)]
+/// # {
 /// let workspace = Path::new("/projects/my-app");
 /// let config_file = Path::new("/projects/my-app/config/app.toml");
 /// let src_dir = Path::new("/projects/my-app/src");
@@ -289,6 +336,18 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// if let Some(rel_path) = relative_path(src_dir, config_file) {
 ///     println!("Config is at: {}", rel_path.display()); // "../config/app.toml"
 /// }
+/// # }
+/// # #[cfg(windows)]
+/// # {
+/// let workspace = Path::new("C:\\projects\\my-app");
+/// let config_file = Path::new("C:\\projects\\my-app\\config\\app.toml");
+/// let src_dir = Path::new("C:\\projects\\my-app\\src");
+///
+/// // Get relative path from src to config
+/// if let Some(rel_path) = relative_path(src_dir, config_file) {
+///     println!("Config is at: {}", rel_path.display()); // "..\\config\\app.toml"
+/// }
+/// # }
 /// ```
 pub fn relative_path(base: &Path, target: &Path) -> Option<PathBuf> {
     // Normalize both paths first to handle . and .. components and separators

@@ -4,7 +4,7 @@ use std::time::Duration;
 #[test]
 fn test_directory_constants() {
     // Test configuration directory constants
-    assert_eq!(constants::DEFAULT_CONFIG_DIR, ".maos");
+    assert_eq!(constants::MAOS_ROOT_DIR, ".maos");
     assert_eq!(constants::CONFIG_FILE_NAME, "config.json");
     assert_eq!(constants::SESSIONS_DIR_NAME, "sessions");
     assert_eq!(constants::WORKSPACES_DIR_NAME, "workspaces");
@@ -69,7 +69,7 @@ fn test_log_file_patterns() {
 fn test_constants_are_immutable() {
     // This test verifies constants are actually const
     // These should all be compile-time constants
-    const _CONFIG_DIR: &str = constants::DEFAULT_CONFIG_DIR;
+    const _CONFIG_DIR: &str = constants::MAOS_ROOT_DIR;
     const _SESSION_FILE: &str = constants::SESSION_FILE_NAME;
     const _MAX_TIME: u64 = constants::MAX_EXECUTION_TIME_MS;
 

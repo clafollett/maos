@@ -247,7 +247,11 @@ impl PathValidator {
     /// use std::env;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let workspace = env::temp_dir();
+    /// let workspace = if cfg!(windows) {
+    ///     PathBuf::from("C:\\projects\\my-app")
+    /// } else {
+    ///     PathBuf::from("/projects/my-app")
+    /// };
     /// let validator = PathValidator::new(vec![workspace.clone()], vec![]);
     ///
     /// // Validate a simple file path
@@ -266,7 +270,11 @@ impl PathValidator {
     /// use std::env;
     ///
     /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-    /// let project_root = env::temp_dir();
+    /// let project_root = if cfg!(windows) {
+    ///     PathBuf::from("C:\\projects\\my-app")
+    /// } else {
+    ///     PathBuf::from("/projects/my-app")
+    /// };
     /// let agent1_workspace = project_root.join("agent1");
     /// let agent2_workspace = project_root.join("agent2");
     ///
@@ -294,7 +302,11 @@ impl PathValidator {
     /// use std::env;
     ///
     /// # fn main() {
-    /// let workspace = env::temp_dir();
+    /// let workspace = if cfg!(windows) {
+    ///     PathBuf::from("C:\\projects\\my-app")
+    /// } else {
+    ///     PathBuf::from("/projects/my-app")
+    /// };
     /// let validator = PathValidator::new(vec![workspace.clone()], vec![]);
     ///
     /// // These malicious paths will be blocked
@@ -323,7 +335,11 @@ impl PathValidator {
     /// use std::env;
     ///
     /// # fn main() {
-    /// let workspace = env::temp_dir();
+    /// let workspace =  if cfg!(windows) {
+    ///     PathBuf::from("C:\\projects\\my-app")
+    /// } else {
+    ///     PathBuf::from("/projects/my-app")
+    /// };
     /// let validator = PathValidator::new(
     ///     vec![workspace.clone()],
     ///     vec!["*.log".to_string(), "**/.git/**".to_string()]
@@ -455,7 +471,7 @@ impl PathValidator {
     ///
     /// ## Basic Workspace Generation
     ///
-    /// ```no_run
+    /// ```rust
     /// use maos_core::{SessionId, path::PathValidator};
     /// use std::path::Path;
     ///
@@ -478,7 +494,11 @@ impl PathValidator {
     ///
     /// let validator = PathValidator::new(vec![], vec![]);
     /// let session_id = SessionId::generate();
-    /// let project_root = Path::new("/projects/my-app");
+    /// let project_root = if cfg!(windows) {
+    ///     Path::new("C:\\projects\\my-app")
+    /// } else {
+    ///     Path::new("/projects/my-app")
+    /// };
     ///
     /// // Different agents get isolated workspaces within same session
     /// let agents = vec!["frontend-engineer", "backend-engineer", "data-scientist"];
@@ -508,7 +528,11 @@ impl PathValidator {
     /// let validator = PathValidator::new(vec![], vec![]);
     /// let session_id = SessionId::generate();
     /// let agent_type = "tester".to_string();
-    /// let root = Path::new("/tmp");
+    /// let root = if cfg!(windows) {
+    ///     Path::new("C:\\temp")
+    /// } else {
+    ///     Path::new("/tmp")
+    /// };
     ///
     /// // Same inputs always produce same workspace path
     /// let workspace1 = validator.generate_workspace_path(&root, &session_id, &agent_type);
