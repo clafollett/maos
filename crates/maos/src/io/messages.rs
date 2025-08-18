@@ -350,7 +350,7 @@ impl HookInput {
     ///
     /// # #[cfg(windows)]
     /// # {
-    /// let workspace = PathBuf::from("C:\\workspace");
+    /// let workspace = Path::new("C:\\workspace");
     /// let input = HookInput {
     ///     transcript_path: PathBuf::from("C:\\workspace\\transcript.jsonl"),
     ///     cwd: PathBuf::from("C:\\workspace\\project"),
