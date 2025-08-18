@@ -368,13 +368,24 @@ impl HookInput {
     /// } else {
     ///     Path::new("/workspace")
     /// };
+    ///
+    /// // Attempt to escape workspace using relative paths
     /// let malicious_input = HookInput {
     ///     transcript_path: PathBuf::from("../../../etc/passwd"),
-    ///     cwd: workspace.join("../../root"),
+    ///     cwd: PathBuf::from("/etc/shadow"),  // Absolute path outside workspace
     ///     hook_event_name: "pre_tool_use".to_string(),
     ///     ..Default::default()
     /// };
     /// assert!(malicious_input.validate_paths(workspace).is_err());
+    ///
+    /// // Also blocked: paths that traverse up from workspace
+    /// let traversal_input = HookInput {
+    ///     transcript_path: workspace.join("data").join("../../../etc/passwd"),
+    ///     cwd: workspace.join("project"),
+    ///     hook_event_name: "pre_tool_use".to_string(),
+    ///     ..Default::default()
+    /// };
+    /// assert!(traversal_input.validate_paths(workspace).is_err());
     /// # }
     /// ```
     pub fn validate_paths(&self, workspace: &Path) -> Result<()> {
