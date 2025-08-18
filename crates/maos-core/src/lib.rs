@@ -13,18 +13,23 @@
 //!
 //! # Example
 //!
-//! ```no_run
+//! ```rust
 //! use maos_core::{SessionId, Session, SessionStatus, AgentId};
 //! use chrono::Utc;
 //! use std::path::PathBuf;
 //!
 //! // Create a new session
+//! let workspace_root = if cfg!(windows) {
+//!     PathBuf::from("C:\\temp\\maos")
+//! } else {
+//!     PathBuf::from("/tmp/maos")
+//! };
 //! let session = Session {
 //!     id: SessionId::generate(),
 //!     created_at: Utc::now(),
 //!     last_activity: Utc::now(),
 //!     status: SessionStatus::Active,
-//!     workspace_root: PathBuf::from("/tmp/maos"),
+//!     workspace_root,
 //!     active_agents: vec![],
 //! };
 //!

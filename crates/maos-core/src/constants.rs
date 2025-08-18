@@ -36,7 +36,7 @@
 //!
 //! ## Using Timeout Constants
 //!
-//! ```no_run
+//! ```rust,no_run
 //! use maos_core::constants::*;
 //! use std::time::Duration;
 //!

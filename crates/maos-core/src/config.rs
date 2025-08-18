@@ -888,7 +888,7 @@ impl ConfigLoader {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,no_run
     /// use maos_core::config::ConfigLoader;
     /// use std::path::Path;
     ///

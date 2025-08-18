@@ -488,7 +488,7 @@ impl PathValidator {
     ///
     /// ## Multi-Agent Session Management
     ///
-    /// ```no_run
+    /// ```rust,no_run
     /// use maos_core::{SessionId, path::PathValidator};
     /// use std::path::Path;
     ///
@@ -521,7 +521,7 @@ impl PathValidator {
     ///
     /// ## Deterministic Workspace Paths
     ///
-    /// ```no_run
+    /// ```rust,no_run
     /// use maos_core::{SessionId, path::PathValidator};
     /// use std::path::Path;
     ///

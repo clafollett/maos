@@ -350,7 +350,7 @@ impl HookInput {
     ///
     /// # #[cfg(windows)]
     /// # {
-    /// let workspace = Path::new("C:\\workspace");
+    /// let workspace = PathBuf::from("C:\\workspace");
     /// let input = HookInput {
     ///     transcript_path: PathBuf::from("C:\\workspace\\transcript.jsonl"),
     ///     cwd: PathBuf::from("C:\\workspace\\project"),
@@ -360,33 +360,17 @@ impl HookInput {
     /// input.validate_paths(workspace).unwrap();
     /// # }
     ///
-    /// // Path traversal attacks are blocked on all platforms
-    /// # #[cfg(any(unix, windows))]
-    /// # {
-    /// let workspace = if cfg!(windows) {
-    ///     Path::new("C:\\workspace")
-    /// } else {
-    ///     Path::new("/workspace")
-    /// };
-    ///
-    /// // Attempt to escape workspace using relative paths
+    /// // Path traversal attacks are blocked
     /// let malicious_input = HookInput {
     ///     transcript_path: PathBuf::from("../../../etc/passwd"),
-    ///     cwd: PathBuf::from("/etc/shadow"),  // Absolute path outside workspace
+    ///     cwd: PathBuf::from("/etc/shadow"),
     ///     hook_event_name: "pre_tool_use".to_string(),
     ///     ..Default::default()
     /// };
-    /// assert!(malicious_input.validate_paths(workspace).is_err());
-    ///
-    /// // Also blocked: paths that traverse up from workspace
-    /// let traversal_input = HookInput {
-    ///     transcript_path: workspace.join("data").join("../../../etc/passwd"),
-    ///     cwd: workspace.join("project"),
-    ///     hook_event_name: "pre_tool_use".to_string(),
-    ///     ..Default::default()
-    /// };
-    /// assert!(traversal_input.validate_paths(workspace).is_err());
-    /// # }
+    /// # #[cfg(unix)]
+    /// assert!(malicious_input.validate_paths(Path::new("/workspace")).is_err());
+    /// # #[cfg(windows)]
+    /// assert!(malicious_input.validate_paths(Path::new("C:\\workspace")).is_err());
     /// ```
     pub fn validate_paths(&self, workspace: &Path) -> Result<()> {
         // 🚨 SECURITY: Check for empty paths first

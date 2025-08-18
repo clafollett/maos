@@ -148,7 +148,7 @@
 //! Path validation errors provide detailed context while avoiding information
 //! leakage:
 //!
-//! ```rust,no_run
+//! ```rust
 //! use maos_core::path::PathValidator;
 //! use maos_core::error::{PathValidationError, MaosError};
 //! use std::path::PathBuf;

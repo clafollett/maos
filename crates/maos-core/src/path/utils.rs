@@ -114,7 +114,7 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
 ///
 /// ## Basic Equality
 ///
-/// ```rust,no_run
+/// ```rust
 /// use maos_core::path::paths_equal;
 /// use std::path::Path;
 ///
@@ -124,19 +124,20 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
 ///     Path::new("src/main.rs")
 /// ));
 ///
-/// // Platform-specific: Windows treats \ and / as equivalent
-/// #[cfg(windows)]
-/// assert!(paths_equal(
-///     Path::new("src\\main.rs"),  // Windows-style
-///     Path::new("src/main.rs")    // Unix-style
-/// ));
-///
-/// // On Unix, backslashes are literal characters in filenames
-/// #[cfg(not(windows))]
-/// assert!(!paths_equal(
-///     Path::new("src\\main.rs"),  // Single filename with backslash
-///     Path::new("src/main.rs")    // Path to main.rs in src directory
-/// ));
+/// // Platform-specific behavior handled at runtime
+/// if cfg!(windows) {
+///     // Windows treats \ and / as equivalent
+///     assert!(paths_equal(
+///         Path::new("src\\main.rs"),  // Windows-style
+///         Path::new("src/main.rs")    // Unix-style
+///     ));
+/// } else {
+///     // On Unix, backslashes are literal characters in filenames
+///     assert!(!paths_equal(
+///         Path::new("src\\main.rs"),  // Single filename with backslash
+///         Path::new("src/main.rs")    // Path to main.rs in src directory
+///     ));
+/// }
 /// ```
 ///
 /// ## Normalization-Based Equality
@@ -165,22 +166,18 @@ fn apply_security_transforms(path: &Path) -> PathBuf {
 ///
 /// ## Cross-Platform Compatibility
 ///
-/// ```rust,no_run
+/// ```rust
 /// use maos_core::path::paths_equal;
 /// use std::path::Path;
 ///
 /// // Platform-specific handling of separators
-/// #[cfg(windows)]
-/// {
+/// if cfg!(windows) {
 ///     // Windows allows mixed separators
 ///     assert!(paths_equal(
 ///         Path::new("src/dir\\subdir/file.txt"),
 ///         Path::new("src\\dir/subdir\\file.txt")
 ///     ));
-/// }
-///
-/// #[cfg(not(windows))]
-/// {
+/// } else {
 ///     // Unix only recognizes forward slashes as separators
 ///     assert!(paths_equal(
 ///         Path::new("src/dir/subdir/file.txt"),
@@ -302,22 +299,22 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 ///
 /// ## Cross-Platform Usage
 ///
-/// ```rust,no_run
+/// ```rust
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
 /// // Platform-specific separator handling
-/// #[cfg(windows)]
-/// assert_eq!(
-///     relative_path(Path::new("src\\components"), Path::new("src\\utils\\helpers")),
-///     Some(PathBuf::from("..\\utils\\helpers"))
-/// );
-///
-/// #[cfg(not(windows))]
-/// assert_eq!(
-///     relative_path(Path::new("src/components"), Path::new("src/utils/helpers")),
-///     Some(PathBuf::from("../utils/helpers"))
-/// );
+/// if cfg!(windows) {
+///     assert_eq!(
+///         relative_path(Path::new("src\\components"), Path::new("src\\utils\\helpers")),
+///         Some(PathBuf::from("..\\utils\\helpers"))
+///     );
+/// } else {
+///     assert_eq!(
+///         relative_path(Path::new("src/components"), Path::new("src/utils/helpers")),
+///         Some(PathBuf::from("../utils/helpers"))
+///     );
+/// }
 /// ```
 ///
 /// ## Workspace-Relative File Access
