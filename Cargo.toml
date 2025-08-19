@@ -63,6 +63,7 @@ consolidate-commits = true
 pre-release-commit-message = "chore(release): v{{version}}"
 tag-message = "Release v{{version}}"
 tag-name = "v{{version}}"
+tag = true
 publish = false
 push = false
 sign-tag = false

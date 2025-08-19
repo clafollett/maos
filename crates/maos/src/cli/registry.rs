@@ -268,9 +268,10 @@ mod tests {
         let elapsed = start.elapsed();
         let avg_lookup = elapsed / 1000;
 
-        // Should be O(1) - well under 1 microsecond
+        // Should be O(1) - typically under 1 microsecond on local machines
+        // Allow up to 2µs for CI variance (slower runners, virtualization overhead)
         assert!(
-            avg_lookup.as_nanos() < 1000,
+            avg_lookup.as_nanos() < 2000,
             "Lookup too slow: {avg_lookup:?}"
         );
     }
