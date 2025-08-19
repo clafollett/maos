@@ -3,9 +3,10 @@
 //! This benchmark suite measures the performance of core path operations
 //! to ensure they meet performance requirements for high-frequency usage.
 
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use maos_core::path::{PathValidator, normalize_path, paths_equal, relative_path};
 use maos_core::{AgentType, SessionId};
+use std::hint::black_box;
 use std::path::{Path, PathBuf};
 
 /// Benchmark normalize_path function with various path complexities
@@ -145,10 +146,10 @@ fn bench_path_validator_construction(c: &mut Criterion) {
             |b, &(num_roots, num_patterns)| {
                 b.iter(|| {
                     let roots = (0..num_roots)
-                        .map(|i| temp_dir.join(format!("root_{}", i)))
+                        .map(|i| temp_dir.join(format!("root_{i}")))
                         .collect();
                     let patterns = (0..num_patterns)
-                        .map(|i| format!("**/*pattern_{}.tmp", i))
+                        .map(|i| format!("**/*pattern_{i}.tmp"))
                         .collect();
 
                     PathValidator::new(black_box(roots), black_box(patterns))

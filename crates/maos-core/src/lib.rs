@@ -13,18 +13,23 @@
 //!
 //! # Example
 //!
-//! ```no_run
+//! ```rust
 //! use maos_core::{SessionId, Session, SessionStatus, AgentId};
 //! use chrono::Utc;
 //! use std::path::PathBuf;
 //!
 //! // Create a new session
+//! let workspace_root = if cfg!(windows) {
+//!     PathBuf::from("C:\\mock\\test\\maos")
+//! } else {
+//!     PathBuf::from("/tmp/maos")
+//! };
 //! let session = Session {
 //!     id: SessionId::generate(),
 //!     created_at: Utc::now(),
 //!     last_activity: Utc::now(),
 //!     status: SessionStatus::Active,
-//!     workspace_root: PathBuf::from("/tmp/maos"),
+//!     workspace_root,
 //!     active_agents: vec![],
 //! };
 //!
@@ -38,17 +43,11 @@ pub mod types;
 pub mod config;
 pub mod constants;
 pub mod error;
+pub mod hook_events;
 pub mod logging;
 pub mod messages;
 pub mod metrics;
 pub mod path;
-
-// Re-export commonly used types
-pub use types::{
-    agent::{AgentCapabilities, AgentId, AgentInfo, AgentStatus, AgentType},
-    session::{Session, SessionId, SessionStatus},
-    tool::{ToolCall, ToolCallId, ToolResult},
-};
 
 // Re-export error types
 pub use error::{
@@ -56,5 +55,15 @@ pub use error::{
     PathValidationError, Result, SecurityError, SessionError, ValidationError,
 };
 
+// Re-export hook event types
+pub use hook_events::{HookEvent, category_constants, event_constants as hook_constants};
+
 // Re-export metrics types
 pub use metrics::{ExecutionStats, MemoryStats, MetricsReport, PerformanceMetrics};
+
+// Re-export commonly used types
+pub use types::{
+    agent::{AgentCapabilities, AgentId, AgentInfo, AgentStatus, AgentType},
+    session::{Session, SessionId, SessionStatus},
+    tool::{ToolCall, ToolCallId, ToolResult},
+};

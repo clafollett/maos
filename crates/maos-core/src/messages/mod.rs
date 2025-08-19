@@ -38,12 +38,18 @@
 //!
 //! # Example
 //!
-//! ```no_run
+//! ```rust
 //! use maos_core::messages::{HookInput, HookResponse};
 //! use serde_json::json;
+//! use std::path::PathBuf;
 //!
+//! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Parse hook input (works with both formats)
 //! let input = json!({
+//!     "session_id": "test_session",
+//!     "transcript_path": "/tmp/transcript.txt",
+//!     "cwd": "/tmp",
+//!     "hook_event_name": "PreToolUse",
 //!     "tool_name": "Edit",
 //!     "tool_input": { "file_path": "test.rs" }
 //! });
@@ -52,7 +58,8 @@
 //! // Create response
 //! let response = HookResponse::Allow;
 //! println!("Exit code: {}", response.to_exit_code());
-//! # Ok::<(), Box<dyn std::error::Error>>(())
+//! # Ok(())
+//! # }
 //! ```
 
 pub mod hook;

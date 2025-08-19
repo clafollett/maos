@@ -56,15 +56,23 @@ pub enum Commands {
 impl Commands {
     /// Returns the Claude Code hook event name for this command
     pub fn hook_event_name(&self) -> &'static str {
+        // 🔥 TYPE SAFETY: Use enum conversion for consistency
+        self.to_hook_event().as_str()
+    }
+
+    /// Convert command to strongly-typed HookEvent enum
+    /// 🔥 TYPE SAFETY ENHANCEMENT: Ensures consistent mapping
+    pub fn to_hook_event(&self) -> maos_core::hook_events::HookEvent {
+        use maos_core::hook_events::HookEvent;
         match self {
-            Commands::PreToolUse => "pre_tool_use",
-            Commands::PostToolUse => "post_tool_use",
-            Commands::Notify => "notification",
-            Commands::Stop { .. } => "stop",
-            Commands::SubagentStop => "subagent_stop",
-            Commands::UserPromptSubmit { .. } => "user_prompt_submit",
-            Commands::PreCompact => "pre_compact",
-            Commands::SessionStart => "session_start",
+            Commands::PreToolUse => HookEvent::PreToolUse,
+            Commands::PostToolUse => HookEvent::PostToolUse,
+            Commands::Notify => HookEvent::Notification,
+            Commands::Stop { .. } => HookEvent::Stop,
+            Commands::SubagentStop => HookEvent::SubagentStop,
+            Commands::UserPromptSubmit { .. } => HookEvent::UserPromptSubmit,
+            Commands::PreCompact => HookEvent::PreCompact,
+            Commands::SessionStart => HookEvent::SessionStart,
         }
     }
 
@@ -75,12 +83,13 @@ impl Commands {
 
     /// Returns the category of this command for logging/metrics
     pub fn category(&self) -> &'static str {
+        use maos_core::category_constants::*;
         match self {
-            Commands::PreToolUse | Commands::PostToolUse => "tool-hooks",
-            Commands::Notify => "notifications",
-            Commands::Stop { .. } | Commands::SubagentStop | Commands::SessionStart => "lifecycle",
-            Commands::UserPromptSubmit { .. } => "user-input",
-            Commands::PreCompact => "maintenance",
+            Commands::PreToolUse | Commands::PostToolUse => TOOL_HOOKS,
+            Commands::Notify => NOTIFICATIONS,
+            Commands::Stop { .. } | Commands::SubagentStop | Commands::SessionStart => LIFECYCLE,
+            Commands::UserPromptSubmit { .. } => USER_INPUT,
+            Commands::PreCompact => MAINTENANCE,
         }
     }
 

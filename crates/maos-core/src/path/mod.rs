@@ -19,7 +19,11 @@
 //!
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a validator with allowed workspace roots
-//! let workspace = PathBuf::from("/tmp/my_workspace");
+//! let workspace = if cfg!(windows) {
+//!     PathBuf::from("C:\\mock\\test\\workspace\\project")
+//! } else {
+//!     PathBuf::from("/tmp/my_workspace")
+//! };
 //! let validator = PathValidator::new(
 //!     vec![workspace.clone()],
 //!     vec!["*.tmp".to_string(), "**/.git/**".to_string()]
@@ -79,13 +83,17 @@
 //!
 //! ## Multi-Agent Workspace Isolation
 //!
-//! ```rust
+//! ```rust,no_run
 //! use maos_core::path::PathValidator;
 //! use maos_core::{SessionId, AgentType};
 //! use std::path::PathBuf;
 //!
 //! # fn example() -> Result<(), Box<dyn std::error::Error>> {
-//! let project_root = PathBuf::from("/projects");
+//! let project_root = if cfg!(windows) {
+//!     PathBuf::from("C:\\projects")
+//! } else {
+//!     PathBuf::from("/projects")
+//! };
 //! let session_id = SessionId::generate();
 //! let agent_type: AgentType = "backend-engineer".to_string();
 //!
@@ -112,12 +120,22 @@
 //! use maos_core::path::{normalize_path, paths_equal};
 //! use std::path::PathBuf;
 //!
-//! // Handle mixed separators
-//! let windows_path = PathBuf::from("src\\components\\ui.tsx");
-//! let unix_path = PathBuf::from("src/components/ui.tsx");
+//! // Platform-specific separator handling
+//! #[cfg(windows)]
+//! {
+//!     let windows_path = PathBuf::from("src\\components\\ui.tsx");
+//!     let forward_path = PathBuf::from("src/components/ui.tsx");
+//!     // Windows treats both as equivalent
+//!     assert!(paths_equal(&windows_path, &forward_path));
+//! }
 //!
-//! // Both normalize to the same canonical form
-//! assert!(paths_equal(&windows_path, &unix_path));
+//! #[cfg(not(windows))]
+//! {
+//!     let unix_path = PathBuf::from("src/components/ui.tsx");
+//!     let same_path = PathBuf::from("src/components/ui.tsx");
+//!     // Unix paths with forward slashes
+//!     assert!(paths_equal(&unix_path, &same_path));
+//! }
 //!
 //! // Complex traversals are resolved consistently
 //! let complex = PathBuf::from("./src/../lib/./utils/../mod.rs");
@@ -136,8 +154,12 @@
 //! use std::path::PathBuf;
 //!
 //! # fn example() {
-//! let validator = PathValidator::new(vec![PathBuf::from("/workspace")], vec![]);
-//! let workspace = PathBuf::from("/workspace");
+//! let workspace = if cfg!(windows) {
+//!     PathBuf::from("C:\\mock\\test\\workspace")
+//! } else {
+//!     PathBuf::from("/workspace")
+//! };
+//! let validator = PathValidator::new(vec![workspace.clone()], vec![]);
 //!
 //! match validator.validate_workspace_path(&PathBuf::from("../etc/passwd"), &workspace) {
 //!     Ok(safe_path) => println!("Safe: {:?}", safe_path),

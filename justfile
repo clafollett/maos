@@ -108,7 +108,7 @@ format-check:
 # Linting with clippy
 lint:
     @echo "🔍 Running clippy lints..."
-    cargo clippy --all-targets --all-features -- -D warnings
+    cargo clippy --all-targets --all-features -- -D warnings -W clippy::uninlined_format_args
 
 # Fix auto-fixable clippy issues
 clippy-fix:

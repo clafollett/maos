@@ -56,7 +56,7 @@ impl SessionLogger {
 
     /// Write a log entry
     pub fn write(&mut self, entry: &str) -> Result<()> {
-        let entry_with_newline = format!("{}\n", entry);
+        let entry_with_newline = format!("{entry}\n");
         let entry_bytes = entry_with_newline.len();
 
         // Check if we need to rotate
@@ -160,11 +160,11 @@ impl SessionLogger {
 
             let extensions = if self.config.compress_on_roll {
                 [
-                    format!("log.{}.gz", current_num),
-                    format!("log.{}.gz", next_num),
+                    format!("log.{current_num}.gz"),
+                    format!("log.{next_num}.gz"),
                 ]
             } else {
-                [format!("log.{}", current_num), format!("log.{}", next_num)]
+                [format!("log.{current_num}"), format!("log.{next_num}")]
             };
 
             let current_path = self.current_log_path().with_extension(&extensions[0]);
@@ -195,9 +195,9 @@ impl SessionLogger {
         // Try to remove files beyond the limit
         for i in (max_rotated_file_num + 1)..=(max_rotated_file_num * 2) {
             let extensions = if self.config.compress_on_roll {
-                format!("log.{}.gz", i)
+                format!("log.{i}.gz")
             } else {
-                format!("log.{}", i)
+                format!("log.{i}")
             };
 
             let old_file = self.current_log_path().with_extension(&extensions);

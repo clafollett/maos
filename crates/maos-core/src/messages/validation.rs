@@ -117,7 +117,7 @@ impl SchemaValidator {
 
         for field in &required_fields {
             if value.get(field).is_none() {
-                missing_fields.push(format!("Missing required field: {}", field));
+                missing_fields.push(format!("Missing required field: {field}"));
             }
         }
 

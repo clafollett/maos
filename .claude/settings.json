@@ -17,7 +17,7 @@
     "deny": []
   },
   "env": {
-    "BASH_DEFAULT_TIMEOUT_MS": "300000",
+    "BASH_DEFAULT_TIMEOUT_MS": "1200000",
     "BASH_MAX_TIMEOUT_MS": "1200000",
     "CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR": "1"
   },
@@ -28,7 +28,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/pre_tool_use.py\""
+            "command": "uv run \".claude/hooks/maos/hooks/pre_tool_use.py\""
           }
         ]
       }
@@ -39,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/post_tool_use.py\""
+            "command": "uv run \".claude/hooks/maos/hooks/post_tool_use.py\""
           }
         ]
       }
@@ -50,7 +50,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/notification.py\" --notify"
+            "command": "uv run \".claude/hooks/maos/hooks/notification.py\" --notify"
           }
         ]
       }
@@ -61,7 +61,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/stop.py\" --chat"
+            "command": "uv run \".claude/hooks/maos/hooks/stop.py\" --chat"
           }
         ]
       }
@@ -72,7 +72,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/subagent_stop.py\""
+            "command": "uv run \".claude/hooks/maos/hooks/subagent_stop.py\""
           }
         ]
       }
@@ -82,7 +82,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/user_prompt_submit.py\" --log-only"
+            "command": "uv run \".claude/hooks/maos/hooks/user_prompt_submit.py\" --log-only"
           }
         ]
       }
@@ -93,7 +93,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/pre_compact.py\""
+            "command": "uv run \".claude/hooks/maos/hooks/pre_compact.py\""
           }
         ]
       }
@@ -104,7 +104,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "uv run \"$(git rev-parse --show-toplevel 2>/dev/null || pwd)/.claude/hooks/maos/hooks/session_start.py\""
+            "command": "uv run \".claude/hooks/maos/hooks/session_start.py\""
           }
         ]
       }

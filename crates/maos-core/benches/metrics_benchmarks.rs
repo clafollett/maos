@@ -1,6 +1,7 @@
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use maos_core::metrics::PerformanceMetrics;
 use maos_core::timed_operation;
+use std::hint::black_box;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -32,7 +33,7 @@ fn benchmark_concurrent_metrics(c: &mut Criterion) {
                             let metrics = Arc::clone(&metrics);
                             thread::spawn(move || {
                                 metrics.record_execution_time(
-                                    &format!("op_{}", i),
+                                    &format!("op_{i}"),
                                     Duration::from_micros(100),
                                 );
                             })

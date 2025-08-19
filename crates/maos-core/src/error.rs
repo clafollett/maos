@@ -72,6 +72,14 @@ pub enum MaosError {
     #[error("Invalid input: {message}")]
     InvalidInput { message: String },
 
+    #[error("Resource limit exceeded: {resource} limit={limit}, actual={actual} - {message}")]
+    ResourceLimit {
+        resource: String,
+        limit: u64,
+        actual: u64,
+        message: String,
+    },
+
     #[error("Operation timeout: {operation} took longer than {timeout_ms}ms")]
     Timeout { operation: String, timeout_ms: u64 },
 
@@ -117,6 +125,7 @@ pub enum ExitCode {
     ConfigError = 3,
     SecurityError = 4,
     TimeoutError = 5,
+    ResourceError = 6,
     InternalError = 99,
 }
 
@@ -125,6 +134,7 @@ impl From<&MaosError> for ExitCode {
         match error {
             MaosError::Security(_) => ExitCode::SecurityError,
             MaosError::Config(_) => ExitCode::ConfigError,
+            MaosError::ResourceLimit { .. } => ExitCode::ResourceError,
             MaosError::Timeout { .. } => ExitCode::TimeoutError,
             MaosError::Blocking { .. } => ExitCode::BlockingError,
             MaosError::Anyhow(_) => ExitCode::InternalError, // Unexpected errors map to 99
@@ -319,26 +329,31 @@ pub enum ValidationError {
 #[derive(Debug, Error)]
 pub enum PathValidationError {
     /// Path traversal attempt detected (e.g., "../../../etc/passwd")
-    #[error("Path traversal attempt blocked: {path}")]
+    /// 🔒 SECURITY FIX: No path information leaked
+    #[error("Path traversal attempt blocked")]
     PathTraversal { path: std::path::PathBuf },
 
     /// Path is outside the allowed workspace boundary
-    #[error("Path outside workspace: {path} not in {workspace}")]
+    /// 🔒 SECURITY FIX: No sensitive path information leaked
+    #[error("Path outside allowed workspace boundary")]
     OutsideWorkspace {
         path: std::path::PathBuf,
         workspace: std::path::PathBuf,
     },
 
     /// Path matches a blocked pattern (e.g., .git/hooks, .ssh)
-    #[error("Blocked path pattern: {0}")]
+    /// 🔒 SECURITY FIX: No specific path leaked to prevent information disclosure
+    #[error("Access to path blocked by security policy")]
     BlockedPath(std::path::PathBuf),
 
     /// Failed to canonicalize path (resolve symlinks and relative paths)
-    #[error("Canonicalization failed for {0}: {1}")]
+    /// 🔒 SECURITY FIX: Generic error message to prevent path disclosure
+    #[error("Path canonicalization failed")]
     CanonicalizationFailed(std::path::PathBuf, #[source] std::io::Error),
 
     /// Workspace root path is invalid or inaccessible
-    #[error("Invalid workspace: {0}")]
+    /// 🔒 SECURITY FIX: No workspace path leaked
+    #[error("Invalid or inaccessible workspace")]
     InvalidWorkspace(std::path::PathBuf, #[source] std::io::Error),
 
     /// Path component contains invalid characters or patterns

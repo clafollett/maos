@@ -1,6 +1,7 @@
-use criterion::{BenchmarkId, Criterion, black_box, criterion_group, criterion_main};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use maos_core::SessionId;
 use maos_core::logging::{RollingLogConfig, SessionLogger};
+use std::hint::black_box;
 use std::sync::Arc;
 use std::thread;
 use tempfile::TempDir;
@@ -42,7 +43,7 @@ fn benchmark_concurrent_logging(c: &mut Criterion) {
                         .map(|i| {
                             let logger = Arc::clone(&logger);
                             thread::spawn(move || {
-                                logger.write(&format!("Thread {} entry", i)).unwrap();
+                                logger.write(&format!("Thread {i} entry")).unwrap();
                             })
                         })
                         .collect();

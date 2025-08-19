@@ -169,7 +169,7 @@ pub struct MacOsVoiceConfig {
 }
 
 /// ElevenLabs TTS configuration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct ElevenLabsVoiceConfig {
     /// Voice ID from ElevenLabs (e.g., "IKne3meq5aSn9XLyUdCD" for Charlie)
@@ -185,11 +185,25 @@ pub struct ElevenLabsVoiceConfig {
     pub output_format: String,
 
     /// Optional API key (prefer environment variable)
+    /// 🔒 SECURITY FIX: Never serialize API keys to prevent leakage
+    #[serde(skip_serializing)]
     pub api_key: Option<String>,
 }
 
+// 🔒 SECURITY FIX: Custom Debug to mask API keys
+impl std::fmt::Debug for ElevenLabsVoiceConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ElevenLabsVoiceConfig")
+            .field("voice_id", &self.voice_id)
+            .field("model", &self.model)
+            .field("output_format", &self.output_format)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
+}
+
 /// OpenAI TTS configuration
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OpenAiVoiceConfig {
     /// OpenAI TTS model ("tts-1" or "tts-1-hd")
@@ -201,7 +215,20 @@ pub struct OpenAiVoiceConfig {
     pub voice: String,
 
     /// Optional API key (prefer environment variable)
+    /// 🔒 SECURITY FIX: Never serialize API keys to prevent leakage
+    #[serde(skip_serializing)]
     pub api_key: Option<String>,
+}
+
+// 🔒 SECURITY FIX: Custom Debug to mask API keys
+impl std::fmt::Debug for OpenAiVoiceConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OpenAiVoiceConfig")
+            .field("model", &self.model)
+            .field("voice", &self.voice)
+            .field("api_key", &self.api_key.as_ref().map(|_| "[REDACTED]"))
+            .finish()
+    }
 }
 
 /// Pyttsx3 TTS configuration
@@ -861,7 +888,7 @@ impl ConfigLoader {
     ///
     /// # Examples
     ///
-    /// ```no_run
+    /// ```rust,no_run
     /// use maos_core::config::ConfigLoader;
     /// use std::path::Path;
     ///
@@ -985,7 +1012,28 @@ fn default_max_execution_time() -> u64 {
     60_000
 }
 fn default_workspace_root() -> PathBuf {
-    PathBuf::from("/tmp/maos")
+    // Use git repository root (like Claude Code hooks) + .maos subdirectory
+    // Equivalent to: $(git rev-parse --show-toplevel 2>/dev/null || pwd)
+    use std::process::Command;
+
+    let git_root = Command::new("git")
+        .args(["rev-parse", "--show-toplevel"])
+        .output()
+        .ok()
+        .and_then(|output| {
+            if output.status.success() {
+                String::from_utf8(output.stdout)
+                    .ok()
+                    .map(|s| PathBuf::from(s.trim()))
+            } else {
+                None
+            }
+        });
+
+    let base_dir =
+        git_root.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+
+    base_dir.join(".maos").join("workspaces")
 }
 fn default_true() -> bool {
     true

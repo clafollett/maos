@@ -12,17 +12,34 @@ path = "src/main.rs"
 [dependencies]
 maos-core = { path = "../maos-core" }
 clap = { workspace = true }
-tokio = { workspace = true, features = ["io-std", "io-util", "time", "macros", "rt"] }
+tokio = { workspace = true, features = ["io-std", "io-util", "time", "macros", "rt", "rt-multi-thread"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 anyhow = { workspace = true }
-bytes = "1.5"
+bytes = { workspace = true }
+async-trait = { workspace = true }
+dashmap = { workspace = true }
+tracing = { workspace = true }
+
+# Windows-specific dependencies for memory tracking
+[target.'cfg(windows)'.dependencies]
+winapi = { version = "0.3", features = ["processthreadsapi", "psapi", "handleapi"] }
 
 [dev-dependencies]
-assert_cmd = "2.0"
-predicates = "3.0"
-criterion = "0.5"
+assert_cmd = { workspace = true }
+predicates = { workspace = true }
+criterion = { workspace = true }
+futures = { workspace = true }
+tempfile = { workspace = true }
 
 [[bench]]
 name = "io_bench"
+harness = false
+
+[[bench]]
+name = "dispatcher_bench"
+harness = false
+
+[[bench]]
+name = "handler_performance"
 harness = false

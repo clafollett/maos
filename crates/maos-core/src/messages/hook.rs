@@ -27,7 +27,7 @@
 //!
 //! # Example
 //!
-//! ```no_run
+//! ```rust,no_run
 //! use maos_core::messages::{HookInput, HookResponse, HookEventName};
 //! use std::io;
 //! use serde_json;

@@ -144,7 +144,7 @@ fn test_concurrent_logging() {
             thread::spawn(move || {
                 for j in 0..10 {
                     logger
-                        .write(&format!("Thread {} entry {}", i, j))
+                        .write(&format!("Thread {i} entry {j}"))
                         .expect("Failed to write");
                 }
             })

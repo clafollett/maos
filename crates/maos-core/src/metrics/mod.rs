@@ -6,7 +6,7 @@
 //!
 //! # Examples
 //!
-//! ```no_run
+//! ```rust
 //! use maos_core::metrics::PerformanceMetrics;
 //! use maos_core::timed_operation;
 //! use std::time::Duration;
@@ -47,7 +47,7 @@ pub use report::{ExecutionStats, MemoryStats, MetricsReport};
 ///
 /// # Example
 ///
-/// ```no_run
+/// ```rust
 /// use maos_core::metrics::PerformanceMetrics;
 /// use maos_core::timed_operation;
 /// use std::thread;

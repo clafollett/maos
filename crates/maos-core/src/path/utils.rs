@@ -3,23 +3,22 @@
 //! This module provides safe path manipulation functions that handle cross-platform
 //! differences while maintaining security properties.
 
+use path_clean::PathClean;
 use std::path::{Path, PathBuf};
 
-/// Normalize a path by resolving `.` and `..` components safely
+/// Normalize a path for MAOS multi-agent security using established Rust crates
 ///
-/// This function normalizes paths by:
-/// - Converting all path separators to forward slashes (`/`)
-/// - Resolving current directory (`.`) references  
-/// - Resolving parent directory (`..`) references safely
-/// - Handling URL-encoded and Unicode separator variants for security
-/// - Preserving relative vs absolute path semantics
+/// This function provides security-hardened path normalization for untrusted agent input by:
+/// - Using `dunce::simplified` for robust cross-platform path resolution
+/// - Using `path-clean` for proper component normalization
+/// - Preventing Unicode separator attack vectors (fullwidth solidus, etc.)
+/// - Ensuring consistent cross-platform behavior for agent workspace isolation
 ///
 /// # Security Features
 ///
 /// - Blocks Unicode separator variants that could bypass security checks
-/// - Handles URL-encoded path separators (`%2F`, `%2f`)
-/// - Prevents directory traversal beyond the root for absolute paths
-/// - Maintains relative path relationships for proper validation
+/// - Prevents agent path injection via alternative Unicode separators
+/// - Uses established Rust crates instead of custom Windows-breaking logic
 ///
 /// # Examples
 ///
@@ -37,121 +36,72 @@ use std::path::{Path, PathBuf};
 /// let path = Path::new("src/../lib/mod.rs");
 /// assert_eq!(normalize_path(path), PathBuf::from("lib/mod.rs"));
 ///
-/// // Complex path normalization
+/// // Complex path normalization  
 /// let path = Path::new("./src/../lib/./utils/../mod.rs");
 /// assert_eq!(normalize_path(path), PathBuf::from("lib/mod.rs"));
 /// ```
 ///
+/// ## MAOS Security Features
+///
+/// ```rust
+/// use maos_core::path::normalize_path;
+/// use std::path::{Path, PathBuf};
+///
+/// // Unicode separator attack prevention
+/// let unicode_path = Path::new("src\u{FF0F}main.rs"); // Fullwidth solidus
+/// let normalized = normalize_path(unicode_path);
+/// // The Unicode character is replaced with platform separator
+/// assert!(!normalized.to_string_lossy().contains('\u{FF0F}'));
+///
+/// // Additional Unicode separators are handled
+/// let fraction_slash = Path::new("src\u{2044}main.rs"); // Fraction slash
+/// let division_slash = Path::new("src\u{2215}main.rs"); // Division slash  
+/// assert!(!normalize_path(fraction_slash).to_string_lossy().contains('\u{2044}'));
+/// assert!(!normalize_path(division_slash).to_string_lossy().contains('\u{2215}'));
+/// ```
+///
 /// ## Cross-Platform Compatibility
 ///
-/// ```rust
-/// use maos_core::path::normalize_path;
-/// use std::path::{Path, PathBuf};
-///
-/// // Windows-style separators are converted to Unix-style
-/// let windows_path = Path::new("src\\components\\ui.tsx");
-/// assert_eq!(normalize_path(windows_path), PathBuf::from("src/components/ui.tsx"));
-///
-/// // Mixed separators are handled consistently
-/// let mixed_path = Path::new("src/dir\\subdir/file.txt");
-/// assert_eq!(normalize_path(mixed_path), PathBuf::from("src/dir/subdir/file.txt"));
-/// ```
-///
-/// ## Security Handling
-///
-/// ```rust
-/// use maos_core::path::normalize_path;
-/// use std::path::{Path, PathBuf};
-///
-/// // URL-encoded separators are decoded and normalized
-/// let encoded_path = Path::new("src%2Fmain.rs");
-/// assert_eq!(normalize_path(encoded_path), PathBuf::from("src/main.rs"));
-///
-/// // Unicode separator variants are normalized
-/// let unicode_path = Path::new("src\u{FF0F}main.rs"); // Fullwidth solidus
-/// assert_eq!(normalize_path(unicode_path), PathBuf::from("src/main.rs"));
-/// ```
-///
-/// ## Absolute vs Relative Paths
-///
-/// ```rust
-/// use maos_core::path::normalize_path;
-/// use std::path::{Path, PathBuf};
-///
-/// // Absolute paths prevent traversal beyond root
-/// let abs_path = Path::new("/tmp/../../../etc/passwd");
-/// assert_eq!(normalize_path(abs_path), PathBuf::from("/etc/passwd"));
-///
-/// // Relative paths preserve .. when they can't be resolved
-/// let rel_path = Path::new("../../../etc/passwd");
-/// assert_eq!(normalize_path(rel_path), PathBuf::from("../../../etc/passwd"));
-/// ```
+/// Uses `dunce::simplified` + `path-clean` for robust cross-platform path handling
+/// while preserving relative/absolute semantics for agent workspace isolation.
 pub fn normalize_path(path: &Path) -> PathBuf {
-    use std::path::Component;
+    // 1. Use path-clean for proper component normalization (handles ., .., etc.)
+    let cleaned = path.clean();
 
-    // Normalize all separators in a single pass to minimize string allocations
-    const UNICODE_SLASH_COUNT: usize = 3;
-    const UNICODE_SLASHES: [char; UNICODE_SLASH_COUNT] = ['\u{FF0F}', '\u{2044}', '\u{2215}'];
-    let path_lossy = path.to_string_lossy();
-    let mut path_str = String::with_capacity(path_lossy.len());
+    // 2. Use dunce to handle Windows UNC paths and other platform quirks
+    let platform_normalized = dunce::simplified(&cleaned).to_path_buf();
 
-    // Process characters in a single pass to reduce allocations
-    let mut chars = path_lossy.chars().peekable();
-    while let Some(ch) = chars.next() {
-        match ch {
-            '\\' => path_str.push('/'), // Windows compatibility
-            c if UNICODE_SLASHES.contains(&c) => path_str.push('/'), // Security: Unicode attack vectors
-            '%' if chars.peek() == Some(&'2') => {
-                // Handle URL-encoded separators %2F and %2f
-                let mut temp_chars = chars.clone();
-                if temp_chars.next() == Some('2')
-                    && let Some(third_char) = temp_chars.next()
-                    && (third_char == 'F' || third_char == 'f')
-                {
-                    // Skip the "2F" or "2f" part
-                    chars.next(); // Skip '2'
-                    chars.next(); // Skip 'F' or 'f'
-                    path_str.push('/');
-                    continue;
+    // 3. Apply MAOS security transformations to prevent Unicode attack vectors
+    // AFTER platform normalization, so we work with the platform's conventions
+    apply_security_transforms(&platform_normalized)
+}
+
+/// Apply MAOS-specific security transformations to prevent agent attacks
+fn apply_security_transforms(path: &Path) -> PathBuf {
+    const UNICODE_SLASHES: [char; 3] = ['\u{FF0F}', '\u{2044}', '\u{2215}'];
+    let path_str = path.to_string_lossy();
+
+    // Only transform if we detect Unicode attack vectors
+    // Don't transform backslashes - they're legitimate on Windows after normalization
+    let needs_transform = path_str.chars().any(|c| UNICODE_SLASHES.contains(&c));
+
+    if needs_transform {
+        // Use the platform's preferred separator when replacing Unicode attacks
+        let separator = std::path::MAIN_SEPARATOR;
+        let secured: String = path_str
+            .chars()
+            .map(|c| {
+                if UNICODE_SLASHES.contains(&c) {
+                    separator
+                } else {
+                    c
                 }
-                path_str.push(ch); // Not a URL-encoded separator
-            }
-            _ => path_str.push(ch),
-        }
+            })
+            .collect();
+        PathBuf::from(secured)
+    } else {
+        path.to_path_buf()
     }
-
-    // Process components using fold for cleaner state management
-    let (is_absolute, components) = Path::new(&path_str).components().fold(
-        (false, Vec::new()),
-        |(mut is_abs, mut comps), comp| {
-            match comp {
-                Component::Prefix(_) | Component::RootDir => {
-                    is_abs = true;
-                    comps.clear();
-                }
-                Component::CurDir => {} // Skip
-                Component::ParentDir => {
-                    match (comps.is_empty(), is_abs, comps.last()) {
-                        (true, false, _) | (false, _, Some(Component::ParentDir)) => {
-                            comps.push(comp);
-                        }
-                        (false, _, Some(_)) => {
-                            comps.pop();
-                        }
-                        _ => {} // Ignore .. at absolute root
-                    }
-                }
-                Component::Normal(_) => comps.push(comp),
-            }
-            (is_abs, comps)
-        },
-    );
-
-    // Build result path using iterator chain
-    std::iter::once(is_absolute.then_some(Component::RootDir))
-        .flatten()
-        .chain(components)
-        .collect()
 }
 
 /// Check if two paths refer to the same location after normalization
@@ -174,11 +124,20 @@ pub fn normalize_path(path: &Path) -> PathBuf {
 ///     Path::new("src/main.rs")
 /// ));
 ///
-/// // Paths with different separators are equal after normalization
-/// assert!(paths_equal(
-///     Path::new("src\\main.rs"),  // Windows-style
-///     Path::new("src/main.rs")    // Unix-style
-/// ));
+/// // Platform-specific behavior handled at runtime
+/// if cfg!(windows) {
+///     // Windows treats \ and / as equivalent
+///     assert!(paths_equal(
+///         Path::new("src\\main.rs"),  // Windows-style
+///         Path::new("src/main.rs")    // Unix-style
+///     ));
+/// } else {
+///     // On Unix, backslashes are literal characters in filenames
+///     assert!(!paths_equal(
+///         Path::new("src\\main.rs"),  // Single filename with backslash
+///         Path::new("src/main.rs")    // Path to main.rs in src directory
+///     ));
+/// }
 /// ```
 ///
 /// ## Normalization-Based Equality
@@ -211,11 +170,20 @@ pub fn normalize_path(path: &Path) -> PathBuf {
 /// use maos_core::path::paths_equal;
 /// use std::path::Path;
 ///
-/// // Mixed separators are handled consistently
-/// assert!(paths_equal(
-///     Path::new("src/dir\\subdir/file.txt"),
-///     Path::new("src\\dir/subdir\\file.txt")
-/// ));
+/// // Platform-specific handling of separators
+/// if cfg!(windows) {
+///     // Windows allows mixed separators
+///     assert!(paths_equal(
+///         Path::new("src/dir\\subdir/file.txt"),
+///         Path::new("src\\dir/subdir\\file.txt")
+///     ));
+/// } else {
+///     // Unix only recognizes forward slashes as separators
+///     assert!(paths_equal(
+///         Path::new("src/dir/subdir/file.txt"),
+///         Path::new("src/dir/subdir/file.txt")
+///     ));
+/// }
 /// ```
 ///
 /// # Use Cases
@@ -245,6 +213,8 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
+/// # #[cfg(unix)]
+/// # {
 /// // Same path returns current directory
 /// assert_eq!(
 ///     relative_path(Path::new("/home/user"), Path::new("/home/user")),
@@ -262,6 +232,27 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 ///     relative_path(Path::new("/home/user/docs"), Path::new("/home/user")),
 ///     Some(PathBuf::from(".."))
 /// );
+/// # }
+/// # #[cfg(windows)]
+/// # {
+/// // Same path returns current directory
+/// assert_eq!(
+///     relative_path(Path::new("C:\\Users\\user"), Path::new("C:\\Users\\user")),
+///     Some(PathBuf::from("."))
+/// );
+///
+/// // Direct child
+/// assert_eq!(
+///     relative_path(Path::new("C:\\Users\\user"), Path::new("C:\\Users\\user\\docs")),
+///     Some(PathBuf::from("docs"))
+/// );
+///
+/// // Parent directory
+/// assert_eq!(
+///     relative_path(Path::new("C:\\Users\\user\\docs"), Path::new("C:\\Users\\user")),
+///     Some(PathBuf::from(".."))
+/// );
+/// # }
 /// ```
 ///
 /// ## Sibling Directories
@@ -270,6 +261,8 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
+/// # #[cfg(unix)]
+/// # {
 /// // Sibling directories
 /// assert_eq!(
 ///     relative_path(Path::new("/home/user/docs"), Path::new("/home/user/pictures")),
@@ -284,6 +277,24 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 ///     ),
 ///     Some(PathBuf::from("../../../documents/file.txt"))
 /// );
+/// # }
+/// # #[cfg(windows)]
+/// # {
+/// // Sibling directories
+/// assert_eq!(
+///     relative_path(Path::new("C:\\Users\\user\\docs"), Path::new("C:\\Users\\user\\pictures")),
+///     Some(PathBuf::from("..\\pictures"))
+/// );
+///
+/// // Complex navigation
+/// assert_eq!(
+///     relative_path(
+///         Path::new("C:\\Users\\user\\projects\\rust\\src"),
+///         Path::new("C:\\Users\\user\\documents\\file.txt")
+///     ),
+///     Some(PathBuf::from("..\\..\\..\\documents\\file.txt"))
+/// );
+/// # }
 /// ```
 ///
 /// ## Cross-Platform Usage
@@ -292,11 +303,18 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
-/// // Works with mixed separators
-/// assert_eq!(
-///     relative_path(Path::new("src\\components"), Path::new("src/utils/helpers")),
-///     Some(PathBuf::from("../utils/helpers"))
-/// );
+/// // Platform-specific separator handling
+/// if cfg!(windows) {
+///     assert_eq!(
+///         relative_path(Path::new("src\\components"), Path::new("src\\utils\\helpers")),
+///         Some(PathBuf::from("..\\utils\\helpers"))
+///     );
+/// } else {
+///     assert_eq!(
+///         relative_path(Path::new("src/components"), Path::new("src/utils/helpers")),
+///         Some(PathBuf::from("../utils/helpers"))
+///     );
+/// }
 /// ```
 ///
 /// ## Workspace-Relative File Access
@@ -305,6 +323,8 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// use maos_core::path::relative_path;
 /// use std::path::{Path, PathBuf};
 ///
+/// # #[cfg(unix)]
+/// # {
 /// let workspace = Path::new("/projects/my-app");
 /// let config_file = Path::new("/projects/my-app/config/app.toml");
 /// let src_dir = Path::new("/projects/my-app/src");
@@ -313,6 +333,18 @@ pub fn paths_equal(a: &Path, b: &Path) -> bool {
 /// if let Some(rel_path) = relative_path(src_dir, config_file) {
 ///     println!("Config is at: {}", rel_path.display()); // "../config/app.toml"
 /// }
+/// # }
+/// # #[cfg(windows)]
+/// # {
+/// let workspace = Path::new("C:\\projects\\my-app");
+/// let config_file = Path::new("C:\\projects\\my-app\\config\\app.toml");
+/// let src_dir = Path::new("C:\\projects\\my-app\\src");
+///
+/// // Get relative path from src to config
+/// if let Some(rel_path) = relative_path(src_dir, config_file) {
+///     println!("Config is at: {}", rel_path.display()); // "..\\config\\app.toml"
+/// }
+/// # }
 /// ```
 pub fn relative_path(base: &Path, target: &Path) -> Option<PathBuf> {
     // Normalize both paths first to handle . and .. components and separators

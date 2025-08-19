@@ -10,7 +10,12 @@ fn test_config_defaults_load() -> Result<()> {
 
     // System defaults
     assert_eq!(cfg.system.max_execution_time_ms, 60_000);
-    assert_eq!(cfg.system.workspace_root, PathBuf::from("/tmp/maos"));
+    // Workspace root should be git repository root + .maos/workspaces
+    assert!(
+        cfg.system.workspace_root.ends_with(".maos/workspaces"),
+        "Workspace root should end with .maos/workspaces, got: {:?}",
+        cfg.system.workspace_root
+    );
     assert!(cfg.system.enable_metrics);
 
     // Security defaults
@@ -403,7 +408,12 @@ fn test_partial_config_merge() {
     assert_eq!(cfg.logging.level, LogLevel::Debug);
 
     // Default values should still be present
-    assert_eq!(cfg.system.workspace_root, PathBuf::from("/tmp/maos"));
+    // Workspace root should be git repository root + .maos/workspaces
+    assert!(
+        cfg.system.workspace_root.ends_with(".maos/workspaces"),
+        "Workspace root should end with .maos/workspaces, got: {:?}",
+        cfg.system.workspace_root
+    );
     assert_eq!(cfg.logging.format, "json");
     assert!(cfg.security.enable_validation);
 }

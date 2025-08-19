@@ -2,6 +2,7 @@
 mod cli_tests {
     use crate::cli::{Cli, Commands};
     use clap::{CommandFactory, Parser};
+    use maos_core::category_constants::*;
 
     // ===== PARSING TESTS =====
 
@@ -25,7 +26,7 @@ mod cli_tests {
 
     #[test]
     fn test_parse_stop_no_flag() {
-        let cli = Cli::try_parse_from(["maos", "stop"]).unwrap();
+        let cli = Cli::try_parse_from(["maos", maos_core::hook_constants::STOP]).unwrap();
         match cli.command {
             Commands::Stop { chat } => assert!(!chat),
             _ => panic!("Expected Stop command"),
@@ -34,7 +35,7 @@ mod cli_tests {
 
     #[test]
     fn test_parse_stop_with_chat() {
-        let cli = Cli::try_parse_from(["maos", "stop", "--chat"]).unwrap();
+        let cli = Cli::try_parse_from(["maos", maos_core::hook_constants::STOP, "--chat"]).unwrap();
         match cli.command {
             Commands::Stop { chat } => assert!(chat),
             _ => panic!("Expected Stop command"),
@@ -93,7 +94,7 @@ mod cli_tests {
 
     #[test]
     fn test_invalid_flag_returns_error() {
-        let result = Cli::try_parse_from(["maos", "stop", "--invalid"]);
+        let result = Cli::try_parse_from(["maos", maos_core::hook_constants::STOP, "--invalid"]);
         assert!(result.is_err());
     }
 
@@ -121,50 +122,74 @@ mod cli_tests {
 
     #[test]
     fn test_hook_event_name_pre_tool_use() {
-        assert_eq!(Commands::PreToolUse.hook_event_name(), "pre_tool_use");
+        assert_eq!(
+            Commands::PreToolUse.hook_event_name(),
+            maos_core::hook_constants::PRE_TOOL_USE
+        );
     }
 
     #[test]
     fn test_hook_event_name_post_tool_use() {
-        assert_eq!(Commands::PostToolUse.hook_event_name(), "post_tool_use");
+        assert_eq!(
+            Commands::PostToolUse.hook_event_name(),
+            maos_core::hook_constants::POST_TOOL_USE
+        );
     }
 
     #[test]
     fn test_hook_event_name_notification() {
-        assert_eq!(Commands::Notify.hook_event_name(), "notification");
+        assert_eq!(
+            Commands::Notify.hook_event_name(),
+            maos_core::hook_constants::NOTIFICATION
+        );
     }
 
     #[test]
     fn test_hook_event_name_stop() {
-        assert_eq!(Commands::Stop { chat: false }.hook_event_name(), "stop");
-        assert_eq!(Commands::Stop { chat: true }.hook_event_name(), "stop");
+        assert_eq!(
+            Commands::Stop { chat: false }.hook_event_name(),
+            maos_core::hook_constants::STOP
+        );
+        assert_eq!(
+            Commands::Stop { chat: true }.hook_event_name(),
+            maos_core::hook_constants::STOP
+        );
     }
 
     #[test]
     fn test_hook_event_name_subagent_stop() {
-        assert_eq!(Commands::SubagentStop.hook_event_name(), "subagent_stop");
+        assert_eq!(
+            Commands::SubagentStop.hook_event_name(),
+            maos_core::hook_constants::SUBAGENT_STOP
+        );
     }
 
     #[test]
     fn test_hook_event_name_user_prompt_submit() {
         assert_eq!(
             Commands::UserPromptSubmit { validate: false }.hook_event_name(),
-            "user_prompt_submit"
+            maos_core::hook_constants::USER_PROMPT_SUBMIT
         );
         assert_eq!(
             Commands::UserPromptSubmit { validate: true }.hook_event_name(),
-            "user_prompt_submit"
+            maos_core::hook_constants::USER_PROMPT_SUBMIT
         );
     }
 
     #[test]
     fn test_hook_event_name_pre_compact() {
-        assert_eq!(Commands::PreCompact.hook_event_name(), "pre_compact");
+        assert_eq!(
+            Commands::PreCompact.hook_event_name(),
+            maos_core::hook_constants::PRE_COMPACT
+        );
     }
 
     #[test]
     fn test_hook_event_name_session_start() {
-        assert_eq!(Commands::SessionStart.hook_event_name(), "session_start");
+        assert_eq!(
+            Commands::SessionStart.hook_event_name(),
+            maos_core::hook_constants::SESSION_START
+        );
     }
 
     // ===== STDIN EXPECTATION TESTS =====
@@ -235,33 +260,33 @@ mod cli_tests {
 
     #[test]
     fn test_category_tool_hooks() {
-        assert_eq!(Commands::PreToolUse.category(), "tool-hooks");
-        assert_eq!(Commands::PostToolUse.category(), "tool-hooks");
+        assert_eq!(Commands::PreToolUse.category(), TOOL_HOOKS);
+        assert_eq!(Commands::PostToolUse.category(), TOOL_HOOKS);
     }
 
     #[test]
     fn test_category_notifications() {
-        assert_eq!(Commands::Notify.category(), "notifications");
+        assert_eq!(Commands::Notify.category(), NOTIFICATIONS);
     }
 
     #[test]
     fn test_category_lifecycle() {
-        assert_eq!(Commands::Stop { chat: false }.category(), "lifecycle");
-        assert_eq!(Commands::SubagentStop.category(), "lifecycle");
-        assert_eq!(Commands::SessionStart.category(), "lifecycle");
+        assert_eq!(Commands::Stop { chat: false }.category(), LIFECYCLE);
+        assert_eq!(Commands::SubagentStop.category(), LIFECYCLE);
+        assert_eq!(Commands::SessionStart.category(), LIFECYCLE);
     }
 
     #[test]
     fn test_category_user_input() {
         assert_eq!(
             Commands::UserPromptSubmit { validate: false }.category(),
-            "user-input"
+            USER_INPUT
         );
     }
 
     #[test]
     fn test_category_maintenance() {
-        assert_eq!(Commands::PreCompact.category(), "maintenance");
+        assert_eq!(Commands::PreCompact.category(), MAINTENANCE);
     }
 
     // ===== HOOK TYPE TESTS =====
@@ -307,7 +332,7 @@ mod cli_tests {
     #[test]
     fn test_commands_have_debug() {
         let cmd = Commands::PreToolUse;
-        let debug_str = format!("{:?}", cmd);
+        let debug_str = format!("{cmd:?}");
         assert!(debug_str.contains("PreToolUse"));
     }
 

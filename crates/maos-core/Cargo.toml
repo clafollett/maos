@@ -11,22 +11,26 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 uuid = { workspace = true }
-chrono = { version = "0.4.38", features = ["serde"] }
-dunce = "1.0.5"
-glob = "0.3.2"
-globset = "0.4.14"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
-parking_lot = "0.12"
-flate2 = "1.0"
-jsonschema = "0.26"
-schemars = "0.8"
-dirs = "5.0"
+chrono = { workspace = true }
+dunce = { workspace = true }
+path-clean = { workspace = true }
+glob = { workspace = true }
+globset = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+parking_lot = { workspace = true }
+flate2 = { workspace = true }
+jsonschema = { workspace = true }
+schemars = { workspace = true }
+dirs = { workspace = true }
 
 [dev-dependencies]
-proptest = "1.5"
-criterion = "0.5"
-tempfile = "3.13"
+# Unit test dependencies (fast, no I/O)
+proptest = { workspace = true }
+
+# Integration test & benchmark dependencies (real I/O)
+criterion = { workspace = true }
+tempfile = { workspace = true }
 
 [[bench]]
 name = "path_benchmarks"
@@ -43,3 +47,8 @@ harness = false
 [[bench]]
 name = "messages_bench"
 harness = false
+
+# Integration tests (real I/O)
+[[test]]
+name = "logging_integration"
+path = "tests/integration/logging_integration_tests.rs"
