@@ -33,8 +33,35 @@ async fn test_path_traversal_blocked() {
 }
 
 #[test]
-fn test_valid_paths_accepted() {
-    // ✅ Test that legitimate paths within workspace are allowed
+#[cfg(windows)]
+fn test_valid_paths_accepted_windows() {
+    // ✅ Test that legitimate paths within workspace are allowed on Windows
+    // Use a mock path that doesn't require actual file system access
+    let workspace = Path::new("C:\\mock\\workspace");
+
+    let valid_input = HookInput {
+        session_id: "sess_123".to_string(),
+        transcript_path: workspace.join("transcript.jsonl"),
+        cwd: workspace.join("project"),
+        hook_event_name: "pre_tool_use".to_string(),
+        tool_name: Some("Bash".to_string()),
+        tool_input: Some(json!({"command": "ls"})),
+        ..Default::default()
+    };
+
+    // 🎯 Should accept valid paths within workspace
+    let result = valid_input.validate_paths(workspace);
+    assert!(
+        result.is_ok(),
+        "Valid Windows paths should be accepted: {:?}",
+        result
+    );
+}
+
+#[test]
+#[cfg(unix)]
+fn test_valid_paths_accepted_unix() {
+    // ✅ Test that legitimate paths within workspace are allowed on Unix
     let workspace = Path::new("/mock/workspace");
 
     let valid_input = HookInput {

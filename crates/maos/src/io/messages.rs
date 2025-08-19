@@ -338,10 +338,11 @@ impl HookInput {
     ///
     /// # #[cfg(unix)]
     /// # {
-    /// let workspace = Path::new("/workspace");
+    /// // Unix test using deep path to match Windows behavior
+    /// let workspace = Path::new("/repos/organization/project/mock");
     /// let input = HookInput {
-    ///     transcript_path: PathBuf::from("/workspace/transcript.jsonl"),
-    ///     cwd: PathBuf::from("/workspace/project"),
+    ///     transcript_path: workspace.join("transcript.jsonl"),
+    ///     cwd: workspace.join("project"),
     ///     hook_event_name: "pre_tool_use".to_string(),
     ///     ..Default::default()
     /// };
@@ -350,10 +351,11 @@ impl HookInput {
     ///
     /// # #[cfg(windows)]
     /// # {
-    /// let workspace = Path::new("C:\\workspace");
+    /// // Windows test using deep path that won't reach C:\ when traversing parent
+    /// let workspace = Path::new("C:\\repos\\organization\\project\\mock");
     /// let input = HookInput {
-    ///     transcript_path: PathBuf::from("C:\\workspace\\transcript.jsonl"),
-    ///     cwd: PathBuf::from("C:\\workspace\\project"),
+    ///     transcript_path: workspace.join("transcript.jsonl"),
+    ///     cwd: workspace.join("project"),
     ///     hook_event_name: "pre_tool_use".to_string(),
     ///     ..Default::default()
     /// };
@@ -361,16 +363,27 @@ impl HookInput {
     /// # }
     ///
     /// // Path traversal attacks are blocked
+    /// # #[cfg(unix)]
+    /// # {
     /// let malicious_input = HookInput {
     ///     transcript_path: PathBuf::from("../../../etc/passwd"),
     ///     cwd: PathBuf::from("/etc/shadow"),
     ///     hook_event_name: "pre_tool_use".to_string(),
     ///     ..Default::default()
     /// };
-    /// # #[cfg(unix)]
     /// assert!(malicious_input.validate_paths(Path::new("/workspace")).is_err());
+    /// # }
+    ///
     /// # #[cfg(windows)]
-    /// assert!(malicious_input.validate_paths(Path::new("C:\\workspace")).is_err());
+    /// # {
+    /// let malicious_input = HookInput {
+    ///     transcript_path: PathBuf::from("..\\..\\..\\Windows\\System32\\config\\SAM"),
+    ///     cwd: PathBuf::from("..\\..\\Windows\\System32"),
+    ///     hook_event_name: "pre_tool_use".to_string(),
+    ///     ..Default::default()
+    /// };
+    /// assert!(malicious_input.validate_paths(Path::new("mock_workspace")).is_err());
+    /// # }
     /// ```
     pub fn validate_paths(&self, workspace: &Path) -> Result<()> {
         // 🚨 SECURITY: Check for empty paths first
