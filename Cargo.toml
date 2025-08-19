@@ -65,3 +65,5 @@ tag-message = "Release v{{version}}"
 tag-name = "v{{version}}"
 publish = false
 push = false
+sign-tag = false
+sign-commit = false
