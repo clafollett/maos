@@ -20,7 +20,7 @@
 //!
 //! // Create a new session
 //! let workspace_root = if cfg!(windows) {
-//!     PathBuf::from("C:\\temp\\maos")
+//!     PathBuf::from("C:\\mock\\test\\maos")
 //! } else {
 //!     PathBuf::from("/tmp/maos")
 //! };

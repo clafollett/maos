@@ -20,7 +20,7 @@
 //! # fn main() -> Result<(), Box<dyn std::error::Error>> {
 //! // Create a validator with allowed workspace roots
 //! let workspace = if cfg!(windows) {
-//!     PathBuf::from("C:\\temp\\my_workspace")
+//!     PathBuf::from("C:\\mock\\test\\workspace\\project")
 //! } else {
 //!     PathBuf::from("/tmp/my_workspace")
 //! };
@@ -155,7 +155,7 @@
 //!
 //! # fn example() {
 //! let workspace = if cfg!(windows) {
-//!     PathBuf::from("C:\\workspace")
+//!     PathBuf::from("C:\\mock\\test\\workspace")
 //! } else {
 //!     PathBuf::from("/workspace")
 //! };

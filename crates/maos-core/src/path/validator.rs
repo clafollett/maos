@@ -529,7 +529,7 @@ impl PathValidator {
     /// let session_id = SessionId::generate();
     /// let agent_type = "tester".to_string();
     /// let root = if cfg!(windows) {
-    ///     Path::new("C:\\temp")
+    ///     Path::new("C:\\mock\\test\\temp")
     /// } else {
     ///     Path::new("/tmp")
     /// };
