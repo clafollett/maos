@@ -44,15 +44,17 @@ jobs:
       
       - name: Bump version
         run: |
-          # Update version in all Cargo.toml files
+          # cargo-release will bump version AND commit with message from Cargo.toml config
           cargo release ${{ steps.version.outputs.bump }} --no-confirm --execute
           
           # Get the new version
           NEW_VERSION=$(grep "^version" Cargo.toml | head -1 | cut -d '"' -f2)
           echo "NEW_VERSION=$NEW_VERSION" >> $GITHUB_ENV
       
-      - name: Update Cargo.lock
-        run: cargo update --workspace
+      - name: Push version bump
+        run: |
+          # Push the commit that cargo-release created
+          git push
       
       - name: Generate Release Notes
         id: notes
@@ -73,12 +75,6 @@ jobs:
           echo "" >> $GITHUB_OUTPUT
           echo "**Note**: This is a pre-1.0 release. Breaking changes may occur without notice." >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
-      
-      - name: Commit version bump
-        run: |
-          git add -A
-          git commit -m "chore(release): v${{ env.NEW_VERSION }}"
-          git push
       
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
