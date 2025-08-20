@@ -8,6 +8,9 @@ on:
   push:
     branches: [ main ]
 
+permissions:
+  contents: write
+
 jobs:
   release:
     name: Release
@@ -54,7 +57,8 @@ jobs:
       - name: Push version bump
         run: |
           # Push the commit that cargo-release created
-          git push
+          # Explicitly push to main branch
+          git push origin HEAD:main
       
       - name: Generate Release Notes
         id: notes
