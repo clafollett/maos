@@ -508,21 +508,12 @@ where
 /// let err = MaosError::Timeout { operation: "test".into(), timeout_ms: 100 };
 /// assert_eq!(error_to_exit_code(&err), ExitCode::TimeoutError);
 /// ```
-/// Convert a MaosError to an ExitCode for CLI exit handling.
-///
-/// This function maps various error types to appropriate exit codes
-/// for proper shell integration and tooling automation. It properly unwraps
-/// Context errors to find the underlying MaosError when possible.
-///
-/// # Security Note
-/// PathValidation errors map to BlockingError (exit code 2) which is critical
-/// for Claude Code integration - this blocks tool execution on path violations.
 ///
 /// # Note on const fn
-/// This function cannot be made `const fn` due to the Context error unwrapping
-/// which requires trait object downcasting (`source.downcast_ref::<MaosError>()`)
-/// at runtime. Const functions cannot perform dynamic dispatch or trait object
-/// operations in Rust.
+///
+/// This function cannot be made `const` because it relies on the `From<&MaosError>` trait
+/// implementation which involves dynamic dispatch for Context error unwrapping and
+/// `downcast_ref` operations that are not available in const contexts.
 pub fn error_to_exit_code(error: &MaosError) -> ExitCode {
     ExitCode::from(error)
 }

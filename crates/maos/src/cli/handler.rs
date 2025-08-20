@@ -93,13 +93,13 @@ impl CommandResult {
     ///     operation: "test".into(),
     ///     timeout_ms: 100
     /// };
-    /// let result = CommandResult::from_error(&err);
+    /// let result = CommandResult::from_error(&err, None);
     /// assert_eq!(result.exit_code, maos_core::ExitCode::TimeoutError);
     /// ```
-    pub fn from_error(error: &maos_core::MaosError) -> Self {
+    pub fn from_error(error: &maos_core::MaosError, session_id: Option<&str>) -> Self {
         Self {
             exit_code: maos_core::error_to_exit_code(error),
-            output: Some(sanitize_error_message(error)),
+            output: Some(sanitize_error_message(error, session_id)),
             metrics: ExecutionMetrics::default(),
         }
     }
@@ -168,10 +168,10 @@ impl CommandResult {
 /// let path_error = MaosError::PathValidation(
 ///     PathValidationError::PathTraversal { path: "/etc/passwd".into() }
 /// );
-/// let sanitized = sanitize_error_message(&path_error);
+/// let sanitized = sanitize_error_message(&path_error, Some("test-session"));
 /// assert_eq!(sanitized, "Path access denied for security reasons");
 /// ```
-pub fn sanitize_error_message(error: &maos_core::MaosError) -> String {
+pub fn sanitize_error_message(error: &maos_core::MaosError, session_id: Option<&str>) -> String {
     match error {
         // Security-sensitive errors get generic messages and are logged
         maos_core::MaosError::PathValidation(path_err) => {
@@ -188,7 +188,7 @@ pub fn sanitize_error_message(error: &maos_core::MaosError) -> String {
 
             event!(
                 Level::WARN,
-                session_id = "unknown",
+                session_id = session_id.unwrap_or("unknown"),
                 violation_type = violation_type,
                 component = "path_validation",
                 "Security violation: PathValidation error occurred"
@@ -207,7 +207,7 @@ pub fn sanitize_error_message(error: &maos_core::MaosError) -> String {
 
             event!(
                 Level::WARN,
-                session_id = "unknown",
+                session_id = session_id.unwrap_or("unknown"),
                 violation_type = violation_type,
                 component = "security",
                 "Security violation: Security error occurred"
@@ -223,7 +223,10 @@ pub fn sanitize_error_message(error: &maos_core::MaosError) -> String {
                         "Path access denied for security reasons".to_string()
                     }
                     maos_core::MaosError::Security(_) => "Security validation failed".to_string(),
-                    _ => format!("{message}: {}", sanitize_error_message(maos_err)),
+                    _ => format!(
+                        "{message}: {}",
+                        sanitize_error_message(maos_err, session_id)
+                    ),
                 }
             } else {
                 // Non-MaosError source, use the context message but don't leak details
@@ -306,7 +309,7 @@ mod tests {
             operation: "test".into(),
             timeout_ms: 100,
         };
-        let result = CommandResult::from_error(&err);
+        let result = CommandResult::from_error(&err, None);
         assert_eq!(result.exit_code, ExitCode::TimeoutError);
         assert!(result.output.is_some());
     }
@@ -447,7 +450,7 @@ mod tests {
         let path_error = MaosError::PathValidation(maos_core::PathValidationError::PathTraversal {
             path: "/etc/passwd".into(),
         });
-        let sanitized = sanitize_error_message(&path_error);
+        let sanitized = sanitize_error_message(&path_error, Some("test-session"));
         assert_eq!(sanitized, "Path access denied for security reasons");
         // Ensure no path information is leaked
         assert!(!sanitized.contains("/etc/passwd"));
@@ -458,7 +461,7 @@ mod tests {
         let security_error = MaosError::Security(maos_core::SecurityError::Unauthorized {
             resource: "admin credentials database".to_string(),
         });
-        let sanitized = sanitize_error_message(&security_error);
+        let sanitized = sanitize_error_message(&security_error, Some("test-session"));
         assert_eq!(sanitized, "Security validation failed");
         // Ensure no detailed security information is leaked
         assert!(!sanitized.contains("admin"));
@@ -477,7 +480,7 @@ mod tests {
             message: "During file operation".to_string(),
             source: Box::new(inner_error),
         };
-        let sanitized = sanitize_error_message(&context_error);
+        let sanitized = sanitize_error_message(&context_error, None);
         assert_eq!(sanitized, "Path access denied for security reasons");
         // Ensure no path information is leaked from nested errors
         assert!(!sanitized.contains("/home/user/secret.txt"));
@@ -490,7 +493,7 @@ mod tests {
             operation: "test operation".to_string(),
             timeout_ms: 5000,
         };
-        let sanitized = sanitize_error_message(&timeout_error);
+        let sanitized = sanitize_error_message(&timeout_error, None);
         // Non-security errors should pass through unchanged
         assert!(sanitized.contains("test operation"));
         assert!(sanitized.contains("5000"));
@@ -501,7 +504,7 @@ mod tests {
         let path_error = MaosError::PathValidation(maos_core::PathValidationError::BlockedPath(
             "/etc/hosts".into(),
         ));
-        let result = CommandResult::from_error(&path_error);
+        let result = CommandResult::from_error(&path_error, Some("test-session"));
 
         assert_eq!(result.exit_code, ExitCode::BlockingError);
         assert_eq!(
