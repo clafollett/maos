@@ -52,7 +52,7 @@ pub mod path;
 // Re-export error types
 pub use error::{
     ConfigError, ErrorContext, ExitCode, FileSystemError, GitError, IntoMaosError, MaosError,
-    PathValidationError, Result, SecurityError, SessionError, ValidationError,
+    PathValidationError, Result, SecurityError, SessionError, ValidationError, error_to_exit_code,
 };
 
 // Re-export hook event types

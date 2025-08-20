@@ -106,8 +106,21 @@ pub enum MaosError {
 
 /// Standard exit codes for MAOS operations.
 ///
-/// Use [`ExitCode::from`] with a reference to [`MaosError`] to consistently map
-/// errors to process exit codes.
+/// These exit codes provide semantic meaning to Claude Code and other tools
+/// about the nature of errors that occur during hook execution.
+///
+/// # Exit Code Reference
+///
+/// | Code | Name           | Meaning                                      | Claude Code Behavior |
+/// |------|----------------|----------------------------------------------|---------------------|
+/// | 0    | Success        | Operation completed successfully            | Continue normally   |
+/// | 1    | GeneralError   | General error (parsing, validation, etc.)   | Log and continue    |
+/// | 2    | BlockingError  | Security violation - block tool execution   | **Block tool call** |
+/// | 3    | ConfigError    | Configuration missing or invalid            | May retry           |
+/// | 4    | SecurityError  | Security check failed                       | Log warning         |
+/// | 5    | TimeoutError   | Operation exceeded time limit               | May retry           |
+/// | 6    | ResourceError  | Resource limit exceeded (memory, etc.)      | Reduce load         |
+/// | 99   | InternalError  | Unexpected internal error                   | Report bug          |
 ///
 /// # Examples
 /// ```
@@ -115,17 +128,28 @@ pub enum MaosError {
 /// let err = MaosError::Timeout { operation: "op".into(), timeout_ms: 5 };
 /// let code: ExitCode = (&err).into();
 /// assert_eq!(code, ExitCode::TimeoutError);
+///
+/// // Convert to process exit code
+/// let process_code = std::process::ExitCode::from(code);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(i32)]
 pub enum ExitCode {
+    /// Operation completed successfully
     Success = 0,
+    /// General error (validation, parsing, I/O)
     GeneralError = 1,
+    /// Security violation - Claude Code should block the tool execution
     BlockingError = 2,
+    /// Configuration error (missing config, invalid values)
     ConfigError = 3,
+    /// Security check failed (but not necessarily blocking)
     SecurityError = 4,
+    /// Operation timeout exceeded
     TimeoutError = 5,
+    /// Resource limit exceeded (memory, CPU, etc.)
     ResourceError = 6,
+    /// Unexpected internal error (likely a bug)
     InternalError = 99,
 }
 
@@ -137,6 +161,8 @@ impl From<&MaosError> for ExitCode {
             MaosError::ResourceLimit { .. } => ExitCode::ResourceError,
             MaosError::Timeout { .. } => ExitCode::TimeoutError,
             MaosError::Blocking { .. } => ExitCode::BlockingError,
+            // PathValidation errors should block tool execution
+            MaosError::PathValidation(_) => ExitCode::BlockingError,
             MaosError::Anyhow(_) => ExitCode::InternalError, // Unexpected errors map to 99
             MaosError::Context { source, .. } => {
                 // Try to extract the underlying MaosError if possible
@@ -150,6 +176,27 @@ impl From<&MaosError> for ExitCode {
             }
             _ => ExitCode::GeneralError,
         }
+    }
+}
+
+/// Convert ExitCode to std::process::ExitCode for CLI exit.
+///
+/// This enables seamless integration with the Rust standard library's
+/// process exit code handling.
+///
+/// # Examples
+///
+/// ```
+/// use maos_core::ExitCode;
+/// use std::process;
+///
+/// let code = ExitCode::BlockingError;
+/// let process_code: process::ExitCode = code.into();
+/// // Process will exit with code 2
+/// ```
+impl From<ExitCode> for std::process::ExitCode {
+    fn from(code: ExitCode) -> Self {
+        std::process::ExitCode::from(code as u8)
     }
 }
 
@@ -429,5 +476,339 @@ where
 {
     fn into_maos_error(self) -> MaosResult<T> {
         self.map_err(Into::into)
+    }
+}
+
+/// Convert a MaosError to an appropriate ExitCode for CLI operations.
+///
+/// This function provides a single source of truth for error-to-exit-code mapping,
+/// ensuring consistent behavior across all handlers and the main CLI.
+///
+/// # Context Error Unwrapping
+///
+/// The exit code mapping correctly handles nested errors through context unwrapping:
+///
+/// ```
+/// use maos_core::{MaosError, ExitCode, error_to_exit_code, PathValidationError};
+///
+/// // Original security error
+/// let security_err = MaosError::PathValidation(
+///     PathValidationError::PathTraversal { path: "/etc/passwd".into() }
+/// );
+///
+/// // Exit code is correctly mapped
+/// assert_eq!(error_to_exit_code(&security_err), ExitCode::BlockingError);
+/// ```
+///
+/// # Examples
+///
+/// ```
+/// use maos_core::error::{error_to_exit_code, MaosError, ExitCode};
+///
+/// let err = MaosError::Timeout { operation: "test".into(), timeout_ms: 100 };
+/// assert_eq!(error_to_exit_code(&err), ExitCode::TimeoutError);
+/// ```
+/// Convert a MaosError to an ExitCode for CLI exit handling.
+///
+/// This function maps various error types to appropriate exit codes
+/// for proper shell integration and tooling automation. It properly unwraps
+/// Context errors to find the underlying MaosError when possible.
+///
+/// # Security Note
+/// PathValidation errors map to BlockingError (exit code 2) which is critical
+/// for Claude Code integration - this blocks tool execution on path violations.
+///
+/// # Note on const fn
+/// This function cannot be made `const fn` due to the Context error unwrapping
+/// which requires trait object downcasting (`source.downcast_ref::<MaosError>()`)
+/// at runtime. Const functions cannot perform dynamic dispatch or trait object
+/// operations in Rust.
+pub fn error_to_exit_code(error: &MaosError) -> ExitCode {
+    ExitCode::from(error)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_exit_code_to_process_exit_code() {
+        // RED TEST: This will fail until we implement From<ExitCode> for std::process::ExitCode
+        assert_eq!(
+            std::process::ExitCode::from(ExitCode::Success),
+            std::process::ExitCode::from(0)
+        );
+        assert_eq!(
+            std::process::ExitCode::from(ExitCode::GeneralError),
+            std::process::ExitCode::from(1)
+        );
+        assert_eq!(
+            std::process::ExitCode::from(ExitCode::BlockingError),
+            std::process::ExitCode::from(2)
+        );
+        assert_eq!(
+            std::process::ExitCode::from(ExitCode::ConfigError),
+            std::process::ExitCode::from(3)
+        );
+        assert_eq!(
+            std::process::ExitCode::from(ExitCode::SecurityError),
+            std::process::ExitCode::from(4)
+        );
+        assert_eq!(
+            std::process::ExitCode::from(ExitCode::TimeoutError),
+            std::process::ExitCode::from(5)
+        );
+        assert_eq!(
+            std::process::ExitCode::from(ExitCode::ResourceError),
+            std::process::ExitCode::from(6)
+        );
+        assert_eq!(
+            std::process::ExitCode::from(ExitCode::InternalError),
+            std::process::ExitCode::from(99)
+        );
+    }
+
+    #[test]
+    fn test_path_validation_errors_map_to_blocking() {
+        // Test that all PathValidationError variants map to BlockingError
+        let errors = vec![
+            MaosError::PathValidation(PathValidationError::PathTraversal {
+                path: "/etc/passwd".into(),
+            }),
+            MaosError::PathValidation(PathValidationError::OutsideWorkspace {
+                path: "/tmp/bad".into(),
+                workspace: "/workspace".into(),
+            }),
+            MaosError::PathValidation(PathValidationError::BlockedPath("/etc/ssh".into())),
+        ];
+
+        for err in errors {
+            assert_eq!(
+                error_to_exit_code(&err),
+                ExitCode::BlockingError,
+                "PathValidation error should map to BlockingError"
+            );
+        }
+    }
+
+    #[test]
+    fn test_security_errors_map_correctly() {
+        // Security errors should map to SecurityError exit code
+        let err = MaosError::Security(SecurityError::PathTraversal {
+            path: "../etc".into(),
+        });
+        assert_eq!(error_to_exit_code(&err), ExitCode::SecurityError);
+
+        let err = MaosError::Security(SecurityError::Unauthorized {
+            resource: "admin".into(),
+        });
+        assert_eq!(error_to_exit_code(&err), ExitCode::SecurityError);
+    }
+
+    #[test]
+    fn test_context_error_unwrapping() {
+        // Test that Context errors properly unwrap to get the underlying exit code
+        let inner = MaosError::Timeout {
+            operation: "test".into(),
+            timeout_ms: 100,
+        };
+
+        let wrapped = MaosError::Context {
+            message: "During operation".into(),
+            source: Box::new(inner),
+        };
+
+        assert_eq!(
+            error_to_exit_code(&wrapped),
+            ExitCode::TimeoutError,
+            "Context should unwrap to inner MaosError's exit code"
+        );
+    }
+
+    #[test]
+    fn test_all_error_variants_have_exit_codes() {
+        // Comprehensive test for all MaosError variants
+        let test_cases = vec![
+            (
+                MaosError::Config(ConfigError::FileNotFound {
+                    path: "test".into(),
+                }),
+                ExitCode::ConfigError,
+            ),
+            (
+                MaosError::Session(SessionError::NotFound { id: "123".into() }),
+                ExitCode::GeneralError,
+            ),
+            (
+                MaosError::Security(SecurityError::Unauthorized {
+                    resource: "test".into(),
+                }),
+                ExitCode::SecurityError,
+            ),
+            (
+                MaosError::FileSystem(FileSystemError::NotFound {
+                    path: "test".into(),
+                }),
+                ExitCode::GeneralError,
+            ),
+            (
+                MaosError::Git(GitError::NotARepository),
+                ExitCode::GeneralError,
+            ),
+            (
+                MaosError::Json(serde_json::from_str::<String>("invalid").unwrap_err()),
+                ExitCode::GeneralError,
+            ),
+            (
+                MaosError::InvalidInput {
+                    message: "test".into(),
+                },
+                ExitCode::GeneralError,
+            ),
+            (
+                MaosError::ResourceLimit {
+                    resource: "memory".into(),
+                    limit: 100,
+                    actual: 200,
+                    message: "too much".into(),
+                },
+                ExitCode::ResourceError,
+            ),
+            (
+                MaosError::Timeout {
+                    operation: "test".into(),
+                    timeout_ms: 100,
+                },
+                ExitCode::TimeoutError,
+            ),
+            (
+                MaosError::Blocking {
+                    reason: "security".into(),
+                },
+                ExitCode::BlockingError,
+            ),
+            (
+                MaosError::Validation(ValidationError::RequiredFieldMissing {
+                    field: "name".into(),
+                }),
+                ExitCode::GeneralError,
+            ),
+        ];
+
+        for (error, expected_code) in test_cases {
+            assert_eq!(
+                error_to_exit_code(&error),
+                expected_code,
+                "Error {error:?} should map to {expected_code:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_error_to_exit_code_helper_function() {
+        // Test the helper function works identically to From trait
+        let err = MaosError::Blocking {
+            reason: "test".into(),
+        };
+        assert_eq!(error_to_exit_code(&err), ExitCode::from(&err));
+
+        let err = MaosError::Config(ConfigError::MissingField {
+            field: "api_key".into(),
+        });
+        assert_eq!(error_to_exit_code(&err), ExitCode::from(&err));
+    }
+
+    // ============================================================================
+    // CRITICAL SECURITY TESTS - DO NOT MODIFY WITHOUT SECURITY REVIEW
+    // ============================================================================
+    //
+    // These tests protect the security-critical exit code mappings that Claude Code
+    // depends on for blocking tool execution. Exit code 2 (BlockingError) MUST be
+    // returned for all PathValidation errors to prevent security bypasses.
+    //
+    // PathValidation → BlockingError mapping is CRITICAL for:
+    // - Preventing path traversal attacks
+    // - Blocking access to sensitive files
+    // - Enforcing workspace boundaries
+    //
+    // NEVER change these mappings without a thorough security review!
+    // ============================================================================
+
+    #[test]
+    fn test_critical_security_exit_code_mappings_never_change() {
+        // This test MUST NEVER fail or be modified without security review
+        // Exit code 2 is required by Claude Code to block tool execution
+
+        // Direct PathValidation errors MUST map to BlockingError
+        assert_eq!(
+            ExitCode::BlockingError as i32,
+            2,
+            "SECURITY CRITICAL: BlockingError must always be exit code 2"
+        );
+
+        // All PathValidation variants MUST map to BlockingError
+        let path_errors = vec![
+            MaosError::PathValidation(PathValidationError::PathTraversal {
+                path: "/etc/passwd".into(),
+            }),
+            MaosError::PathValidation(PathValidationError::OutsideWorkspace {
+                path: "/tmp/bad".into(),
+                workspace: "/workspace".into(),
+            }),
+            MaosError::PathValidation(PathValidationError::BlockedPath("/etc/ssh".into())),
+            MaosError::PathValidation(PathValidationError::InvalidComponent("..".into())),
+        ];
+
+        for err in path_errors {
+            assert_eq!(
+                error_to_exit_code(&err),
+                ExitCode::BlockingError,
+                "SECURITY CRITICAL: PathValidation error {err:?} must map to BlockingError (exit code 2)"
+            );
+
+            // Also verify the numeric value
+            let exit_code = error_to_exit_code(&err);
+            assert_eq!(
+                exit_code as i32, 2,
+                "SECURITY CRITICAL: PathValidation must return exit code 2, got {}",
+                exit_code as i32
+            );
+        }
+
+        // Blocking errors must also remain exit code 2
+        let blocking_err = MaosError::Blocking {
+            reason: "security violation".into(),
+        };
+        assert_eq!(
+            error_to_exit_code(&blocking_err),
+            ExitCode::BlockingError,
+            "SECURITY CRITICAL: Blocking error must map to BlockingError"
+        );
+    }
+
+    #[test]
+    fn test_security_exit_codes_through_context_wrapping() {
+        // Ensure security exit codes are preserved through Context wrapping
+        let inner = MaosError::PathValidation(PathValidationError::PathTraversal {
+            path: "/etc/passwd".into(),
+        });
+
+        let wrapped = MaosError::Context {
+            message: "During file access".into(),
+            source: Box::new(inner),
+        };
+
+        assert_eq!(
+            error_to_exit_code(&wrapped),
+            ExitCode::BlockingError,
+            "SECURITY CRITICAL: Context-wrapped PathValidation must preserve BlockingError exit code"
+        );
+
+        // Verify numeric value
+        assert_eq!(
+            error_to_exit_code(&wrapped) as i32,
+            2,
+            "SECURITY CRITICAL: Context-wrapped security error must return exit code 2"
+        );
     }
 }
