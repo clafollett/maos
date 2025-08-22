@@ -2,12 +2,12 @@ use clap::Parser;
 use maos::cli::{Cli, CliContext};
 use maos_core::ExitCode;
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> std::process::ExitCode {
     // Parse command line arguments
     let cli = Cli::parse();
 
-    // Build the CLI context with dispatcher and handlers
+    // Build CLI context with lazy initialization for better startup performance
     match CliContext::build().await {
         Ok(context) => {
             // Execute the command through the dispatcher
@@ -20,7 +20,6 @@ async fn main() -> std::process::ExitCode {
             }
         }
         Err(err) => {
-            // ✅ STDOUT CONTROL REMOVED: Use structured logging instead of eprintln!
             tracing::error!("MAOS initialization failed: {err:?}");
             tracing::warn!("Check application logs for detailed error information");
             std::process::ExitCode::FAILURE
