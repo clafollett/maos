@@ -2,76 +2,107 @@
 
 use crate::cli::{Commands, dispatcher::CommandDispatcher};
 use maos_core::config::MaosConfig;
-use maos_core::{ExitCode, PerformanceMetrics, Result};
-use std::sync::Arc;
+use maos_core::error::ConfigError;
+use maos_core::{ExitCode, MaosError, PerformanceMetrics, Result};
+use std::sync::{Arc, OnceLock};
 
-/// Dependency container for CLI operations
+/// Dependency container for CLI operations with lazy initialization
 pub struct CliContext {
-    /// Shared configuration
-    pub config: Arc<MaosConfig>,
-    /// Performance metrics collector
-    pub metrics: Arc<PerformanceMetrics>,
-    /// Command dispatcher
-    pub dispatcher: CommandDispatcher,
+    /// Lazily loaded configuration
+    config: OnceLock<Arc<MaosConfig>>,
+    /// Lazily loaded metrics
+    metrics: OnceLock<Arc<PerformanceMetrics>>,
+    /// Lazily loaded dispatcher
+    dispatcher: OnceLock<CommandDispatcher>,
 }
 
 impl CliContext {
-    /// Build CLI context with configuration
+    /// Build CLI context with lazy initialization
     pub async fn build() -> Result<Self> {
-        let config = Arc::new(MaosConfig::load()?);
-        let metrics = Arc::new(PerformanceMetrics::new());
-        let dispatcher = CommandDispatcher::new(config.clone(), metrics.clone()).await?;
-
         Ok(Self {
-            config,
-            metrics,
-            dispatcher,
+            config: OnceLock::new(),
+            metrics: OnceLock::new(),
+            dispatcher: OnceLock::new(),
         })
     }
 
     /// Build CLI context with custom configuration (useful for testing)
     pub async fn build_with_config(config: MaosConfig) -> Result<Self> {
-        let config = Arc::new(config);
-        let metrics = Arc::new(PerformanceMetrics::new());
-        let dispatcher = CommandDispatcher::new(config.clone(), metrics.clone()).await?;
-
-        Ok(Self {
-            config,
-            metrics,
-            dispatcher,
-        })
+        let context = Self {
+            config: OnceLock::new(),
+            metrics: OnceLock::new(),
+            dispatcher: OnceLock::new(),
+        };
+        // Pre-initialize with the provided config for testing
+        let _ = context.config.set(Arc::new(config));
+        Ok(context)
     }
 
-    /// Execute a command and return the exit code
-    /// 🔥 CRITICAL FIX: Dispatcher is now immutable, no need for mut
-    /// ✅ STDOUT CONTROL REMOVED: Now handles output at application boundary
+    /// Execute a command and return the exit code with lazy initialization
     pub async fn execute(self, command: Commands) -> ExitCode {
-        match self.dispatcher.dispatch(command).await {
-            Ok(result) => {
-                // 🎯 PROPER STDOUT CONTROL: Handle output at application boundary
-                if let Some(output) = result.output {
-                    // Only the main application should control stdout, not the library
-                    print!("{output}");
+        // Initialize dispatcher only when needed
+        match self.get_dispatcher().await {
+            Ok(dispatcher) => match dispatcher.dispatch(command).await {
+                Ok(result) => {
+                    if let Some(output) = result.output {
+                        print!("{output}");
+                    }
+                    result.exit_code
                 }
-                result.exit_code
-            }
+                Err(err) => {
+                    tracing::error!("Command execution failed: {err:?}");
+                    tracing::warn!("Check application logs for detailed error information");
+                    ExitCode::from(&err)
+                }
+            },
             Err(err) => {
-                // ✅ STDOUT CONTROL REMOVED: Use structured logging instead of eprintln!
-                tracing::error!("Command execution failed: {err:?}");
-                tracing::warn!("Check application logs for detailed error information");
+                tracing::error!("MAOS initialization failed: {err:?}");
                 ExitCode::from(&err)
             }
         }
     }
 
-    /// Get a reference to the configuration
-    pub fn config(&self) -> &MaosConfig {
-        &self.config
+    /// Get or initialize configuration
+    fn get_config(&self) -> Result<Arc<MaosConfig>> {
+        if let Some(config) = self.config.get() {
+            Ok(config.clone())
+        } else {
+            let config = Arc::new(MaosConfig::load()?);
+            let _ = self.config.set(config.clone());
+            Ok(config)
+        }
     }
 
-    /// Get a reference to the metrics
-    pub fn metrics(&self) -> &PerformanceMetrics {
-        &self.metrics
+    /// Get or initialize metrics
+    fn get_metrics(&self) -> Arc<PerformanceMetrics> {
+        self.metrics
+            .get_or_init(|| Arc::new(PerformanceMetrics::new()))
+            .clone()
+    }
+
+    /// Get or initialize dispatcher
+    async fn get_dispatcher(&self) -> Result<&CommandDispatcher> {
+        if self.dispatcher.get().is_none() {
+            let config = self.get_config()?;
+            let metrics = self.get_metrics();
+            let dispatcher = CommandDispatcher::new(config, metrics).await?;
+            let _ = self.dispatcher.set(dispatcher);
+        }
+        self.dispatcher.get().ok_or_else(|| {
+            MaosError::Config(ConfigError::InvalidFormat {
+                reason: "Failed to initialize dispatcher".to_string(),
+            })
+        })
+    }
+
+    /// Get a reference to the configuration (for testing)
+    pub fn config(&self) -> Result<Arc<MaosConfig>> {
+        self.get_config()
+    }
+
+    /// Get a reference to the metrics (for testing)
+    pub fn metrics(&self) -> Arc<PerformanceMetrics> {
+        self.get_metrics()
     }
 }
 
@@ -83,9 +114,10 @@ mod tests {
     async fn test_context_build() {
         let context = CliContext::build().await.unwrap();
 
-        // Should have initialized all components
-        assert!(Arc::strong_count(&context.config) > 0);
-        assert!(Arc::strong_count(&context.metrics) > 0);
+        // Components should be lazy - not initialized yet
+        assert!(context.config.get().is_none());
+        assert!(context.metrics.get().is_none());
+        assert!(context.dispatcher.get().is_none());
     }
 
     #[tokio::test]
@@ -93,16 +125,16 @@ mod tests {
         let config = MaosConfig::default();
         let context = CliContext::build_with_config(config).await.unwrap();
 
-        // Resources should be shared via Arc
-        let config_ref1 = context.config.clone();
-        let _config_ref2 = context.config.clone();
-        // The count is 4 because: original + 2 clones + 1 in dispatcher
-        assert_eq!(Arc::strong_count(&config_ref1), 4);
+        // After accessing config, it should be initialized
+        let config_ref1 = context.config().unwrap();
+        let config_ref2 = context.config().unwrap();
+        // Should be the same Arc instance
+        assert!(Arc::ptr_eq(&config_ref1, &config_ref2));
 
-        let metrics_ref1 = context.metrics.clone();
-        let _metrics_ref2 = context.metrics.clone();
-        // The count is 4 because: original + 2 clones + 1 in dispatcher
-        assert_eq!(Arc::strong_count(&metrics_ref1), 4);
+        let metrics_ref1 = context.metrics();
+        let metrics_ref2 = context.metrics();
+        // Should be the same Arc instance
+        assert!(Arc::ptr_eq(&metrics_ref1, &metrics_ref2));
     }
 
     #[tokio::test]
@@ -113,7 +145,7 @@ mod tests {
         let context = CliContext::build_with_config(custom_config).await.unwrap();
 
         // Should use the provided configuration
-        assert_eq!(context.config.system.max_execution_time_ms, 5000);
+        assert_eq!(context.config().unwrap().system.max_execution_time_ms, 5000);
     }
 
     #[tokio::test]
@@ -121,12 +153,16 @@ mod tests {
         let config = MaosConfig::default();
         let context = CliContext::build_with_config(config).await.unwrap();
 
-        // Test that handlers are registered (registry should have 8 handlers)
-        assert_eq!(context.dispatcher.registry.len(), 8);
+        // Dispatcher should be lazily initialized
+        assert!(context.dispatcher.get().is_none());
+
+        // After getting the dispatcher, it should be initialized
+        let dispatcher = context.get_dispatcher().await.unwrap();
+        assert_eq!(dispatcher.registry.len(), 8);
 
         // Test that we can get a handler
         let command = Commands::PreCompact;
-        let handler = context.dispatcher.registry.get_handler(&command).unwrap();
+        let handler = dispatcher.registry.get_handler(&command).unwrap();
         assert_eq!(handler.name(), maos_core::hook_constants::PRE_COMPACT);
     }
 }

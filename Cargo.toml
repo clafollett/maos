@@ -68,3 +68,13 @@ publish = false
 push = false
 sign-tag = false
 sign-commit = false
+
+# Aggressive performance optimizations for release builds
+[profile.release]
+opt-level = "z"        # Size optimization - best for startup
+lto = "fat"           # Full LTO
+codegen-units = 1     # Single codegen unit
+strip = true          # Strip symbols
+panic = "abort"       # Smaller binary
+debug = false         # No debug info
+incremental = false   # Disable incremental for better optimization

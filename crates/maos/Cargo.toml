@@ -12,10 +12,9 @@ path = "src/main.rs"
 [dependencies]
 maos-core = { path = "../maos-core" }
 clap = { workspace = true }
-tokio = { workspace = true, features = ["io-std", "io-util", "time", "macros", "rt", "rt-multi-thread"] }
+tokio = { workspace = true, features = ["io-std", "io-util", "time", "macros", "rt", "sync"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
-anyhow = { workspace = true }
 bytes = { workspace = true }
 async-trait = { workspace = true }
 dashmap = { workspace = true }
@@ -31,6 +30,9 @@ predicates = { workspace = true }
 criterion = { workspace = true }
 futures = { workspace = true }
 tempfile = { workspace = true }
+# Multi-threaded runtime needed only for benchmarks (Criterion requires it)
+# Main app uses single-threaded runtime for faster startup (see main.rs)
+tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [[bench]]
 name = "io_bench"
@@ -42,4 +44,12 @@ harness = false
 
 [[bench]]
 name = "handler_performance"
+harness = false
+
+[[bench]]
+name = "startup_bench"
+harness = false
+
+[[bench]]
+name = "json_bench"
 harness = false
