@@ -30,7 +30,8 @@ predicates = { workspace = true }
 criterion = { workspace = true }
 futures = { workspace = true }
 tempfile = { workspace = true }
-# Need multi-threaded runtime for benchmarks
+# Multi-threaded runtime needed only for benchmarks (Criterion requires it)
+# Main app uses single-threaded runtime for faster startup (see main.rs)
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 [[bench]]

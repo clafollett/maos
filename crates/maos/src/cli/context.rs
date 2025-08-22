@@ -2,7 +2,8 @@
 
 use crate::cli::{Commands, dispatcher::CommandDispatcher};
 use maos_core::config::MaosConfig;
-use maos_core::{ExitCode, PerformanceMetrics, Result};
+use maos_core::error::ConfigError;
+use maos_core::{ExitCode, MaosError, PerformanceMetrics, Result};
 use std::sync::{Arc, OnceLock};
 
 /// Dependency container for CLI operations with lazy initialization
@@ -87,7 +88,11 @@ impl CliContext {
             let dispatcher = CommandDispatcher::new(config, metrics).await?;
             let _ = self.dispatcher.set(dispatcher);
         }
-        Ok(self.dispatcher.get().unwrap())
+        self.dispatcher.get().ok_or_else(|| {
+            MaosError::Config(ConfigError::InvalidFormat {
+                reason: "Failed to initialize dispatcher".to_string(),
+            })
+        })
     }
 
     /// Get a reference to the configuration (for testing)
