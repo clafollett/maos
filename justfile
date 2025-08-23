@@ -119,8 +119,28 @@ clippy-fix:
 
 # Run all tests
 test:
-    @echo "🧪 Running tests..."
-    cargo test --all-features
+    @echo "🧪 Running tests (fast mode)..."
+    cargo test --package maos
+
+# Run thorough tests (includes ignored tests)
+test-thorough:
+    @echo "🧪 Running thorough tests..."
+    cargo test --package maos -- --include-ignored
+
+# Run only security fuzzing tests
+test-security:
+    @echo "🔒 Running security fuzzing tests..."
+    PROPTEST_CASES=100 cargo test --package maos --test security_fuzzing -- --ignored
+
+# Run unit tests only (fastest)
+test-unit:
+    @echo "⚡ Running unit tests only..."
+    cargo test --package maos --lib
+
+# Run integration tests only
+test-integration:
+    @echo "🔧 Running integration tests..."
+    cargo test --package maos --tests
 
 # Run tests with coverage (requires cargo-tarpaulin)
 test-coverage:
