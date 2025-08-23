@@ -7,7 +7,7 @@
 use maos::security::validators;
 use proptest::prelude::*;
 use serde_json::json;
-use std::path::Path;
+use std::{env, path::Path};
 
 // ===== Direct Validation Tests =====
 
@@ -113,8 +113,18 @@ fn test_json_size_validation() {
 
 // ===== Property-Based Tests (Fast Version) =====
 
+/// Get proptest configuration from environment variables
+fn proptest_config_from_env() -> ProptestConfig {
+    let cases = env::var("MAOS_TEST_SECURITY_PROPTEST_CASES")
+        .ok()
+        .and_then(|v| v.parse::<u32>().ok())
+        .unwrap_or(10); // Default to 10 for fast local dev
+
+    ProptestConfig::with_cases(cases)
+}
+
 proptest! {
-    #![proptest_config(ProptestConfig::with_cases(10))] // Keep it fast for local dev
+    #![proptest_config(proptest_config_from_env())] // Configurable via env vars
 
     #[test]
     fn prop_path_traversal_always_detected(

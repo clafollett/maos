@@ -2,9 +2,8 @@
 # Install just: https://github.com/casey/just#installation
 # Usage: just <recipe>
 
-# Load environment variables from stack.env
-set dotenv-load := true
-set dotenv-filename := "stack.env"
+# Don't auto-load stack.env since it has shell script logic
+set dotenv-load := false
 
 # Default recipe (runs when you just type 'just')
 default:
@@ -12,12 +11,27 @@ default:
 
 # Check if environment is properly configured
 check-env:
-    @echo "🔧 Checking environment configuration..."
-    @test -f stack.env || (echo "❌ stack.env file not found. Ensure it exists and is properly sourced." && exit 1)
-    @test -n "${RUST_TOOLCHAIN:-}" || (echo "❌ RUST_TOOLCHAIN not set. Run: source stack.env" && exit 1)
-    @test -n "${BUILD_FLAGS:-}" || (echo "❌ BUILD_FLAGS not set. Run: source stack.env" && exit 1)
-    @test -n "${MIN_MACOS_VERSION:-}" || (echo "❌ Platform variables not set. Run: source stack.env" && exit 1)
-    @echo "✅ Environment properly configured"
+    #!/usr/bin/env bash
+    echo "🔧 Checking environment configuration..."
+    test -f stack.env || (echo "❌ stack.env file not found. Ensure it exists and is properly sourced." && exit 1)
+    source stack.env
+    test -n "${RUST_TOOLCHAIN:-}" || (echo "❌ RUST_TOOLCHAIN not set. Run: source stack.env" && exit 1)
+    test -n "${BUILD_FLAGS:-}" || (echo "❌ BUILD_FLAGS not set. Run: source stack.env" && exit 1)
+    test -n "${MIN_MACOS_VERSION:-}" || (echo "❌ Platform variables not set. Run: source stack.env" && exit 1)
+    echo "✅ Environment properly configured"
+
+# Show current test configuration  
+test-config:
+    @echo "📋 Current Test Configuration:"
+    @echo "   Profile: ${MAOS_TEST_PROFILE:-fast}"
+    @echo "   Proptest cases: ${MAOS_TEST_SECURITY_PROPTEST_CASES:-10}"
+    @echo "   E2E timeout: ${MAOS_TEST_E2E_TIMEOUT_MS:-5000}ms"
+    @echo "   Benchmark iterations: ${MAOS_TEST_BENCHMARK_ITERATIONS:-10}"
+    @echo ""
+    @echo "💡 To use different profiles:"
+    @echo "   source stack.env                          # fast mode (default)"
+    @echo "   MAOS_TEST_PROFILE=thorough source stack.env && just test"
+    @echo "   MAOS_TEST_PROFILE=ci source stack.env && just test-security"
 
 # Development setup and validation
 dev-setup:
@@ -34,6 +48,7 @@ dev-setup:
 # Validate stack versions match stack.env
 validate-stack:
     #!/usr/bin/env bash
+    source stack.env
     echo "🔍 Validating development stack..."
     
     # Required files check
@@ -117,20 +132,31 @@ clippy-fix:
     @echo "✅ Applied clippy fixes"
 
 
-# Run all tests
+# Run all tests (uses MAOS_TEST_PROFILE from stack.env)
 test:
-    @echo "🧪 Running tests (fast mode)..."
+    #!/usr/bin/env bash
+    source stack.env
+    echo "🧪 Running tests (profile: ${MAOS_TEST_PROFILE})..."
+    echo "   Proptest cases: ${MAOS_TEST_SECURITY_PROPTEST_CASES}"
     cargo test --package maos
 
 # Run thorough tests (includes ignored tests)
 test-thorough:
-    @echo "🧪 Running thorough tests..."
+    #!/usr/bin/env bash
+    export MAOS_TEST_PROFILE=thorough
+    source stack.env
+    echo "🧪 Running thorough tests..."
+    echo "   Proptest cases: ${MAOS_TEST_SECURITY_PROPTEST_CASES}"
     cargo test --package maos -- --include-ignored
 
-# Run only security fuzzing tests
+# Run only security fuzzing tests with CI-level thoroughness
 test-security:
-    @echo "🔒 Running security fuzzing tests..."
-    PROPTEST_CASES=100 cargo test --package maos --test security_fuzzing -- --ignored
+    #!/usr/bin/env bash
+    export MAOS_TEST_PROFILE=ci
+    source stack.env
+    echo "🔒 Running security fuzzing tests (CI mode)..."
+    echo "   Proptest cases: ${MAOS_TEST_SECURITY_PROPTEST_CASES}"
+    cargo test --package maos --test security_unit
 
 # Run unit tests only (fastest)
 test-unit:
