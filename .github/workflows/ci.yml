@@ -11,6 +11,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  MAOS_TEST_PROFILE: ci  # Use CI test profile with maximum thoroughness
 
 jobs:
   # Cross-platform CI pipeline - runs full CI on all platforms
@@ -27,32 +28,20 @@ jobs:
       - uses: actions-rust-lang/setup-rust-toolchain@v1
       - uses: Swatinem/rust-cache@v2
 
-      # Consolidated environment setup step
-      - name: Setup Environment (Linux/macOS)
+      # Set test profile for CI (all platforms)
+      - name: Setup Test Environment (Linux/macOS)
         if: runner.os != 'Windows'
-        run: |
-          source stack.env
-          echo "RUST_TOOLCHAIN: $RUST_TOOLCHAIN"
-          echo "BUILD_FLAGS: $BUILD_FLAGS"
-          test -n "$RUST_TOOLCHAIN"
-          test -n "$BUILD_FLAGS"
-      - name: Setup Environment (Windows)
+        run: echo "MAOS_TEST_PROFILE=ci" >> $GITHUB_ENV
+        
+      - name: Setup Test Environment (Windows)
         if: runner.os == 'Windows'
         shell: pwsh
         run: |
-          # Load environment variables from stack.env (PowerShell equivalent of source)
-          Get-Content stack.env | ForEach-Object {
-            if ($_ -match '^([^#][^=]+)=(.*)$') {
-              $name, $value = $matches[1], $matches[2]
-              $value = $value -replace '^"(.*)"$', '$1'  # Remove quotes if present
-              Set-Content "env:\$name" $value
-            }
-          }
-          # Validate key environment variables are set
-          if (-not $env:RUST_TOOLCHAIN) { throw "RUST_TOOLCHAIN not set" }
-          if (-not $env:BUILD_FLAGS) { throw "BUILD_FLAGS not set" }
-          Write-Host "RUST_TOOLCHAIN: $env:RUST_TOOLCHAIN"
-          Write-Host "BUILD_FLAGS: $env:BUILD_FLAGS"
+          echo "MAOS_TEST_PROFILE=ci" >> $env:GITHUB_ENV
+          # Windows can't process bash case statements, so set test values explicitly
+          echo "MAOS_TEST_SECURITY_PROPTEST_CASES=1000" >> $env:GITHUB_ENV
+          echo "MAOS_TEST_E2E_TIMEOUT_MS=120000" >> $env:GITHUB_ENV
+          echo "MAOS_TEST_BENCHMARK_ITERATIONS=1000" >> $env:GITHUB_ENV
       
       # Install dependencies
       - name: Install development dependencies

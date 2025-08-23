@@ -210,6 +210,8 @@ error!("Failed to connect to {}", endpoint);
 
 ## 🧪 Testing Strategy
 
+For comprehensive testing guidelines and performance targets, see [Testing Strategy](docs/testing-strategy.md).
+
 ### Test Organization
 
 ```rust
