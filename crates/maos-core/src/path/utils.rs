@@ -389,3 +389,413 @@ pub fn relative_path(base: &Path, target: &Path) -> Option<PathBuf> {
         result
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::{Path, PathBuf};
+
+    // TDD Cycle 6 - RED PHASE: normalize_path function tests
+    #[test]
+    fn test_normalize_path_basic() {
+        // Should normalize simple paths
+        assert_eq!(
+            normalize_path(Path::new("./file.txt")),
+            PathBuf::from("file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new("dir/./file.txt")),
+            PathBuf::from("dir/file.txt")
+        );
+
+        // Should handle parent directory references
+        assert_eq!(
+            normalize_path(Path::new("dir/../file.txt")),
+            PathBuf::from("file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new("a/b/../c/file.txt")),
+            PathBuf::from("a/c/file.txt")
+        );
+
+        // Should handle multiple dots
+        assert_eq!(
+            normalize_path(Path::new("./dir/../file.txt")),
+            PathBuf::from("file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new("a/./b/../c")),
+            PathBuf::from("a/c")
+        );
+    }
+
+    #[test]
+    fn test_normalize_path_edge_cases() {
+        // Should handle empty and root paths (path-clean normalizes empty to ".")
+        assert_eq!(normalize_path(Path::new("")), PathBuf::from("."));
+        assert_eq!(normalize_path(Path::new(".")), PathBuf::from("."));
+        assert_eq!(normalize_path(Path::new("./")), PathBuf::from("."));
+
+        assert_eq!(
+            normalize_path(Path::new("./some/path")),
+            PathBuf::from("some/path")
+        );
+
+        // Should handle too many parent references
+        assert_eq!(
+            normalize_path(Path::new("../file.txt")),
+            PathBuf::from("../file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new("../../file.txt")),
+            PathBuf::from("../../file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new("dir/../../file.txt")),
+            PathBuf::from("../file.txt")
+        );
+    }
+
+    #[test]
+    fn test_normalize_path_absolute() {
+        // Should handle absolute paths
+        assert_eq!(
+            normalize_path(Path::new("/tmp/./file.txt")),
+            PathBuf::from("/tmp/file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new("/tmp/../file.txt")),
+            PathBuf::from("/file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new("/a/b/../c")),
+            PathBuf::from("/a/c")
+        );
+
+        // Should not go above root
+        assert_eq!(
+            normalize_path(Path::new("/../file.txt")),
+            PathBuf::from("/file.txt")
+        );
+        assert_eq!(
+            normalize_path(Path::new("/../../file.txt")),
+            PathBuf::from("/file.txt")
+        );
+    }
+
+    #[test]
+    fn test_normalize_path_windows_edge_cases() {
+        // Test the specific failure case from CI: "/a"
+        let path = PathBuf::from("/a");
+        let normalized = normalize_path(&path);
+
+        // The behavior should be platform-consistent
+        if path.is_absolute() {
+            assert!(
+                normalized.is_absolute(),
+                "If original path '/a' is absolute on this platform, normalized should be too. Original: {path:?}, Normalized: {normalized:?}"
+            );
+        } else {
+            // On Windows, "/a" might not be absolute (needs drive letter)
+            // This is platform-specific behavior and is acceptable
+        }
+    }
+
+    #[test]
+    fn test_normalize_path_cross_platform() {
+        // Platform-specific separator handling
+        #[cfg(windows)]
+        {
+            // Windows handles both separators
+            assert_eq!(
+                normalize_path(Path::new("dir\\file.txt")),
+                PathBuf::from("dir\\file.txt")
+            );
+            assert_eq!(
+                normalize_path(Path::new("dir\\..\\file.txt")),
+                PathBuf::from("file.txt")
+            );
+        }
+
+        #[cfg(not(windows))]
+        {
+            // Unix treats backslashes as literal characters
+            assert_eq!(
+                normalize_path(Path::new("dir\\file.txt")),
+                PathBuf::from("dir\\file.txt") // Single filename with backslash
+            );
+            // Only forward slashes work as separators
+            assert_eq!(
+                normalize_path(Path::new("dir/../file.txt")),
+                PathBuf::from("file.txt")
+            );
+        }
+    }
+
+    // TDD Cycle 7 - RED PHASE: Comprehensive paths_equal tests
+    #[test]
+    fn test_paths_equal_identical_paths() {
+        // Should return true for identical paths
+        assert!(
+            paths_equal(Path::new("/test/file.txt"), Path::new("/test/file.txt")),
+            "Identical paths should be equal"
+        );
+        assert!(
+            paths_equal(Path::new("relative/path"), Path::new("relative/path")),
+            "Identical relative paths should be equal"
+        );
+    }
+
+    #[test]
+    fn test_paths_equal_different_paths() {
+        // Should return false for different paths
+        assert!(
+            !paths_equal(Path::new("/test/file1.txt"), Path::new("/test/file2.txt")),
+            "Different files should not be equal"
+        );
+        assert!(
+            !paths_equal(Path::new("/test/dir1"), Path::new("/test/dir2")),
+            "Different directories should not be equal"
+        );
+    }
+
+    #[test]
+    fn test_paths_equal_normalized_paths() {
+        // Should return true for paths that normalize to the same location
+        assert!(
+            paths_equal(Path::new("/test/./file.txt"), Path::new("/test/file.txt")),
+            "Normalized paths should be equal"
+        );
+        assert!(
+            paths_equal(
+                Path::new("/test/dir/../file.txt"),
+                Path::new("/test/file.txt")
+            ),
+            "Path with parent reference should equal normalized"
+        );
+        assert!(
+            paths_equal(Path::new("./file.txt"), Path::new("file.txt")),
+            "Current dir reference should equal direct path"
+        );
+    }
+
+    #[test]
+    fn test_paths_equal_cross_platform_separators() {
+        // Platform-specific: Windows treats \ and / as equivalent, Unix doesn't
+        #[cfg(windows)]
+        {
+            assert!(
+                paths_equal(Path::new("dir\\file.txt"), Path::new("dir/file.txt")),
+                "On Windows, different separators should be equal"
+            );
+            assert!(
+                paths_equal(
+                    Path::new("dir\\subdir\\file.txt"),
+                    Path::new("dir/subdir/file.txt")
+                ),
+                "On Windows, nested paths with different separators should be equal"
+            );
+        }
+
+        #[cfg(not(windows))]
+        {
+            // On Unix, backslashes are literal characters, not separators
+            assert!(
+                !paths_equal(Path::new("dir\\file.txt"), Path::new("dir/file.txt")),
+                "On Unix, backslash paths are different from forward slash paths"
+            );
+            // These ARE equal because they're the same path
+            assert!(
+                paths_equal(Path::new("dir/file.txt"), Path::new("dir/file.txt")),
+                "Same paths should be equal"
+            );
+        }
+    }
+
+    #[test]
+    fn test_paths_equal_case_sensitivity() {
+        // On Unix-like systems, paths are case-sensitive
+        // On Windows, they're case-insensitive
+        // We'll implement Unix-style behavior (case-sensitive)
+        #[cfg(unix)]
+        {
+            assert!(
+                !paths_equal(Path::new("/Test/FILE.txt"), Path::new("/test/file.txt")),
+                "Case-different paths should not be equal on Unix"
+            );
+        }
+
+        // For now, we'll test the case-sensitive behavior
+        assert!(
+            !paths_equal(Path::new("File.txt"), Path::new("file.txt")),
+            "Case-different paths should not be equal"
+        );
+    }
+
+    #[test]
+    fn test_paths_equal_absolute_vs_relative() {
+        // Should handle comparison between absolute and relative paths
+        // These should be different unless they resolve to same location
+        assert!(
+            !paths_equal(Path::new("/test/file.txt"), Path::new("file.txt")),
+            "Absolute and relative paths should generally not be equal"
+        );
+        assert!(
+            !paths_equal(Path::new("/tmp"), Path::new("tmp")),
+            "Absolute and relative dirs should generally not be equal"
+        );
+    }
+
+    #[test]
+    fn test_paths_equal_empty_and_current() {
+        // Should handle empty paths and current directory references
+        assert!(
+            paths_equal(Path::new(""), Path::new("")),
+            "Empty paths should be equal"
+        );
+        assert!(
+            paths_equal(Path::new("."), Path::new(".")),
+            "Current directory references should be equal"
+        );
+        assert!(
+            paths_equal(Path::new("./"), Path::new(".")),
+            "Current directory with slash should equal without"
+        );
+    }
+
+    // TDD Cycle 8 - RED PHASE: Comprehensive relative_path tests
+    #[test]
+    fn test_relative_path_same_directory() {
+        // Should return "." or empty for same paths
+        let result = relative_path(Path::new("/test"), Path::new("/test"));
+        assert_eq!(result, Some(PathBuf::from(".")));
+
+        let result = relative_path(Path::new("base"), Path::new("base"));
+        assert_eq!(result, Some(PathBuf::from(".")));
+    }
+
+    #[test]
+    fn test_relative_path_direct_child() {
+        // Should return child name for direct children
+        let result = relative_path(Path::new("/base"), Path::new("/base/child"));
+        assert_eq!(result, Some(PathBuf::from("child")));
+
+        let result = relative_path(Path::new("/base"), Path::new("/base/subdir/file.txt"));
+        assert_eq!(result, Some(PathBuf::from("subdir/file.txt")));
+    }
+
+    #[test]
+    fn test_relative_path_parent_directory() {
+        // Should return .. for parent directories
+        let result = relative_path(Path::new("/base/subdir"), Path::new("/base"));
+        assert_eq!(result, Some(PathBuf::from("..")));
+
+        let result = relative_path(Path::new("/base/sub1/sub2"), Path::new("/base"));
+        assert_eq!(result, Some(PathBuf::from("../..")));
+    }
+
+    #[test]
+    fn test_relative_path_sibling_directories() {
+        // Should return ../sibling for sibling paths
+        let result = relative_path(Path::new("/base/dir1"), Path::new("/base/dir2"));
+        assert_eq!(result, Some(PathBuf::from("../dir2")));
+
+        let result = relative_path(
+            Path::new("/base/dir1/sub"),
+            Path::new("/base/dir2/file.txt"),
+        );
+        assert_eq!(result, Some(PathBuf::from("../../dir2/file.txt")));
+    }
+
+    #[test]
+    fn test_relative_path_different_roots() {
+        // Should return None for completely different roots
+        let result = relative_path(Path::new("/usr/local"), Path::new("/var/log"));
+        assert!(result.is_some()); // Should be able to calculate ../../../var/log
+
+        // More complex case
+        let result = relative_path(Path::new("/home/user"), Path::new("/etc/config"));
+        assert!(result.is_some()); // Should be ../../etc/config
+    }
+
+    #[test]
+    fn test_relative_path_normalized_inputs() {
+        // Should handle paths that need normalization
+        let result = relative_path(Path::new("/base/./dir"), Path::new("/base/target"));
+        assert_eq!(result, Some(PathBuf::from("../target")));
+
+        let result = relative_path(Path::new("/base/dir/../other"), Path::new("/base/target"));
+        assert_eq!(result, Some(PathBuf::from("../target")));
+    }
+
+    #[test]
+    fn test_relative_path_relative_inputs() {
+        // Should handle relative base and target paths
+        let result = relative_path(Path::new("base/dir"), Path::new("base/target"));
+        assert_eq!(result, Some(PathBuf::from("../target")));
+
+        let result = relative_path(Path::new("dir1"), Path::new("dir2/file.txt"));
+        assert_eq!(result, Some(PathBuf::from("../dir2/file.txt")));
+    }
+
+    #[test]
+    fn test_relative_path_cross_platform() {
+        // Platform-specific separator handling
+        #[cfg(windows)]
+        {
+            // Windows handles both separators
+            let result = relative_path(Path::new("base\\dir"), Path::new("base\\target"));
+            assert_eq!(result, Some(PathBuf::from("..\\target")));
+            let result = relative_path(Path::new("dir1\\sub"), Path::new("dir2\\file.txt"));
+            assert_eq!(result, Some(PathBuf::from("..\\..\\dir2\\file.txt")));
+        }
+
+        #[cfg(not(windows))]
+        {
+            // Unix only uses forward slashes
+            let result = relative_path(Path::new("base/dir"), Path::new("base/target"));
+            assert_eq!(result, Some(PathBuf::from("../target")));
+            let result = relative_path(Path::new("dir1/sub"), Path::new("dir2/file.txt"));
+            assert_eq!(result, Some(PathBuf::from("../../dir2/file.txt")));
+        }
+    }
+
+    #[test]
+    fn test_normalize_path_with_unicode_slashes() {
+        // Test that normalize_path handles Unicode slash attacks
+        // These are Unicode characters that look like slashes but aren't
+        let path_with_unicode = Path::new("test\u{2044}file"); // U+2044 fraction slash
+        let normalized = normalize_path(path_with_unicode);
+
+        // The Unicode slash should be transformed to platform separator
+        let normalized_str = normalized.to_string_lossy();
+        assert!(!normalized_str.contains('\u{2044}'));
+
+        // Test multiple Unicode slashes
+        let path_with_multiple = Path::new("a\u{2044}b\u{2215}c"); // fraction slash and division slash
+        let normalized = normalize_path(path_with_multiple);
+        let normalized_str = normalized.to_string_lossy();
+        assert!(!normalized_str.contains('\u{2044}'));
+        assert!(!normalized_str.contains('\u{2215}'));
+    }
+
+    #[test]
+    fn test_normalize_path_no_unicode() {
+        // Test that paths without Unicode slashes work normally
+        let normal_path = Path::new("normal/path/file.txt");
+        let normalized = normalize_path(normal_path);
+        assert_eq!(normalized, PathBuf::from("normal/path/file.txt"));
+    }
+
+    #[test]
+    fn test_relative_path_empty_result() {
+        // Test the edge case where relative_path result is empty
+        // This happens when both paths are identical
+        let result = relative_path(Path::new("/same"), Path::new("/same"));
+        assert_eq!(result, Some(PathBuf::from(".")));
+
+        // Another case that could result in empty
+        let result = relative_path(Path::new(""), Path::new(""));
+        assert_eq!(result, Some(PathBuf::from(".")));
+    }
+}

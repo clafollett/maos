@@ -58,3 +58,7 @@ harness = false
 [[bench]]
 name = "json_bench"
 harness = false
+
+[[bench]]
+name = "context_bench"
+harness = false

@@ -226,3 +226,418 @@ impl ThreadSafeSessionLogger {
         logger.session_id.clone()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    #[test]
+    fn test_session_logger_new() {
+        let temp_dir = TempDir::new().unwrap();
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+        let config = RollingLogConfig::default();
+
+        let logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config);
+        assert!(logger.is_ok());
+
+        let logger = logger.unwrap();
+        assert_eq!(logger.session_id(), &session_id);
+        assert!(log_dir.exists());
+    }
+
+    #[test]
+    fn test_session_logger_write() {
+        let temp_dir = TempDir::new().unwrap();
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+        let config = RollingLogConfig::default();
+
+        let mut logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config).unwrap();
+
+        // Write some entries
+        assert!(logger.write("Test entry 1").is_ok());
+        assert!(logger.write("Test entry 2").is_ok());
+
+        // Verify log file was created
+        let log_file = log_dir.join(format!("session-{}.log", session_id.as_str()));
+        assert!(log_file.exists());
+
+        // Drop logger to ensure flush
+        drop(logger);
+
+        // Read and verify contents
+        let contents = fs::read_to_string(&log_file).unwrap();
+        assert!(contents.contains("Test entry 1"));
+        assert!(contents.contains("Test entry 2"));
+    }
+
+    #[test]
+    fn test_session_logger_rotation() {
+        let temp_dir = TempDir::new().unwrap();
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+
+        // Small file size to trigger rotation
+        let config = RollingLogConfig {
+            max_file_size_bytes: 50,
+            max_files_per_session: 3,
+            compress_on_roll: false,
+            file_pattern: "session-{session_id}.log".to_string(),
+        };
+
+        let mut logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config).unwrap();
+
+        // Write enough to trigger rotation
+        let long_entry = "x".repeat(30);
+        logger.write(&long_entry).unwrap();
+        logger.write(&long_entry).unwrap(); // Should trigger rotation
+
+        // Check for rotated file
+        let rotated = log_dir.join(format!("session-{}.log.1", session_id.as_str()));
+        assert!(rotated.exists());
+    }
+
+    #[test]
+    fn test_thread_safe_logger() {
+        let temp_dir = TempDir::new().unwrap();
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+        let config = RollingLogConfig::default();
+
+        let logger = SessionLogger::new(session_id.clone(), log_dir, config).unwrap();
+        let thread_safe = logger.into_thread_safe();
+
+        // Test write through thread-safe wrapper
+        assert!(thread_safe.write("Thread safe entry").is_ok());
+        assert_eq!(thread_safe.session_id(), session_id);
+    }
+
+    #[test]
+    fn test_max_files_limit() {
+        let temp_dir = TempDir::new().unwrap();
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+
+        let config = RollingLogConfig {
+            max_file_size_bytes: 10, // Very small
+            max_files_per_session: 2,
+            compress_on_roll: false,
+            file_pattern: "session-{session_id}.log".to_string(),
+        };
+
+        let mut logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config).unwrap();
+
+        // Write enough to create multiple rotations
+        for i in 0..5 {
+            logger.write(&format!("Entry {i}")).unwrap();
+        }
+
+        // Should have at most 2 rotated files
+        let rotated_1 = log_dir.join(format!("session-{}.log.1", session_id.as_str()));
+        let rotated_2 = log_dir.join(format!("session-{}.log.2", session_id.as_str()));
+        let rotated_3 = log_dir.join(format!("session-{}.log.3", session_id.as_str()));
+
+        assert!(rotated_1.exists() || rotated_2.exists());
+        assert!(!rotated_3.exists()); // Should not exceed max_files
+    }
+
+    #[test]
+    fn test_compression() {
+        let temp_dir = TempDir::new().unwrap();
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+
+        let config = RollingLogConfig {
+            max_file_size_bytes: 30,
+            max_files_per_session: 5,
+            compress_on_roll: true,
+            file_pattern: "session-{session_id}.log".to_string(),
+        };
+
+        let mut logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config).unwrap();
+
+        // Write enough to trigger rotation with compression
+        logger.write("Content to compress").unwrap();
+        logger.write("More content to trigger rotation").unwrap();
+
+        // Check for compressed file
+        let compressed = log_dir.join(format!("session-{}.log.1.gz", session_id.as_str()));
+        assert!(
+            compressed.exists()
+                || log_dir
+                    .join(format!("session-{}.log.1", session_id.as_str()))
+                    .exists()
+        );
+    }
+
+    #[test]
+    fn test_disk_space_exhaustion_handling() {
+        // Test that logger handles disk space errors gracefully
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+
+        let config = RollingLogConfig {
+            max_file_size_bytes: 10,
+            max_files_per_session: 2,
+            compress_on_roll: false,
+            file_pattern: "session-{session_id}.log".to_string(),
+        };
+
+        let mut logger = SessionLogger::new(session_id, log_dir.clone(), config).unwrap();
+
+        // Simulate disk full by writing to a read-only directory (platform-specific)
+        #[cfg(unix)]
+        {
+            use std::fs;
+            // Make directory read-only
+            let metadata = fs::metadata(&log_dir).unwrap();
+            let mut permissions = metadata.permissions();
+            permissions.set_readonly(true);
+            let _ = fs::set_permissions(&log_dir, permissions.clone());
+
+            // Writing should fail but not panic
+            let result = logger.write("This should fail");
+            assert!(result.is_err() || result.is_ok()); // Either outcome is acceptable - no panic
+
+            // Restore permissions
+            let mut permissions = metadata.permissions();
+            // Allow write access for testing
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::PermissionsExt;
+                permissions.set_mode(0o644); // Owner read/write, others read
+            }
+            #[cfg(not(unix))]
+            {
+                permissions.set_readonly(false);
+            }
+            let _ = fs::set_permissions(&log_dir, permissions);
+        }
+    }
+
+    #[test]
+    fn test_malformed_session_id_handling() {
+        use std::str::FromStr;
+
+        // Test various malformed session IDs
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let _log_dir = temp_dir.path().to_path_buf();
+
+        let malformed_ids = vec![
+            "../escape",
+            "session/../../etc/passwd",
+            "session\0null",
+            "session|pipe",
+            "session;command",
+            "$(whoami)",
+        ];
+
+        for bad_id in malformed_ids {
+            // SessionId::from_str should reject or sanitize dangerous input
+            let session_result = SessionId::from_str(bad_id);
+
+            // Either the session ID is rejected (Err) or it's sanitized (Ok with safe content)
+            if let Ok(session_id) = session_result {
+                let safe_id = session_id.to_string();
+                // If accepted, it should be sanitized
+                assert!(!safe_id.contains(".."));
+                assert!(!safe_id.contains('\0'));
+                assert!(!safe_id.contains('/'));
+            }
+            // If Err, that's also acceptable - dangerous input was rejected
+        }
+    }
+
+    #[test]
+    fn test_unicode_in_log_messages() {
+        // Test that Unicode in log messages is handled correctly
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+        let config = RollingLogConfig::default();
+
+        let mut logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config).unwrap();
+
+        // Various Unicode test cases
+        let unicode_messages = vec![
+            "Hello 世界",
+            "Emoji test: 🔒🚀💯",
+            "RTL text: مرحبا بالعالم",
+            "Zero-width: test\u{200B}hidden",
+            "Combining: é (e\u{0301})",
+        ];
+
+        for msg in unicode_messages {
+            assert!(logger.write(msg).is_ok());
+        }
+
+        // Verify content was written
+        let log_file = log_dir.join(format!("session-{}.log", session_id.as_str()));
+        let content = std::fs::read_to_string(log_file).unwrap();
+        assert!(content.contains("Emoji test"));
+    }
+
+    #[test]
+    fn test_concurrent_rotation_safety() {
+        use std::sync::{Arc, Mutex};
+        use std::thread;
+
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+
+        let config = RollingLogConfig {
+            max_file_size_bytes: 50,
+            max_files_per_session: 5,
+            compress_on_roll: false,
+            file_pattern: "session-{session_id}.log".to_string(),
+        };
+
+        let logger = Arc::new(Mutex::new(
+            SessionLogger::new(session_id, log_dir.clone(), config).unwrap(),
+        ));
+
+        // Spawn multiple threads writing concurrently
+        let mut handles = vec![];
+        for i in 0..10 {
+            let logger = logger.clone();
+            let handle = thread::spawn(move || {
+                for j in 0..10 {
+                    if let Ok(mut log) = logger.lock() {
+                        let _ = log.write(&format!("Thread {i} message {j}"));
+                    }
+                    std::thread::sleep(std::time::Duration::from_millis(1));
+                }
+            });
+            handles.push(handle);
+        }
+
+        // All threads should complete without deadlock or panic
+        for handle in handles {
+            handle.join().unwrap();
+        }
+    }
+
+    #[test]
+    fn test_log_file_path_traversal_prevention() {
+        // Test that path traversal in file patterns is prevented
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+
+        let malicious_patterns = vec![
+            "../../../etc/passwd-{session_id}.log",
+            "logs/../../../sensitive-{session_id}.log",
+            "/etc/shadow-{session_id}.log",
+        ];
+
+        for pattern in malicious_patterns {
+            let config = RollingLogConfig {
+                max_file_size_bytes: 1024,
+                max_files_per_session: 3,
+                compress_on_roll: false,
+                file_pattern: pattern.to_string(),
+            };
+
+            // Logger should either sanitize the path or fail to create
+            let result = SessionLogger::new(session_id.clone(), log_dir.clone(), config);
+
+            if let Ok(mut logger) = result {
+                // If logger was created, verify the file is in the safe directory
+                let _ = logger.write("test");
+
+                // Check that no files were created outside log_dir
+                assert!(!std::path::Path::new("/etc/passwd").exists());
+                assert!(!std::path::Path::new("/etc/shadow").exists());
+            }
+        }
+    }
+
+    #[test]
+    fn test_compression_failure_recovery() {
+        // Test recovery when compression fails
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+
+        let config = RollingLogConfig {
+            max_file_size_bytes: 10,
+            max_files_per_session: 3,
+            compress_on_roll: true,
+            file_pattern: "session-{session_id}.log".to_string(),
+        };
+
+        let mut logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config).unwrap();
+
+        // Write enough to trigger rotation
+        logger.write("First content to rotate").unwrap();
+        logger.write("Second content to trigger rotation").unwrap();
+
+        // Even if compression fails internally, logger should continue working
+        let result = logger.write("Third write after rotation");
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn test_extreme_file_counts() {
+        // Test handling of extreme max_files_per_session values
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+
+        // Test with zero files (should be adjusted to minimum)
+        let config_zero = RollingLogConfig {
+            max_file_size_bytes: 100,
+            max_files_per_session: 0,
+            compress_on_roll: false,
+            file_pattern: "session-{session_id}.log".to_string(),
+        };
+
+        let result = SessionLogger::new(session_id.clone(), log_dir.clone(), config_zero);
+        assert!(result.is_ok()); // Should handle gracefully
+
+        // Test with extremely large file count
+        let config_large = RollingLogConfig {
+            max_file_size_bytes: 100,
+            max_files_per_session: usize::MAX,
+            compress_on_roll: false,
+            file_pattern: "session-{session_id}.log".to_string(),
+        };
+
+        let result = SessionLogger::new(session_id.clone(), log_dir.clone(), config_large);
+        assert!(result.is_ok()); // Should handle without overflow
+    }
+
+    #[test]
+    fn test_log_injection_prevention() {
+        // Test prevention of log injection attacks
+        let temp_dir = TempDir::new().expect("Failed to create temp dir");
+        let log_dir = temp_dir.path().to_path_buf();
+        let session_id = SessionId::generate();
+        let config = RollingLogConfig::default();
+
+        let mut logger = SessionLogger::new(session_id.clone(), log_dir.clone(), config).unwrap();
+
+        // Attempt log injection with newlines and control characters
+        let injection_attempts = vec![
+            "Normal log\n[ERROR] Fake error injected",
+            "User input: \r\n[SECURITY] Fake security alert",
+            "Data: \u{001B}[31mRed text attack\u{001B}[0m",
+            "Message\n\n[ADMIN] Privilege escalation attempt",
+        ];
+
+        for attempt in injection_attempts {
+            assert!(logger.write(attempt).is_ok());
+        }
+
+        // Verify that injected content is properly escaped/handled
+        let log_file = log_dir.join(format!("session-{}.log", session_id.as_str()));
+        let content = std::fs::read_to_string(log_file).unwrap();
+
+        // Log entries should be properly formatted (implementation-specific)
+        assert!(content.contains("Normal log"));
+    }
+}

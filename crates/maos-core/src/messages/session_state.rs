@@ -188,3 +188,126 @@ impl SessionDirectory {
         self.root.join("progress.json")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::SessionId;
+    use serde_json::json;
+    use std::str::FromStr;
+
+    #[test]
+    fn test_session_file_schema() {
+        // Test the main session state file format
+        let session_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "active",
+            "workspace_root": "/workspace",
+            "transcript_path": "/tmp/transcript.txt",
+            "metadata": {
+                "user": "test_user",
+                "project": "maos",
+                "environment": "development"
+            }
+        });
+
+        let session: SessionFile = serde_json::from_value(session_json.clone()).unwrap();
+        assert_eq!(
+            session.session_id.as_str(),
+            "sess_12345678-1234-1234-1234-123456789012"
+        );
+        assert_eq!(session.status, SessionStatus::Active);
+
+        // Should round-trip serialize
+        let serialized = serde_json::to_value(&session).unwrap();
+        assert_eq!(serialized["status"], "active");
+    }
+
+    #[test]
+    fn test_agents_file_schema() {
+        // Test agent coordination file format
+        let agents_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "agents": [
+                {
+                    "agent_id": "agent_12345678-1234-1234-1234-123456789012",
+                    "agent_type": "backend-engineer",
+                    "status": "active",
+                    "workspace": "/worktrees/backend-sess_123",
+                    "started_at": "2024-01-01T00:00:00Z",
+                    "parent_agent": null,
+                    "current_task": "Implementing API endpoint"
+                },
+                {
+                    "agent_id": "agent_87654321-4321-4321-4321-210987654321",
+                    "agent_type": "qa-engineer",
+                    "status": "pending",
+                    "workspace": null,
+                    "started_at": "2024-01-01T00:00:30Z",
+                    "parent_agent": "agent_12345678-1234-1234-1234-123456789012",
+                    "current_task": null
+                }
+            ]
+        });
+
+        let agents_file: AgentsFile = serde_json::from_value(agents_json).unwrap();
+        assert_eq!(agents_file.agents.len(), 2);
+        assert_eq!(agents_file.agents[0].agent_type, "backend-engineer");
+        assert_eq!(agents_file.agents[0].status, AgentStatus::Active);
+        assert_eq!(agents_file.agents[1].status, AgentStatus::Pending);
+
+        // Verify parent agent relationship
+        assert!(agents_file.agents[0].parent_agent.is_none());
+        assert_eq!(
+            agents_file.agents[1]
+                .parent_agent
+                .as_ref()
+                .unwrap()
+                .as_str(),
+            "agent_12345678-1234-1234-1234-123456789012"
+        );
+    }
+
+    #[test]
+    fn test_locks_file_schema() {
+        // Test file locking coordination
+        let locks_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "locks": [
+                {
+                    "file_path": "/workspace/src/main.rs",
+                    "agent_id": "agent_12345678-1234-1234-1234-123456789012",
+                    "lock_type": "exclusive",
+                    "operation": "Edit",
+                    "acquired_at": "2024-01-01T00:00:00Z"
+                },
+                {
+                    "file_path": "/workspace/Cargo.toml",
+                    "agent_id": "agent_87654321-4321-4321-4321-210987654321",
+                    "lock_type": "shared",
+                    "operation": "Read",
+                    "acquired_at": "2024-01-01T00:00:30Z"
+                }
+            ]
+        });
+
+        let locks_file: LocksFile = serde_json::from_value(locks_json).unwrap();
+        assert_eq!(locks_file.locks.len(), 2);
+        assert_eq!(locks_file.locks[0].lock_type, LockType::Exclusive);
+        assert_eq!(locks_file.locks[1].lock_type, LockType::Shared);
+    }
+
+    #[test]
+    fn test_session_directory_structure() {
+        let session_id = SessionId::from_str("sess_12345678-1234-1234-1234-123456789012").unwrap();
+        let session_dir = SessionDirectory::new(&session_id).unwrap();
+
+        // Should create proper directory structure
+        assert!(session_dir.session_file_path().ends_with("session.json"));
+        assert!(session_dir.agents_file_path().ends_with("agents.json"));
+        assert!(session_dir.locks_file_path().ends_with("locks.json"));
+        assert!(session_dir.progress_file_path().ends_with("progress.json"));
+    }
+}

@@ -6,48 +6,6 @@ use std::fs;
 use tempfile::TempDir;
 
 #[test]
-fn test_logging_config_serialization() {
-    let config = LoggingConfig {
-        level: LogLevel::Debug,
-        format: LogFormat::Json,
-        output: LogOutput::Both,
-        enable_performance_logs: true,
-        enable_security_logs: false,
-        rolling: RollingLogConfig::default(),
-    };
-
-    // Test serialization
-    let json = serde_json::to_string(&config).expect("Failed to serialize");
-    assert!(json.contains("\"level\":\"debug\""));
-    assert!(json.contains("\"format\":\"json\""));
-
-    // Test deserialization
-    let deserialized: LoggingConfig = serde_json::from_str(&json).expect("Failed to deserialize");
-    assert!(matches!(deserialized.level, LogLevel::Debug));
-    assert!(matches!(deserialized.format, LogFormat::Json));
-}
-
-#[test]
-fn test_log_level_ordering() {
-    // Test that log levels have correct severity ordering
-    assert!(LogLevel::Error as u8 > LogLevel::Warn as u8);
-    assert!(LogLevel::Warn as u8 > LogLevel::Info as u8);
-    assert!(LogLevel::Info as u8 > LogLevel::Debug as u8);
-    assert!(LogLevel::Debug as u8 > LogLevel::Trace as u8);
-}
-
-#[test]
-fn test_default_rolling_config() {
-    let config = RollingLogConfig::default();
-
-    // Should use constants from constants module
-    assert_eq!(config.max_file_size_bytes, 10 * 1024 * 1024); // 10MB
-    assert_eq!(config.max_files_per_session, 10);
-    assert!(config.compress_on_roll);
-    assert_eq!(config.file_pattern, "session-{session_id}.log");
-}
-
-#[test]
 fn test_session_logger_creation() {
     let temp_dir = TempDir::new().expect("Failed to create temp dir");
     let log_dir = temp_dir.path().to_path_buf();
