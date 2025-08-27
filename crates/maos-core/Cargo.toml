@@ -47,5 +47,5 @@ harness = false
 
 # Integration tests (real I/O)
 [[test]]
-name = "logging_integration"
-path = "tests/integration/logging_integration_tests.rs"
+name = "logging_tests"
+path = "tests/logging_tests.rs"

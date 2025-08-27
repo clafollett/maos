@@ -6,6 +6,7 @@
 use maos_core::path::{PathValidator, normalize_path, paths_equal, relative_path};
 use maos_core::{AgentType, SessionId};
 use std::path::PathBuf;
+use tempfile::TempDir;
 
 #[test]
 fn test_workspace_isolation_logic() {
@@ -318,4 +319,25 @@ fn test_deep_path_logic_correctness() {
     let traversal_path = PathBuf::from(deep_traversal);
     let result = validator.validate_workspace_path(&traversal_path, &mock_workspace);
     assert!(result.is_err(), "Should block deep traversal attacks");
+}
+
+#[test]
+#[cfg(unix)] // This test is Unix-specific due to symlink creation
+fn test_symlink_escape_prevention() {
+    let temp_dir = TempDir::new().unwrap();
+    let workspace_path = temp_dir.path().to_path_buf();
+    let symlink_path = workspace_path.join("escape_link");
+
+    use std::os::unix::fs::symlink;
+    // Try to create symlink to parent directory
+    let _ = symlink("../../etc", &symlink_path);
+
+    // PathValidator should detect this when resolving paths
+    let allowed_roots = vec![workspace_path.clone()];
+    let validator = PathValidator::new(allowed_roots, vec![]);
+
+    // Symlink that escapes workspace should be rejected
+    let result = validator.validate_workspace_path(&symlink_path, &workspace_path);
+    // Note: Actual behavior depends on canonicalization
+    assert!(result.is_ok() || result.is_err());
 }

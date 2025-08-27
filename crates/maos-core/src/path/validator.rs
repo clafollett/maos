@@ -1212,31 +1212,9 @@ mod tests {
         );
     }
 
-    #[test]
-    fn test_symlink_escape_prevention() {
-        use tempfile::TempDir;
-
-        let temp_dir = TempDir::new().unwrap();
-
-        // Create a symlink pointing outside workspace
-        #[cfg(unix)]
-        {
-            let workspace_path = temp_dir.path().to_path_buf();
-            let symlink_path = workspace_path.join("escape_link");
-            use std::os::unix::fs::symlink;
-            // Try to create symlink to parent directory
-            let _ = symlink("../../etc", &symlink_path);
-
-            // PathValidator should detect this when resolving paths
-            let allowed_roots = vec![workspace_path.clone()];
-            let validator = PathValidator::new(allowed_roots, vec![]);
-
-            // Symlink that escapes workspace should be rejected
-            let result = validator.validate_workspace_path(&symlink_path, &workspace_path);
-            // Note: Actual behavior depends on canonicalization
-            assert!(result.is_ok() || result.is_err());
-        }
-    }
+    // NOTE: Filesystem-dependent tests have been moved to
+    // crates/maos-core/tests/integration_path_test.rs
+    // Unit tests should not touch the filesystem
 
     #[test]
     #[cfg(target_os = "macos")]
