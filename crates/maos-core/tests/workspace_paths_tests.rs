@@ -338,6 +338,11 @@ fn test_symlink_escape_prevention() {
 
     // Symlink that escapes workspace should be rejected
     let result = validator.validate_workspace_path(&symlink_path, &workspace_path);
-    // Note: Actual behavior depends on canonicalization
-    assert!(result.is_ok() || result.is_err());
+    // If symlink was created and points outside workspace, it should be rejected
+    if symlink_path.exists() {
+        assert!(
+            result.is_err(),
+            "Symlink escaping workspace should be rejected"
+        );
+    }
 }

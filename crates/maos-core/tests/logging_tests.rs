@@ -227,24 +227,10 @@ fn test_disk_space_exhaustion_handling() {
     permissions.set_readonly(true);
     let _ = fs::set_permissions(&log_dir, permissions.clone());
 
-    // Writing should fail but not panic
-    let result = logger.write("This should fail");
-    assert!(result.is_err() || result.is_ok()); // Either outcome is acceptable - no panic
+    // Writing should fail gracefully (not panic)
+    let _ = logger.write("This should fail"); // We don't care about the result, just that it doesn't panic
 
-    // Restore permissions
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let mut permissions = metadata.permissions();
-        permissions.set_mode(0o755); // Restore directory permissions
-        let _ = fs::set_permissions(&log_dir, permissions);
-    }
-    #[cfg(not(unix))]
-    {
-        let mut permissions = metadata.permissions();
-        permissions.set_readonly(false);
-        let _ = fs::set_permissions(&log_dir, permissions);
-    }
+    // No need to restore permissions - TempDir will clean up automatically
 }
 
 #[test]
