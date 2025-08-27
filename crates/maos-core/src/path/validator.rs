@@ -1217,11 +1217,11 @@ mod tests {
         use tempfile::TempDir;
 
         let temp_dir = TempDir::new().unwrap();
-        let workspace_path = temp_dir.path().to_path_buf();
 
         // Create a symlink pointing outside workspace
         #[cfg(unix)]
         {
+            let workspace_path = temp_dir.path().to_path_buf();
             let symlink_path = workspace_path.join("escape_link");
             use std::os::unix::fs::symlink;
             // Try to create symlink to parent directory

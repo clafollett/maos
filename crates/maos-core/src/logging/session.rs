@@ -376,19 +376,20 @@ mod tests {
     fn test_disk_space_exhaustion_handling() {
         // Test that logger handles disk space errors gracefully
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
-        let log_dir = temp_dir.path().to_path_buf();
-        let session_id = SessionId::generate();
-
-        let config = RollingLogConfig {
-            max_file_size_bytes: 10,
-            max_files_per_session: 2,
-            compress_on_roll: false,
-            file_pattern: "session-{session_id}.log".to_string(),
-        };
 
         // Simulate disk full by writing to a read-only directory (platform-specific)
         #[cfg(unix)]
         {
+            let log_dir = temp_dir.path().to_path_buf();
+            let session_id = SessionId::generate();
+
+            let config = RollingLogConfig {
+                max_file_size_bytes: 10,
+                max_files_per_session: 2,
+                compress_on_roll: false,
+                file_pattern: "session-{session_id}.log".to_string(),
+            };
+
             let mut logger = SessionLogger::new(session_id, log_dir.clone(), config).unwrap();
 
             use std::fs;
