@@ -297,7 +297,7 @@ impl StdinProcessor {
                     std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
                 );
                 if result != 0 {
-                    return Some(counters.WorkingSetSize as usize);
+                    return Some(counters.WorkingSetSize);
                 }
             }
         }

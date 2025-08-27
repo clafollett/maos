@@ -6,7 +6,6 @@
 use maos_core::path::{PathValidator, normalize_path, paths_equal, relative_path};
 use maos_core::{AgentType, SessionId};
 use std::path::PathBuf;
-use tempfile::TempDir;
 
 #[test]
 fn test_workspace_isolation_logic() {
@@ -324,6 +323,7 @@ fn test_deep_path_logic_correctness() {
 #[test]
 #[cfg(unix)] // This test is Unix-specific due to symlink creation
 fn test_symlink_escape_prevention() {
+    use tempfile::TempDir;
     let temp_dir = TempDir::new().unwrap();
     let workspace_path = temp_dir.path().to_path_buf();
     let symlink_path = workspace_path.join("escape_link");
