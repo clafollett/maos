@@ -386,11 +386,11 @@ mod tests {
             file_pattern: "session-{session_id}.log".to_string(),
         };
 
-        let mut logger = SessionLogger::new(session_id, log_dir.clone(), config).unwrap();
-
         // Simulate disk full by writing to a read-only directory (platform-specific)
         #[cfg(unix)]
         {
+            let mut logger = SessionLogger::new(session_id, log_dir.clone(), config).unwrap();
+
             use std::fs;
             // Make directory read-only
             let metadata = fs::metadata(&log_dir).unwrap();

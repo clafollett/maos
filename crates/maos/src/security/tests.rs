@@ -388,11 +388,11 @@ fn test_symlink_attack_prevention() {
 
     // Symlinks themselves aren't validated by path_safety (that's done by PathValidator)
     // but we ensure the path validator exists and works
-    let symlink_path = temp_dir.path().join("symlink");
 
     // On Unix, test symlink creation (Windows requires admin rights)
     #[cfg(unix)]
     {
+        let symlink_path = temp_dir.path().join("symlink");
         use std::os::unix::fs::symlink;
         let _ = symlink(&safe_path, &symlink_path);
 

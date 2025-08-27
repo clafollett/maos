@@ -1220,10 +1220,9 @@ mod tests {
         let workspace_path = temp_dir.path().to_path_buf();
 
         // Create a symlink pointing outside workspace
-        let symlink_path = workspace_path.join("escape_link");
-
         #[cfg(unix)]
         {
+            let symlink_path = workspace_path.join("escape_link");
             use std::os::unix::fs::symlink;
             // Try to create symlink to parent directory
             let _ = symlink("../../etc", &symlink_path);
