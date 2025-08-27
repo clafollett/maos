@@ -111,12 +111,17 @@ impl SessionLogger {
         }
 
         // Rotate current file to .1
-        let rotated_path = self.rotated_path(1);
-        let _ = fs::rename(&self.log_path, &rotated_path);
-
-        // Compress if configured
         if self.config.compress_on_roll {
-            self.compress_file(&rotated_path).ok();
+            // When compression is enabled, rotate to uncompressed path first
+            let uncompressed_path = self.log_path.with_extension("log.1");
+            let _ = fs::rename(&self.log_path, &uncompressed_path);
+
+            // Compress the rotated file (creates .gz and removes original)
+            let _ = self.compress_file(&uncompressed_path);
+        } else {
+            // Direct rotation without compression
+            let rotated_path = self.rotated_path(1);
+            let _ = fs::rename(&self.log_path, &rotated_path);
         }
 
         // Create new log file
@@ -159,7 +164,8 @@ impl SessionLogger {
             )))
         })?;
 
-        let compressed_path = path.with_extension("gz");
+        // Add .gz extension without replacing existing extension
+        let compressed_path = PathBuf::from(format!("{}.gz", path.display()));
         let output = File::create(&compressed_path).map_err(|e| {
             MaosError::Io(std::io::Error::other(format!(
                 "Failed to create compressed file: {e}"
