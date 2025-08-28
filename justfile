@@ -126,7 +126,7 @@ lint:
     cargo clippy --all-targets --all-features -- -D warnings -W clippy::uninlined_format_args
     @echo "🔍 Cross-checking for Windows compatibility..."
     @rustup target add x86_64-pc-windows-msvc > /dev/null 2>&1 || true
-    cargo clippy --target x86_64-pc-windows-msvc --all-targets --all-features -- -D warnings 2>&1 | grep -E "error:|warning:" | head -20 || true
+    @cargo clippy --target x86_64-pc-windows-msvc --all-targets --all-features -- -D warnings || true
 
 # Fix auto-fixable clippy issues
 clippy-fix:

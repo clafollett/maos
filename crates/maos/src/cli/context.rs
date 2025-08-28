@@ -93,7 +93,9 @@ impl CliContext {
         match self.config.set(new_config.clone()) {
             Ok(()) => Ok(new_config),
             Err(_) => {
-                // Another thread won the race, use their config
+                // Error is intentionally ignored - another thread won the race
+                // to initialize the config. We use their successfully loaded
+                // config instead of ours. This is the double-checked locking pattern.
                 Ok(self
                     .config
                     .get()
