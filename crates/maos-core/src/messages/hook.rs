@@ -622,3 +622,593 @@ impl HookResponse {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::{Value, json};
+    use std::path::PathBuf;
+
+    // =============================================================================
+    // Test Helpers
+    // =============================================================================
+
+    /// Helper builder for creating HookInput instances in tests
+    fn make_hook_input(
+        session_id: Option<&str>,
+        transcript_path: Option<&str>,
+        cwd: Option<&str>,
+        hook_event_name: Option<HookEventName>,
+        tool_name: Option<&str>,
+        tool_input: Option<Value>,
+        tool_response: Option<Value>,
+        prompt: Option<&str>,
+    ) -> HookInput {
+        HookInput {
+            session_id: session_id
+                .unwrap_or("sess_12345678-1234-1234-1234-123456789012")
+                .to_string(),
+            transcript_path: PathBuf::from(transcript_path.unwrap_or("/tmp/transcript")),
+            cwd: PathBuf::from(cwd.unwrap_or("/workspace")),
+            hook_event_name: hook_event_name.unwrap_or(HookEventName::PreToolUse),
+            tool_name: tool_name.map(|s| s.to_string()),
+            tool_input,
+            tool_response,
+            prompt: prompt.map(|s| s.to_string()),
+        }
+    }
+
+    // =============================================================================
+    // HookInput Tests - Testing Claude Code format
+    // =============================================================================
+
+    #[test]
+    fn test_hook_input_pre_tool_use() {
+        // Test PreToolUse event format from Claude Code
+        let pre_tool_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "cargo test"
+            }
+        });
+
+        let input: HookInput = serde_json::from_value(pre_tool_json.clone()).unwrap();
+
+        // Should extract correct fields
+        assert_eq!(
+            input.session_id,
+            "sess_12345678-1234-1234-1234-123456789012"
+        );
+        assert_eq!(input.hook_event_name, HookEventName::PreToolUse);
+        assert_eq!(input.tool_name(), "Bash");
+        assert!(input.is_tool_event());
+
+        // Should extract tool input
+        let tool_input = input.tool_input();
+        assert_eq!(tool_input.get("command").unwrap(), "cargo test");
+
+        // Should round-trip serialize correctly
+        let serialized = serde_json::to_value(&input).unwrap();
+        assert_eq!(serialized, pre_tool_json);
+    }
+
+    #[test]
+    fn test_hook_input_post_tool_use() {
+        // Test PostToolUse event with response
+        let post_tool_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Write",
+            "tool_input": {
+                "file_path": "/test/new_file.txt",
+                "content": "Hello, world!"
+            },
+            "tool_response": {
+                "success": true,
+                "filePath": "/test/new_file.txt"
+            }
+        });
+
+        let input: HookInput = serde_json::from_value(post_tool_json).unwrap();
+
+        // Should extract tool response
+        let response = input.tool_response().unwrap();
+        assert_eq!(response.get("success").unwrap(), true);
+        assert_eq!(response.get("filePath").unwrap(), "/test/new_file.txt");
+    }
+
+    #[test]
+    fn test_hook_input_user_prompt_submit() {
+        // Test UserPromptSubmit event
+        let prompt_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "Help me refactor this code"
+        });
+
+        let input: HookInput = serde_json::from_value(prompt_json).unwrap();
+
+        assert_eq!(input.hook_event_name, HookEventName::UserPromptSubmit);
+        assert!(!input.is_tool_event());
+        assert_eq!(input.user_prompt(), Some("Help me refactor this code"));
+        assert!(input.tool_name.is_none());
+    }
+
+    #[test]
+    fn test_hook_input_subagent_events() {
+        // Test SubagentStart event
+        let start_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "SubagentStart"
+        });
+
+        let input: HookInput = serde_json::from_value(start_json).unwrap();
+        assert_eq!(input.hook_event_name, HookEventName::SubagentStart);
+        assert!(!input.is_tool_event());
+
+        // Test SubagentStop event
+        let stop_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "SubagentStop"
+        });
+
+        let input: HookInput = serde_json::from_value(stop_json).unwrap();
+        assert_eq!(input.hook_event_name, HookEventName::SubagentStop);
+        assert!(!input.is_tool_event());
+    }
+
+    #[test]
+    fn test_hook_input_new_event_types() {
+        // Test PreCompact event
+        let precompact_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "PreCompact"
+        });
+
+        let input: HookInput = serde_json::from_value(precompact_json).unwrap();
+        assert_eq!(input.hook_event_name, HookEventName::PreCompact);
+        assert!(!input.is_tool_event());
+
+        // Test SessionStart event
+        let session_start_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "SessionStart"
+        });
+
+        let input: HookInput = serde_json::from_value(session_start_json).unwrap();
+        assert_eq!(input.hook_event_name, HookEventName::SessionStart);
+        assert!(!input.is_tool_event());
+
+        // Test Stop event
+        let stop_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "Stop"
+        });
+
+        let input: HookInput = serde_json::from_value(stop_json).unwrap();
+        assert_eq!(input.hook_event_name, HookEventName::Stop);
+        assert!(!input.is_tool_event());
+
+        // Test Notification event
+        let notification_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript.txt",
+            "cwd": "/home/user/project",
+            "hook_event_name": "Notification"
+        });
+
+        let input: HookInput = serde_json::from_value(notification_json).unwrap();
+        assert_eq!(input.hook_event_name, HookEventName::Notification);
+        assert!(!input.is_tool_event());
+    }
+
+    // =============================================================================
+    // PreToolMessage and PostToolMessage Tests
+    // =============================================================================
+
+    #[test]
+    fn test_pre_tool_message_creation() {
+        let hook_input = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": "/test.rs"
+            }
+        });
+
+        let input: HookInput = serde_json::from_value(hook_input).unwrap();
+        let message = PreToolMessage::from_hook_input(input).unwrap();
+
+        // Should extract session context
+        assert!(message.session_context.session_id.as_str().contains("sess"));
+
+        // Should have tool call information
+        assert_eq!(message.tool_call.tool_name, "Edit");
+    }
+
+    #[test]
+    fn test_pre_tool_message_error_cases() {
+        // Test with non-tool event (should fail)
+        let hook_input = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "Hello"
+        });
+
+        let input: HookInput = serde_json::from_value(hook_input).unwrap();
+        let result = PreToolMessage::from_hook_input(input);
+        assert!(result.is_err());
+
+        // Test with SessionStart (non-tool event)
+        let hook_input = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "SessionStart"
+        });
+
+        let input: HookInput = serde_json::from_value(hook_input).unwrap();
+        let result = PreToolMessage::from_hook_input(input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_post_tool_message_creation() {
+        let hook_input = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "PostToolUse",
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "ls -la"
+            },
+            "tool_response": {
+                "success": true,
+                "output": "file1.txt\nfile2.txt"
+            }
+        });
+
+        let input: HookInput = serde_json::from_value(hook_input).unwrap();
+        let message = PostToolMessage::from_hook_input(input).unwrap();
+
+        // Should have tool result
+        assert!(message.tool_result.success);
+
+        // Should have original tool call
+        assert_eq!(message.tool_call.tool_name, "Bash");
+    }
+
+    #[test]
+    fn test_post_tool_message_error_cases() {
+        // Test with PreToolUse event (should fail - needs PostToolUse)
+        let hook_input = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "ls"
+            }
+        });
+
+        let input: HookInput = serde_json::from_value(hook_input).unwrap();
+        let result = PostToolMessage::from_hook_input(input);
+        assert!(result.is_err());
+
+        // Test with UserPromptSubmit (non-tool event)
+        let hook_input = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "test"
+        });
+
+        let input: HookInput = serde_json::from_value(hook_input).unwrap();
+        let result = PostToolMessage::from_hook_input(input);
+        assert!(result.is_err());
+    }
+
+    // =============================================================================
+    // HookResponse Tests
+    // =============================================================================
+
+    #[test]
+    fn test_hook_response_allow() {
+        let response = HookResponse::Allow;
+
+        // Should serialize correctly
+        let json = serde_json::to_value(&response).unwrap();
+        assert_eq!(json, json!({ "action": "Allow" }));
+
+        // Should have correct exit code
+        assert_eq!(response.to_exit_code(), 0);
+    }
+
+    #[test]
+    fn test_hook_response_block() {
+        let response = HookResponse::Block {
+            reason: "Security violation: rm -rf detected".to_string(),
+        };
+
+        // Should serialize correctly
+        let json = serde_json::to_value(&response).unwrap();
+        assert_eq!(
+            json,
+            json!({
+                "action": "Block",
+                "data": {
+                    "reason": "Security violation: rm -rf detected"
+                }
+            })
+        );
+
+        // Should have correct exit code
+        assert_eq!(response.to_exit_code(), 2);
+    }
+
+    #[test]
+    fn test_hook_response_modify() {
+        let response = HookResponse::Modify {
+            parameters: json!({
+                "file_path": "/safe/path/file.txt"
+            }),
+        };
+
+        // Should serialize correctly
+        let json = serde_json::to_value(&response).unwrap();
+        assert_eq!(json["action"], "Modify");
+        assert_eq!(
+            json["data"]["parameters"]["file_path"],
+            "/safe/path/file.txt"
+        );
+
+        // Modify not yet supported, should default to allow
+        assert_eq!(response.to_exit_code(), 0);
+    }
+
+    #[test]
+    fn test_hook_response_redirect() {
+        let response = HookResponse::Redirect {
+            tool_name: "SafeBash".to_string(),
+            parameters: json!({
+                "command": "ls",
+                "safe_mode": true
+            }),
+        };
+
+        // Should serialize correctly
+        let json = serde_json::to_value(&response).unwrap();
+        assert_eq!(json["action"], "Redirect");
+        assert_eq!(json["data"]["tool_name"], "SafeBash");
+
+        // Redirect not yet supported, should default to allow
+        assert_eq!(response.to_exit_code(), 0);
+    }
+
+    // =============================================================================
+    // SessionContext Tests
+    // =============================================================================
+
+    #[test]
+    fn test_session_context_from_hook_input() {
+        let hook_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/project",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Edit",
+            "tool_input": {
+                "file_path": "/test.rs"
+            }
+        });
+
+        let input: HookInput = serde_json::from_value(hook_json).unwrap();
+        let context = SessionContext::from_hook_input(&input).unwrap();
+
+        assert_eq!(
+            context.session_id.as_str(),
+            "sess_12345678-1234-1234-1234-123456789012"
+        );
+        assert_eq!(context.cwd, PathBuf::from("/project"));
+        assert_eq!(
+            context.transcript_path,
+            Some(PathBuf::from("/tmp/transcript"))
+        );
+    }
+
+    #[test]
+    fn test_session_context_error_handling() {
+        // Test with invalid session ID format
+        let hook_input = make_hook_input(
+            Some("invalid-session-id"),
+            Some("/tmp/transcript"),
+            Some("/workspace"),
+            Some(HookEventName::PreToolUse),
+            Some("Test"),
+            None,
+            None,
+            None,
+        );
+
+        let result = SessionContext::from_hook_input(&hook_input);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_session_context_with_agent_id() {
+        let hook_json = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Task",
+            "tool_input": {
+                "agent_id": "agent_12345678-1234-1234-1234-123456789012",
+                "subagent_type": "backend-engineer"
+            }
+        });
+
+        let input: HookInput = serde_json::from_value(hook_json).unwrap();
+        let context = SessionContext::from_hook_input(&input).unwrap();
+
+        assert_eq!(
+            context.agent_id.as_ref().unwrap().as_str(),
+            "agent_12345678-1234-1234-1234-123456789012"
+        );
+    }
+
+    // =============================================================================
+    // HookOutput Tests
+    // =============================================================================
+
+    #[test]
+    fn test_hook_output_from_execution() {
+        // Test successful execution with stdout
+        let output = HookOutput::from_execution(Some("✅ Tool validated".to_string()), None, 0);
+
+        assert_eq!(output.exit_code, 0);
+        assert!(matches!(output.response, HookResponse::Allow));
+        assert_eq!(output.stdout, Some("✅ Tool validated".to_string()));
+        assert!(output.has_output());
+
+        // Test blocked execution with stderr
+        let output =
+            HookOutput::from_execution(None, Some("❌ Dangerous command detected".to_string()), 2);
+
+        assert_eq!(output.exit_code, 2);
+        assert!(matches!(output.response, HookResponse::Block { .. }));
+        assert_eq!(
+            output.stderr,
+            Some("❌ Dangerous command detected".to_string())
+        );
+        assert!(output.has_output());
+    }
+
+    #[test]
+    fn test_hook_output_display() {
+        // Test with both stdout and stderr
+        let output = HookOutput::from_execution(
+            Some("Processing...".to_string()),
+            Some("Warning: check path".to_string()),
+            0,
+        );
+
+        let display = output.display_output().unwrap();
+        assert!(display.contains("Processing..."));
+        assert!(display.contains("Warning: check path"));
+
+        // Test with no output
+        let output = HookOutput::from_execution(None, None, 0);
+        assert!(!output.has_output());
+        assert!(output.display_output().is_none());
+    }
+
+    #[test]
+    fn test_hook_output_serialization() {
+        let output = HookOutput {
+            stdout: Some("Tool executed successfully".to_string()),
+            stderr: None,
+            exit_code: 0,
+            response: HookResponse::Allow,
+        };
+
+        let json = serde_json::to_value(&output).unwrap();
+        assert_eq!(json["stdout"], "Tool executed successfully");
+        assert_eq!(json["exit_code"], 0);
+        assert!(json["stderr"].is_null());
+
+        // Should round-trip deserialize
+        let deserialized: HookOutput = serde_json::from_value(json).unwrap();
+        assert_eq!(deserialized.stdout, output.stdout);
+        assert_eq!(deserialized.exit_code, output.exit_code);
+    }
+
+    // =============================================================================
+    // PathConstraint Tests
+    // =============================================================================
+
+    #[test]
+    fn test_path_constraint_validation() {
+        let constraint = PathConstraint::new(
+            vec![PathBuf::from("/workspace"), PathBuf::from("/tmp")],
+            vec![".env".to_string(), "*.secret".to_string()],
+            Some(5),
+        );
+
+        // Should allow paths within workspace
+        assert!(constraint.is_allowed(Path::new("/workspace/src/main.rs")));
+        assert!(constraint.is_allowed(Path::new("/tmp/test.txt")));
+
+        // Should block paths outside allowed
+        assert!(!constraint.is_allowed(Path::new("/etc/passwd")));
+
+        // Should block patterns
+        assert!(!constraint.is_allowed(Path::new("/workspace/.env")));
+        assert!(!constraint.is_allowed(Path::new("/tmp/key.secret")));
+
+        // Should respect max depth
+        assert!(!constraint.is_allowed(Path::new("/workspace/a/b/c/d/e/f/too/deep.txt")));
+    }
+
+    #[test]
+    fn test_path_constraint_complex_patterns() {
+        let constraint = PathConstraint::new(
+            vec![PathBuf::from("/workspace")],
+            vec![
+                "*.log".to_string(),
+                "**/node_modules/**".to_string(),
+                "test_*_backup".to_string(),
+            ],
+            None,
+        );
+
+        // Test complex glob patterns with multiple asterisks
+        assert!(!constraint.is_allowed(Path::new("/workspace/debug.log")));
+        assert!(!constraint.is_allowed(Path::new("/workspace/test_file_backup")));
+
+        // Test patterns that don't match
+        assert!(constraint.is_allowed(Path::new("/workspace/test_file")));
+        assert!(constraint.is_allowed(Path::new("/workspace/backup_test")));
+
+        // Test no max_depth restriction
+        assert!(constraint.is_allowed(Path::new("/workspace/a/b/c/d/e/f/g/h/i/j/deep.txt")));
+    }
+
+    #[test]
+    fn test_path_constraint_edge_cases() {
+        // Empty allowed paths
+        let constraint = PathConstraint::new(vec![], vec![], None);
+        assert!(!constraint.is_allowed(Path::new("/any/path")));
+
+        // Path exactly matching allowed path
+        let constraint = PathConstraint::new(vec![PathBuf::from("/workspace")], vec![], Some(0));
+        assert!(constraint.is_allowed(Path::new("/workspace")));
+        assert!(!constraint.is_allowed(Path::new("/workspace/file.txt")));
+    }
+}

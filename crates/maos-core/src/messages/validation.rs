@@ -189,3 +189,108 @@ impl SchemaValidator {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_schema_validator_hook_input() {
+        let validator = SchemaValidator::new();
+
+        // Valid PreToolUse event
+        let valid_pre_tool = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": "cargo test"
+            }
+        });
+        assert!(validator.validate_hook_input(&valid_pre_tool).is_ok());
+
+        // Valid UserPromptSubmit event
+        let valid_prompt = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "transcript_path": "/tmp/transcript",
+            "cwd": "/workspace",
+            "hook_event_name": "UserPromptSubmit",
+            "prompt": "Help me with this code"
+        });
+        assert!(validator.validate_hook_input(&valid_prompt).is_ok());
+
+        // Invalid - missing required fields
+        let invalid = json!({
+            "some_field": "value"
+        });
+        assert!(validator.validate_hook_input(&invalid).is_err());
+    }
+
+    #[test]
+    fn test_schema_validator_hook_response() {
+        let validator = SchemaValidator::new();
+
+        // Valid Allow response
+        let valid_allow = json!({
+            "action": "Allow"
+        });
+        assert!(validator.validate_hook_response(&valid_allow).is_ok());
+
+        // Valid Block response
+        let valid_block = json!({
+            "action": "Block",
+            "data": {
+                "reason": "Security violation"
+            }
+        });
+        assert!(validator.validate_hook_response(&valid_block).is_ok());
+
+        // Invalid - missing action
+        let invalid = json!({
+            "data": {
+                "reason": "test"
+            }
+        });
+        assert!(validator.validate_hook_response(&invalid).is_err());
+    }
+
+    #[test]
+    fn test_schema_validator_session_file() {
+        let validator = SchemaValidator::new();
+
+        // Valid session file
+        let valid = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "active",
+            "workspace_root": "/workspace"
+        });
+        assert!(validator.validate_session_file(&valid).is_ok());
+
+        // Invalid - bad status value
+        let invalid_status = json!({
+            "session_id": "sess_12345678-1234-1234-1234-123456789012",
+            "created_at": "2024-01-01T00:00:00Z",
+            "updated_at": "2024-01-01T00:01:00Z",
+            "status": "invalid_status",
+            "workspace_root": "/workspace"
+        });
+        assert!(validator.validate_session_file(&invalid_status).is_err());
+    }
+
+    #[test]
+    fn test_schema_error_display() {
+        let error = SchemaError::ValidationFailed {
+            schema: "HookInput".to_string(),
+            errors: vec!["Missing field: tool_name".to_string()],
+        };
+
+        let display = format!("{error}");
+        assert!(display.contains("HookInput"));
+        assert!(display.contains("Missing field: tool_name"));
+    }
+}

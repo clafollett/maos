@@ -319,3 +319,30 @@ fn test_deep_path_logic_correctness() {
     let result = validator.validate_workspace_path(&traversal_path, &mock_workspace);
     assert!(result.is_err(), "Should block deep traversal attacks");
 }
+
+#[test]
+#[cfg(unix)] // This test is Unix-specific due to symlink creation
+fn test_symlink_escape_prevention() {
+    use tempfile::TempDir;
+    let temp_dir = TempDir::new().unwrap();
+    let workspace_path = temp_dir.path().to_path_buf();
+    let symlink_path = workspace_path.join("escape_link");
+
+    use std::os::unix::fs::symlink;
+    // Try to create symlink to parent directory
+    let _ = symlink("../../etc", &symlink_path);
+
+    // PathValidator should detect this when resolving paths
+    let allowed_roots = vec![workspace_path.clone()];
+    let validator = PathValidator::new(allowed_roots, vec![]);
+
+    // Symlink that escapes workspace should be rejected
+    let result = validator.validate_workspace_path(&symlink_path, &workspace_path);
+    // If symlink was created and points outside workspace, it should be rejected
+    if symlink_path.exists() {
+        assert!(
+            result.is_err(),
+            "Symlink escaping workspace should be rejected"
+        );
+    }
+}

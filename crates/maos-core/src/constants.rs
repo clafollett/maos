@@ -164,3 +164,90 @@ pub const MAX_RETRY_ATTEMPTS: u32 = 3;
 
 /// Delay between retry attempts
 pub const RETRY_DELAY: Duration = Duration::from_millis(100);
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_directory_constants() {
+        // Test configuration directory constants
+        assert_eq!(MAOS_ROOT_DIR, ".maos");
+        assert_eq!(CONFIG_FILE_NAME, "config.json");
+        assert_eq!(SESSIONS_DIR_NAME, "sessions");
+        assert_eq!(WORKSPACES_DIR_NAME, "workspaces");
+        assert_eq!(LOGS_DIR_NAME, "logs");
+    }
+
+    #[test]
+    fn test_performance_target_constants() {
+        // Test performance targets are reasonable
+        assert_eq!(MAX_EXECUTION_TIME_MS, 10);
+        assert_eq!(MAX_MEMORY_USAGE_MB, 5);
+        assert_eq!(MAX_BINARY_SIZE_MB, 10);
+
+        // These are compile-time constants - no need for runtime assertions
+    }
+
+    #[test]
+    fn test_timeout_constants() {
+        // Test timeout values are Duration types
+        assert_eq!(DEFAULT_OPERATION_TIMEOUT, Duration::from_millis(5000));
+        assert_eq!(FILE_LOCK_TIMEOUT, Duration::from_millis(1000));
+        assert_eq!(TTS_TIMEOUT, Duration::from_millis(10000));
+
+        // Verify relationships between timeouts
+        assert!(FILE_LOCK_TIMEOUT < DEFAULT_OPERATION_TIMEOUT);
+        assert!(DEFAULT_OPERATION_TIMEOUT < TTS_TIMEOUT);
+    }
+
+    #[test]
+    fn test_file_naming_patterns() {
+        // Test file naming constants
+        assert_eq!(SESSION_FILE_NAME, "session.json");
+        assert_eq!(AGENTS_FILE_NAME, "agents.json");
+        assert_eq!(LOCKS_FILE_NAME, "locks.json");
+        assert_eq!(PROGRESS_FILE_NAME, "progress.json");
+        assert_eq!(TIMELINE_FILE_NAME, "timeline.json");
+        assert_eq!(METRICS_FILE_NAME, "metrics.json");
+
+        // All should end with .json
+        assert!(SESSION_FILE_NAME.ends_with(".json"));
+        assert!(AGENTS_FILE_NAME.ends_with(".json"));
+        assert!(LOCKS_FILE_NAME.ends_with(".json"));
+    }
+
+    #[test]
+    fn test_log_file_patterns() {
+        // Test log file configuration constants
+        assert_eq!(LOG_FILE_PATTERN, "session-{session_id}.log");
+        assert_eq!(MAX_LOG_FILE_SIZE, 10 * 1024 * 1024); // 10MB
+        assert_eq!(MAX_LOG_FILES_PER_SESSION, 10);
+
+        // Verify pattern contains placeholder
+        assert!(LOG_FILE_PATTERN.contains("{session_id}"));
+
+        // Sizes are compile-time constants - verify they're set correctly
+    }
+
+    #[test]
+    fn test_constants_are_immutable() {
+        // This test verifies constants are actually const
+        // These should all be compile-time constants
+        const _CONFIG_DIR: &str = MAOS_ROOT_DIR;
+        const _SESSION_FILE: &str = SESSION_FILE_NAME;
+        const _MAX_TIME: u64 = MAX_EXECUTION_TIME_MS;
+
+        // Duration constants should also be const
+        const _TIMEOUT: Duration = DEFAULT_OPERATION_TIMEOUT;
+    }
+
+    #[test]
+    fn test_constants_usage_in_format() {
+        // Test that patterns can be used in formatting
+        let session_id = "test-123";
+        let formatted = LOG_FILE_PATTERN.replace("{session_id}", session_id);
+        assert_eq!(formatted, "session-test-123.log");
+        assert!(formatted.ends_with(".log"));
+    }
+}

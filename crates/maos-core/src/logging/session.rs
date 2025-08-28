@@ -1,52 +1,194 @@
-//! Session-based logging with automatic rotation and compression
-
-use std::fs::{self, File, OpenOptions};
-use std::io::{BufWriter, Write};
-use std::path::{Path, PathBuf};
-use std::sync::Arc;
-
-use flate2::Compression;
-use flate2::write::GzEncoder;
-use parking_lot::RwLock;
-use tracing::debug;
-
 use super::config::RollingLogConfig;
-use crate::{Result, SessionId};
+use crate::{MaosError, Result, SessionId};
+use std::fs::{self, File, OpenOptions};
+use std::io::Write;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
 
-/// Session logger that writes to rotating log files
+/// Logger for session-specific log files
 pub struct SessionLogger {
     session_id: SessionId,
-    log_dir: PathBuf,
+    log_file: File,
+    log_path: PathBuf,
+    current_size: u64,
     config: RollingLogConfig,
-    current_file: Option<BufWriter<File>>,
-    current_file_size: usize,
-}
-
-/// Thread-safe wrapper around SessionLogger
-pub struct ThreadSafeSessionLogger {
-    inner: Arc<RwLock<SessionLogger>>,
+    rotation_count: usize,
 }
 
 impl SessionLogger {
     /// Create a new session logger
     pub fn new(session_id: SessionId, log_dir: PathBuf, config: RollingLogConfig) -> Result<Self> {
-        // Create log directory if it doesn't exist
-        if !log_dir.exists() {
-            fs::create_dir_all(&log_dir)?;
+        // Ensure log directory exists
+        fs::create_dir_all(&log_dir).map_err(|e| {
+            MaosError::Io(std::io::Error::other(format!(
+                "Failed to create log directory {}: {}",
+                log_dir.display(),
+                e
+            )))
+        })?;
+
+        // Create log file path
+        let file_name = config
+            .file_pattern
+            .replace("{session_id}", session_id.as_str());
+        let log_path = log_dir.join(file_name);
+
+        // Open or create the log file
+        let log_file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&log_path)
+            .map_err(|e| {
+                MaosError::Io(std::io::Error::other(format!(
+                    "Failed to open log file {}: {}",
+                    log_path.display(),
+                    e
+                )))
+            })?;
+
+        // Get initial file size
+        let current_size = log_file.metadata().map(|m| m.len()).unwrap_or(0);
+
+        Ok(Self {
+            session_id,
+            log_file,
+            log_path,
+            current_size,
+            config,
+            rotation_count: 0,
+        })
+    }
+
+    /// Write a log entry
+    pub fn write(&mut self, message: &str) -> Result<()> {
+        let entry = format!("{message}\n");
+        let entry_bytes = entry.as_bytes();
+
+        // Check if rotation is needed
+        if self.current_size + entry_bytes.len() as u64 > self.config.max_file_size_bytes as u64 {
+            self.rotate()?;
         }
 
-        let mut logger = Self {
-            session_id,
-            log_dir,
-            config,
-            current_file: None,
-            current_file_size: 0,
+        // Write to file
+        self.log_file.write_all(entry_bytes).map_err(|e| {
+            MaosError::Io(std::io::Error::other(format!(
+                "Failed to write to log file {}: {}",
+                self.log_path.display(),
+                e
+            )))
+        })?;
+
+        self.log_file.flush().map_err(|e| {
+            MaosError::Io(std::io::Error::other(format!(
+                "Failed to flush log file {}: {}",
+                self.log_path.display(),
+                e
+            )))
+        })?;
+
+        self.current_size += entry_bytes.len() as u64;
+        Ok(())
+    }
+
+    /// Rotate the log file
+    fn rotate(&mut self) -> Result<()> {
+        self.rotation_count += 1;
+
+        // Close current file
+        self.log_file.sync_all().ok();
+
+        // Rotate existing files
+        for i in (1..self.config.max_files_per_session).rev() {
+            let old_path = self.rotated_path(i);
+            let new_path = self.rotated_path(i + 1);
+            if old_path.exists() {
+                if i < self.config.max_files_per_session {
+                    let _ = fs::rename(&old_path, &new_path);
+                } else {
+                    let _ = fs::remove_file(&old_path);
+                }
+            }
+        }
+
+        // Rotate current file to .1
+        if self.config.compress_on_roll {
+            // When compression is enabled, rotate to uncompressed path first
+            let uncompressed_path = self.log_path.with_extension("log.1");
+            let _ = fs::rename(&self.log_path, &uncompressed_path);
+
+            // Compress the rotated file (creates .gz and removes original)
+            let _ = self.compress_file(&uncompressed_path);
+        } else {
+            // Direct rotation without compression
+            let rotated_path = self.rotated_path(1);
+            let _ = fs::rename(&self.log_path, &rotated_path);
+        }
+
+        // Create new log file
+        self.log_file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.log_path)
+            .map_err(|e| {
+                MaosError::Io(std::io::Error::other(format!(
+                    "Failed to create new log file after rotation {}: {}",
+                    self.log_path.display(),
+                    e
+                )))
+            })?;
+
+        self.current_size = 0;
+        Ok(())
+    }
+
+    /// Get the path for a rotated file
+    fn rotated_path(&self, index: usize) -> PathBuf {
+        let mut path = self.log_path.clone();
+        let extension = if self.config.compress_on_roll {
+            format!("{index}.gz")
+        } else {
+            format!("{index}")
         };
+        path.set_extension(format!("log.{extension}"));
+        path
+    }
 
-        // Open the initial log file
-        logger.open_current_file()?;
+    /// Compress a file using gzip
+    fn compress_file(&self, path: &Path) -> Result<()> {
+        use flate2::Compression;
+        use flate2::write::GzEncoder;
 
-        Ok(logger)
+        let input = fs::read(path).map_err(|e| {
+            MaosError::Io(std::io::Error::other(format!(
+                "Failed to read file for compression: {e}"
+            )))
+        })?;
+
+        // Add .gz extension without replacing existing extension
+        let compressed_path = PathBuf::from(format!("{}.gz", path.display()));
+        let output = File::create(&compressed_path).map_err(|e| {
+            MaosError::Io(std::io::Error::other(format!(
+                "Failed to create compressed file: {e}"
+            )))
+        })?;
+
+        let mut encoder = GzEncoder::new(output, Compression::default());
+        encoder.write_all(&input).map_err(|e| {
+            MaosError::Io(std::io::Error::other(format!(
+                "Failed to compress file: {e}"
+            )))
+        })?;
+
+        encoder.finish().map_err(|e| {
+            MaosError::Io(std::io::Error::other(format!(
+                "Failed to finish compression: {e}"
+            )))
+        })?;
+
+        // Remove original file
+        let _ = fs::remove_file(path);
+
+        Ok(())
     }
 
     /// Get the session ID
@@ -54,175 +196,42 @@ impl SessionLogger {
         &self.session_id
     }
 
-    /// Write a log entry
-    pub fn write(&mut self, entry: &str) -> Result<()> {
-        let entry_with_newline = format!("{entry}\n");
-        let entry_bytes = entry_with_newline.len();
-
-        // Check if we need to rotate
-        if self.current_file_size + entry_bytes > self.config.max_file_size_bytes {
-            self.rotate_log_file()?;
-        }
-
-        // Write to current file
-        if let Some(ref mut file) = self.current_file {
-            file.write_all(entry_with_newline.as_bytes())?;
-            file.flush()?;
-            self.current_file_size += entry_bytes;
-        }
-
-        Ok(())
-    }
-
-    /// Convert to thread-safe variant
+    /// Convert to thread-safe logger
     pub fn into_thread_safe(self) -> ThreadSafeSessionLogger {
         ThreadSafeSessionLogger {
-            inner: Arc::new(RwLock::new(self)),
+            inner: Arc::new(Mutex::new(self)),
         }
-    }
-
-    /// Open the current log file
-    fn open_current_file(&mut self) -> Result<()> {
-        let log_path = self.current_log_path();
-
-        let file = OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&log_path)?;
-
-        // Get current file size
-        self.current_file_size = file.metadata()?.len() as usize;
-
-        self.current_file = Some(BufWriter::new(file));
-
-        Ok(())
-    }
-
-    /// Get the path to the current log file
-    fn current_log_path(&self) -> PathBuf {
-        let filename = self
-            .config
-            .file_pattern
-            .replace("{session_id}", self.session_id.as_str());
-        self.log_dir.join(filename)
-    }
-
-    /// Rotate the current log file atomically to prevent data loss
-    fn rotate_log_file(&mut self) -> Result<()> {
-        // Close current file
-        if let Some(mut file) = self.current_file.take() {
-            file.flush()?;
-        }
-
-        let current_path = self.current_log_path();
-
-        // Shift existing rotated files
-        self.shift_rotated_files()?;
-
-        // Move current file to .1 atomically
-        if self.config.compress_on_roll {
-            let rotated_path = current_path.with_extension("log.1.gz");
-            let temp_path = current_path.with_extension("log.1.gz.tmp");
-
-            // Compress to temporary file first
-            self.compress_file(&current_path, &temp_path)?;
-
-            // Atomic rename of compressed file
-            fs::rename(&temp_path, &rotated_path).or_else(|_| -> Result<()> {
-                // Fallback: copy and remove if rename fails (cross-filesystem)
-                fs::copy(&temp_path, &rotated_path)?;
-                fs::remove_file(&temp_path)?;
-                Ok(())
-            })?;
-
-            // Remove original only after successful compression
-            fs::remove_file(&current_path)?;
-        } else {
-            let rotated_path = current_path.with_extension("log.1");
-            fs::rename(&current_path, &rotated_path)?;
-        };
-
-        // Clean up old files beyond max limit
-        self.cleanup_old_files()?;
-
-        // Reset current file size and open new file
-        self.current_file_size = 0;
-        self.open_current_file()?;
-
-        Ok(())
-    }
-
-    /// Shift existing rotated files (rename .1 to .2, .2 to .3, etc.)
-    fn shift_rotated_files(&self) -> Result<()> {
-        for i in (1..self.config.max_files_per_session).rev() {
-            let current_num = i;
-            let next_num = i + 1;
-
-            let extensions = if self.config.compress_on_roll {
-                [
-                    format!("log.{current_num}.gz"),
-                    format!("log.{next_num}.gz"),
-                ]
-            } else {
-                [format!("log.{current_num}"), format!("log.{next_num}")]
-            };
-
-            let current_path = self.current_log_path().with_extension(&extensions[0]);
-            let next_path = self.current_log_path().with_extension(&extensions[1]);
-
-            if current_path.exists() {
-                fs::rename(current_path, next_path)?;
-            }
-        }
-
-        Ok(())
-    }
-
-    /// Compress a file using gzip
-    fn compress_file(&self, source: &Path, dest: &Path) -> Result<()> {
-        let input_data = fs::read(source)?;
-        let output_file = File::create(dest)?;
-        let mut encoder = GzEncoder::new(output_file, Compression::default());
-        encoder.write_all(&input_data)?;
-        encoder.finish()?;
-        Ok(())
-    }
-
-    /// Clean up files beyond the maximum limit
-    fn cleanup_old_files(&self) -> Result<()> {
-        let max_rotated_file_num = self.config.max_files_per_session;
-
-        // Try to remove files beyond the limit
-        for i in (max_rotated_file_num + 1)..=(max_rotated_file_num * 2) {
-            let extensions = if self.config.compress_on_roll {
-                format!("log.{i}.gz")
-            } else {
-                format!("log.{i}")
-            };
-
-            let old_file = self.current_log_path().with_extension(&extensions);
-
-            if old_file.exists()
-                && let Err(e) = fs::remove_file(&old_file)
-            {
-                debug!("Failed to remove old log file {old_file:?}: {e}");
-            }
-        }
-
-        Ok(())
     }
 }
 
+/// Thread-safe wrapper around SessionLogger
+pub struct ThreadSafeSessionLogger {
+    inner: Arc<Mutex<SessionLogger>>,
+}
+
 impl ThreadSafeSessionLogger {
-    /// Write a log entry (thread-safe)
-    pub fn write(&self, entry: &str) -> Result<()> {
-        let mut logger = self.inner.write();
-        logger.write(entry)
+    /// Write a log entry
+    pub fn write(&self, message: &str) -> Result<()> {
+        let mut logger = self.inner.lock().map_err(|e| MaosError::Context {
+            message: format!("Failed to lock session logger: {e}"),
+            source: Box::new(std::io::Error::other("mutex poisoned")),
+        })?;
+        logger.write(message)
     }
 
-    /// Get the session ID (thread-safe)
+    /// Get the session ID
     pub fn session_id(&self) -> SessionId {
-        let logger = self.inner.read();
+        let logger = self.inner.lock().unwrap();
         logger.session_id.clone()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    // NOTE: All filesystem-dependent tests have been moved to
+    // crates/maos-core/tests/integration/logging_integration_tests.rs
+    // Unit tests should NEVER touch the filesystem - that's for integration tests
+
+    // TODO: Add proper unit tests that don't use filesystem
+    // Examples: test configuration validation, test data structures, mock filesystem, etc.
 }
