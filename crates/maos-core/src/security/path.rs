@@ -5,6 +5,21 @@
 use crate::error::{MaosError, Result, SecurityError};
 use std::path::Path;
 
+/// Check if a string matches a Windows drive pattern (e.g., C:, D:/, E:\)
+///
+/// Returns true for patterns like:
+/// - C: (single letter followed by colon)
+/// - D:/ (with forward slash)
+/// - E:\ (with backslash)
+fn is_windows_drive_pattern(path_str: &str) -> bool {
+    path_str.matches(':').count() == 1
+        && path_str.chars().nth(1) == Some(':')
+        && path_str
+            .chars()
+            .next()
+            .is_some_and(|c| c.is_ascii_alphabetic())
+}
+
 /// Validate that a path doesn't contain traversal attempts
 ///
 /// # Security
@@ -42,13 +57,7 @@ pub fn validate_path_safety(path: &Path) -> Result<()> {
     // This prevents both Windows drive attacks and similar colon-based attacks
     if path_str.contains(':') {
         // Check for Windows drive patterns (C:, D:/, etc.) - block these on all platforms for consistency
-        if path_str.matches(':').count() == 1
-            && path_str.chars().nth(1) == Some(':')
-            && path_str
-                .chars()
-                .next()
-                .is_some_and(|c| c.is_ascii_alphabetic())
-        {
+        if is_windows_drive_pattern(&path_str) {
             return Err(MaosError::Security(SecurityError::SuspiciousCommand {
                 command: format!("Windows drive specifier not allowed: {path_str}"),
             }));

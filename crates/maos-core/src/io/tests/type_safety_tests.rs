@@ -9,6 +9,9 @@ use crate::io::HookInput;
 use serde_json::json;
 use std::path::PathBuf;
 
+/// Constant for testing unknown hook events
+const UNKNOWN_HOOK_EVENT: &str = "future_hook_event";
+
 #[test]
 fn test_hook_event_string_conversions() {
     // 🔥 TYPE SAFETY: Test all conversions work correctly
@@ -217,7 +220,7 @@ fn test_unknown_hook_event_fallback() {
         session_id: "test_session".to_string(),
         transcript_path: PathBuf::from("/tmp/test.jsonl"),
         cwd: PathBuf::from("/tmp"),
-        hook_event_name: "future_hook_event".to_string(), // Unknown event - intentionally hardcoded for fallback test
+        hook_event_name: UNKNOWN_HOOK_EVENT.to_string(), // Unknown event for testing
         ..Default::default()
     };
 

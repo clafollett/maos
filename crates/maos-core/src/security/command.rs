@@ -14,53 +14,115 @@ type CommandPattern = (Regex, &'static str);
 static DANGEROUS_PATTERNS: Lazy<Vec<CommandPattern>> = Lazy::new(|| {
     vec![
         // rm -rf with dangerous paths
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   .*            : any characters (greedy, matches options/flags/args)
+        //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', '-rrf', etc. (any order/combination of r and f)
+        //   \s+           : whitespace
+        //   /$            : a single slash at the end (root directory)
         (
             Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+/$").unwrap(),
             "Recursive removal of root directory",
         ),
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   .*            : any characters (greedy)
+        //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', etc.
+        //   \s+           : whitespace
+        //   /\*           : '/*' (all files in root)
         (
             Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+/\*").unwrap(),
             "Recursive removal of all files in root",
         ),
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   .*            : any characters (greedy)
+        //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', etc.
+        //   \s+           : whitespace
+        //   ~/?           : home directory, with optional trailing slash
         (
             Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+~/?").unwrap(),
             "Recursive removal of home directory",
         ),
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   .*            : any characters (greedy)
+        //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', etc.
+        //   \s+           : whitespace
+        //   \$HOME        : literal '$HOME' environment variable
         (
             Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+\$HOME").unwrap(),
             "Recursive removal of HOME directory",
         ),
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   .*            : any characters (greedy)
+        //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', etc.
+        //   \s+           : whitespace
+        //   \*$           : a single '*' at the end (wildcard)
         (
             Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+\*$").unwrap(),
             "Recursive removal with wildcard",
         ),
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   .*            : any characters (greedy)
+        //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', etc.
+        //   \s+           : whitespace
+        //   \.$           : a single '.' at the end (current directory)
         (
             Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+\.$").unwrap(),
             "Recursive removal of current directory",
         ),
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   .*            : any characters (greedy)
+        //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', etc.
+        //   \s+           : whitespace
+        //   \.\./?        : '..' (parent directory), with optional trailing slash
         (
             Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+\.\./?").unwrap(),
             "Recursive removal of parent directory",
         ),
         // sudo rm -rf (always dangerous)
+        // Regex breakdown:
+        //   sudo\s+      : 'sudo' followed by whitespace
+        //   rm\s+        : 'rm' followed by whitespace
+        //   .*           : any characters (greedy)
+        //   -[rf]*r[rf]* : matches '-r', '-rf', '-fr', etc.
         (
             Regex::new(r"sudo\s+rm\s+.*-[rf]*r[rf]*").unwrap(),
             "Privileged recursive removal",
         ),
         // Other dangerous patterns
+        // Regex breakdown:
+        //   chmod\s+     : 'chmod' followed by whitespace
+        //   -R\s+        : recursive flag followed by whitespace
+        //   000          : permission 000 (no read, write, or execute for anyone)
         (
             Regex::new(r"chmod\s+-R\s+000").unwrap(),
             "Making files completely unreadable",
         ),
+        // Regex breakdown:
+        //   kill\s+      : 'kill' command followed by whitespace
+        //   -9\s+        : SIGKILL signal (force kill) followed by whitespace
+        //   -1           : PID -1 (targets all processes except init)
         (
             Regex::new(r"kill\s+-9\s+-1").unwrap(),
             "Killing all processes",
         ),
         // Format or wipe commands
+        // Regex breakdown:
+        //   mkfs\.       : 'mkfs.' prefix (make filesystem commands like mkfs.ext4, mkfs.xfs)
         (
             Regex::new(r"mkfs\.").unwrap(),
             "Filesystem formatting command",
         ),
+        // Regex breakdown:
+        //   dd\s+        : 'dd' command followed by whitespace
+        //   .*           : any characters (greedy, matches other dd options)
+        //   of=          : output file parameter
+        //   /dev/[sh]d   : matches /dev/hd* or /dev/sd* (hard disk devices)
         (
             Regex::new(r"dd\s+.*of=/dev/[sh]d").unwrap(),
             "Direct disk write operation",
