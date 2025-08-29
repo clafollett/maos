@@ -4,7 +4,7 @@
 //! Provides JSON I/O processing, command-line interface, and orchestration capabilities.
 
 pub mod cli;
-pub mod io;
-pub mod security;
 
 pub use cli::{Cli, Commands};
+// Re-export io types from maos-core for backwards compatibility
+pub use maos_core::io;

@@ -1,7 +1,7 @@
 //! High-performance stdin processor for Claude Code hooks
 
+use crate::{MaosError, Result, config::HookConfig};
 use bytes::BytesMut;
-use maos_core::{MaosError, Result, config::HookConfig};
 use serde::de::DeserializeOwned;
 use std::time::Duration;
 use tokio::io::{AsyncReadExt, stdin};
@@ -15,8 +15,8 @@ use tracing;
 /// # Example
 ///
 /// ```ignore
-/// use maos::io::StdinProcessor;
-/// use maos::io::HookInput;
+/// use maos_core::io::StdinProcessor;
+/// use maos_core::io::HookInput;
 /// use maos_core::config::HookConfig;
 ///
 /// #[tokio::main]
@@ -313,4 +313,9 @@ impl Default for StdinProcessor {
     fn default() -> Self {
         Self::with_defaults()
     }
+}
+
+#[cfg(test)]
+mod tests {
+    // Test module placeholder - tests are in separate test files
 }

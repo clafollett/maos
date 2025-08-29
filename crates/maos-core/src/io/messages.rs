@@ -1,7 +1,7 @@
 //! Hook message types compatible with Claude Code JSON format
 
-use maos_core::path::PathValidator;
-use maos_core::{MaosError, Result};
+use crate::path::PathValidator;
+use crate::{MaosError, Result};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::path::{Path, PathBuf};
@@ -20,20 +20,21 @@ use std::path::{Path, PathBuf};
 /// # Example
 ///
 /// ```
-/// use maos::io::HookInput;
+/// use maos_core::io::HookInput;
+/// use maos_core::hook_constants;
 /// use serde_json::json;
 ///
 /// let json = json!({
 ///     "session_id": "sess_123",
 ///     "transcript_path": "/tmp/transcript.jsonl",
 ///     "cwd": "/workspace",
-///     "hook_event_name": maos_core::hook_constants::PRE_TOOL_USE,
+///     "hook_event_name": hook_constants::PRE_TOOL_USE,
 ///     "tool_name": "Bash",
 ///     "tool_input": {"command": "ls"}
 /// });
 ///
 /// let input: HookInput = serde_json::from_value(json).unwrap();
-/// assert_eq!(input.hook_event_name, maos_core::hook_constants::PRE_TOOL_USE);
+/// assert_eq!(input.hook_event_name, hook_constants::PRE_TOOL_USE);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HookInput {
@@ -117,7 +118,7 @@ impl HookInput {
     pub fn is_tool_event(&self) -> bool {
         matches!(
             self.hook_event_name.as_str(),
-            maos_core::hook_constants::PRE_TOOL_USE | maos_core::hook_constants::POST_TOOL_USE
+            crate::hook_constants::PRE_TOOL_USE | crate::hook_constants::POST_TOOL_USE
         )
     }
 
@@ -130,22 +131,20 @@ impl HookInput {
     /// 🔥 TYPE SAFETY ENHANCEMENT: Uses enum-based validation when possible
     pub fn validate(&self) -> Result<()> {
         // 🔥 TYPE SAFETY: Try enum-based validation first
-        if let Ok(event) =
-            maos_core::hook_events::HookEvent::try_from(self.hook_event_name.as_str())
-        {
+        if let Ok(event) = crate::hook_events::HookEvent::try_from(self.hook_event_name.as_str()) {
             return self.validate_typed_event(event);
         }
 
         // Fallback to string-based validation for unknown events
         match self.hook_event_name.as_str() {
-            maos_core::hook_constants::PRE_TOOL_USE => {
+            crate::hook_constants::PRE_TOOL_USE => {
                 if self.tool_name.is_none() || self.tool_input.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "pre_tool_use requires tool_name and tool_input".to_string(),
                     });
                 }
             }
-            maos_core::hook_constants::POST_TOOL_USE => {
+            crate::hook_constants::POST_TOOL_USE => {
                 if self.tool_name.is_none()
                     || self.tool_input.is_none()
                     || self.tool_response.is_none()
@@ -156,21 +155,21 @@ impl HookInput {
                     });
                 }
             }
-            maos_core::hook_constants::NOTIFICATION => {
+            crate::hook_constants::NOTIFICATION => {
                 if self.message.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "notification requires message".to_string(),
                     });
                 }
             }
-            maos_core::hook_constants::USER_PROMPT_SUBMIT => {
+            crate::hook_constants::USER_PROMPT_SUBMIT => {
                 if self.prompt.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "user_prompt_submit requires prompt".to_string(),
                     });
                 }
             }
-            maos_core::hook_constants::PRE_COMPACT => {
+            crate::hook_constants::PRE_COMPACT => {
                 if self.trigger.is_none() || self.custom_instructions.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "pre_compact requires trigger and custom_instructions".to_string(),
@@ -189,7 +188,7 @@ impl HookInput {
                     });
                 }
             }
-            maos_core::hook_constants::SESSION_START => {
+            crate::hook_constants::SESSION_START => {
                 if self.source.is_none() {
                     return Err(MaosError::InvalidInput {
                         message: "session_start requires source".to_string(),
@@ -209,7 +208,7 @@ impl HookInput {
                     });
                 }
             }
-            maos_core::hook_constants::STOP | maos_core::hook_constants::SUBAGENT_STOP => {
+            crate::hook_constants::STOP | crate::hook_constants::SUBAGENT_STOP => {
                 // stop_hook_active is optional
             }
             _ => {
@@ -224,8 +223,8 @@ impl HookInput {
 
     /// Type-safe validation using strongly-typed HookEvent enum
     /// 🔥 TYPE SAFETY: Compile-time guaranteed complete coverage of all events
-    fn validate_typed_event(&self, event: maos_core::hook_events::HookEvent) -> Result<()> {
-        use maos_core::hook_events::HookEvent;
+    fn validate_typed_event(&self, event: crate::hook_events::HookEvent) -> Result<()> {
+        use crate::hook_events::HookEvent;
 
         match event {
             HookEvent::PreToolUse => {
@@ -334,7 +333,7 @@ impl HookInput {
     ///
     /// ```rust
     /// use std::path::{Path, PathBuf};
-    /// use maos::io::HookInput;
+    /// use maos_core::io::HookInput;
     ///
     /// # #[cfg(unix)]
     /// # {

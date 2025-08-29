@@ -738,22 +738,27 @@ name = "maos-core"
 version = "0.1.5"
 dependencies = [
  "anyhow",
+ "bytes",
  "chrono",
  "criterion",
  "dunce",
  "flate2",
  "glob",
  "globset",
+ "once_cell",
  "parking_lot",
  "path-clean",
  "proptest",
+ "regex",
  "serde",
  "serde_json",
  "tempfile",
  "thiserror",
+ "tokio",
  "tracing",
  "tracing-subscriber",
  "uuid",
+ "winapi",
 ]
 
 [[package]]
