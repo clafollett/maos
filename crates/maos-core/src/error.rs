@@ -156,7 +156,14 @@ pub enum ExitCode {
 impl From<&MaosError> for ExitCode {
     fn from(error: &MaosError) -> Self {
         match error {
-            MaosError::Security(_) => ExitCode::SecurityError,
+            MaosError::Security(sec_err) => {
+                // Path traversal and suspicious commands are BLOCKING security violations
+                match sec_err {
+                    SecurityError::PathTraversal { .. }
+                    | SecurityError::SuspiciousCommand { .. } => ExitCode::BlockingError,
+                    _ => ExitCode::SecurityError,
+                }
+            }
             MaosError::Config(_) => ExitCode::ConfigError,
             MaosError::ResourceLimit { .. } => ExitCode::ResourceError,
             MaosError::Timeout { .. } => ExitCode::TimeoutError,
@@ -584,12 +591,13 @@ mod tests {
 
     #[test]
     fn test_security_errors_map_correctly() {
-        // Security errors should map to SecurityError exit code
+        // Path traversal and suspicious commands should map to BlockingError for security blocking
         let err = MaosError::Security(SecurityError::PathTraversal {
             path: "../etc".into(),
         });
-        assert_eq!(error_to_exit_code(&err), ExitCode::SecurityError);
+        assert_eq!(error_to_exit_code(&err), ExitCode::BlockingError);
 
+        // Other security errors map to SecurityError exit code
         let err = MaosError::Security(SecurityError::Unauthorized {
             resource: "admin".into(),
         });
@@ -854,12 +862,13 @@ mod tests {
 
     #[test]
     fn test_security_error_variants() {
+        // Path traversal is a blocking security violation
         let sec_err = SecurityError::PathTraversal {
             path: "../../../etc/passwd".into(),
         };
         let err: MaosError = sec_err.into();
         let code: ExitCode = (&err).into();
-        assert_eq!(code, ExitCode::SecurityError);
+        assert_eq!(code, ExitCode::BlockingError);
 
         let sec_err2 = SecurityError::Unauthorized {
             resource: "/admin/panel".into(),
@@ -994,6 +1003,44 @@ mod tests {
             error_to_exit_code(&blocking_err),
             ExitCode::BlockingError,
             "SECURITY CRITICAL: Blocking error must map to BlockingError"
+        );
+    }
+
+    #[test]
+    fn test_path_traversal_returns_blocking_exit_code() {
+        // CRITICAL: Path traversal MUST return exit code 2 for blocking
+        let err = MaosError::Security(SecurityError::PathTraversal {
+            path: "../../../etc/passwd".to_string(),
+        });
+
+        let code: ExitCode = (&err).into();
+        assert_eq!(
+            code,
+            ExitCode::BlockingError,
+            "Path traversal must map to BlockingError (exit code 2)"
+        );
+        assert_eq!(
+            code as i32, 2,
+            "Path traversal must be exit code 2 for security blocking"
+        );
+    }
+
+    #[test]
+    fn test_suspicious_command_returns_blocking_exit_code() {
+        // CRITICAL: Suspicious commands MUST return exit code 2 for blocking
+        let err = MaosError::Security(SecurityError::SuspiciousCommand {
+            command: "rm -rf /".to_string(),
+        });
+
+        let code: ExitCode = (&err).into();
+        assert_eq!(
+            code,
+            ExitCode::BlockingError,
+            "Suspicious command must map to BlockingError (exit code 2)"
+        );
+        assert_eq!(
+            code as i32, 2,
+            "Suspicious command must be exit code 2 for security blocking"
         );
     }
 

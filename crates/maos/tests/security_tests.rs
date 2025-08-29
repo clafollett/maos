@@ -1,12 +1,10 @@
 //! 🔒 Security tests for Issue #56 enhancements
 
-use crate::io::{HookInput, processor::StdinProcessor};
-use crate::security::validators::{
-    validate_json_structure, validate_path_safety, validate_resource_usage,
-};
+use maos::io::{HookInput, processor::StdinProcessor};
 use maos_core::MaosError;
 use maos_core::config::{HookConfig, MaosConfig};
 use maos_core::hook_events::HookEvent;
+use maos_core::security::{validate_json_structure, validate_path_safety, validate_resource_usage};
 use serde_json::json;
 use std::path::PathBuf;
 
