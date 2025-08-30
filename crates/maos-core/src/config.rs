@@ -1011,33 +1011,25 @@ impl ConfigLoader {
 fn default_max_execution_time() -> u64 {
     60_000
 }
+
 fn default_workspace_root() -> PathBuf {
-    // Use git repository root (like Claude Code hooks) + .maos subdirectory
-    // Equivalent to: $(git rev-parse --show-toplevel 2>/dev/null || pwd)
-    use std::process::Command;
+    // With CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR enabled,
+    // std::env::current_dir() ALWAYS returns the workspace root!
+    // This is instant (no subprocess calls) and always accurate.
 
-    let git_root = Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-        .ok()
-        .and_then(|output| {
-            if output.status.success() {
-                String::from_utf8(output.stdout)
-                    .ok()
-                    .map(|s| PathBuf::from(s.trim()))
-            } else {
-                None
-            }
-        });
+    // First, try to get the actual workspace root from current_dir
+    if let Ok(cwd) = std::env::current_dir() {
+        return cwd;
+    }
 
-    let base_dir =
-        git_root.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
-
-    base_dir.join(".maos").join("workspaces")
+    // Fallback (should never happen with Claude Code)
+    PathBuf::from(".")
 }
+
 fn default_true() -> bool {
     true
 }
+
 fn default_allowed_tools() -> Vec<String> {
     vec!["*".to_string()]
 }
@@ -1058,6 +1050,7 @@ fn default_max_json_depth() -> u32 {
 fn default_stdin_read_timeout_ms() -> u64 {
     100 // 100ms per read operation
 }
+
 // TTS configuration defaults
 fn default_tts_enabled() -> bool {
     true
@@ -1188,24 +1181,31 @@ fn default_pyttsx3_rate() -> u32 {
 fn default_pyttsx3_volume() -> f32 {
     0.9
 }
+
 fn default_max_agents() -> u32 {
     20
 }
+
 fn default_timeout_minutes() -> u32 {
     60
 }
+
 fn default_worktree_prefix() -> String {
     "maos-agent".to_string()
 }
+
 fn default_max_worktrees() -> u32 {
     50
 }
+
 fn default_log_level() -> LogLevel {
     LogLevel::Info
 }
+
 fn default_log_format() -> String {
     "json".to_string()
 }
+
 fn default_log_output() -> String {
     "session_file".to_string()
 }

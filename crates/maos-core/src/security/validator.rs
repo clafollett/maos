@@ -3,6 +3,7 @@
 //! Provides a single entry point for all security validation, routing
 //! to appropriate validators based on tool name.
 
+use super::path_validator::PathSecurityValidator;
 use crate::error::Result;
 use crate::types::tool::ToolCall;
 use std::path::PathBuf;
@@ -108,7 +109,7 @@ impl SecurityValidator {
         // - Length checks
 
         // First check basic path safety (traversal, etc.)
-        crate::security::validate_path_safety(path)?;
+        PathSecurityValidator::validate_all_security_aspects(path)?;
 
         // Then check file access restrictions (.env files, etc.)
         crate::security::validate_file_access(path, &tool_call.tool_name)?;

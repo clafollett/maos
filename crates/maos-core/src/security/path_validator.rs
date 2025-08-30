@@ -250,6 +250,11 @@ mod tests {
             PathSecurityValidator::validate_all_security_aspects(Path::new("D:\\sensitive"))
                 .is_err()
         );
+
+        assert!(
+            PathSecurityValidator::validate_all_security_aspects(Path::new("E:malicious.exe"))
+                .is_err()
+        );
     }
 
     #[test]

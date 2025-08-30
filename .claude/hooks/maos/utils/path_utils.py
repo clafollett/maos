@@ -6,19 +6,15 @@ Provides centralized path resolution and common directory constants.
 from pathlib import Path
 import subprocess
 
-
 def get_project_root():
-    """Get project root using git or current working directory."""
-    try:
-        root = subprocess.check_output(
-            ['git', 'rev-parse', '--show-toplevel'],
-            stderr=subprocess.DEVNULL,
-            text=True
-        ).strip()
-        return Path(root)
-    except (subprocess.CalledProcessError, FileNotFoundError, subprocess.TimeoutExpired):
-        return Path.cwd()
-
+    """Get workspace root.
+    
+    With CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR enabled,
+    Path.cwd() ALWAYS returns the workspace root.
+    This is instant (no subprocess calls) and always accurate.
+    """
+    # Simple and fast - Claude Code maintains the working directory for us
+    return Path.cwd()
 
 # Define common paths as constants
 PROJECT_ROOT = get_project_root()
