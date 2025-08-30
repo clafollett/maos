@@ -62,15 +62,15 @@ jobs:
       - name: Push version bump
         run: |
           # Push the commit that cargo-release created
-          # Push to current branch, then create/push tag
-          git push origin HEAD:${{ github.ref_name }}
+          # Push to current branch (get actual branch name, not github.ref_name)
+          git push origin HEAD:$(git rev-parse --abbrev-ref HEAD)
           git tag v${{ steps.bump.outputs.version }}
           git push origin v${{ steps.bump.outputs.version }}
       
       - name: Publish Draft Release
         run: |
           # Find and publish the draft release
-          DRAFT_RELEASE=$(gh release list --draft --limit 1 --json tagName -q 'if length > 0 then .[0].tagName else empty end')
+          DRAFT_RELEASE=$(gh release list --draft --limit 1 --json tagName -q '.[0].tagName // empty')
           
           if [ -n "$DRAFT_RELEASE" ]; then
             echo "Publishing draft release: $DRAFT_RELEASE"
