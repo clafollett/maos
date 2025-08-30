@@ -68,10 +68,10 @@ mod tests {
         // Within limits should pass
         assert!(
             validate_resource_usage(
-                512 * 1024 * 1024,  // 512MB
-                1000,               // 1 second
-                1024 * 1024 * 1024, // 1GB limit
-                5000                // 5 second limit
+                512 * crate::constants::BYTES_PER_MB as u64, // 512MB
+                1000,                                        // 1 second
+                crate::constants::BYTES_PER_GB as u64,       // 1GB limit
+                5000                                         // 5 second limit
             )
             .is_ok()
         );
@@ -79,10 +79,10 @@ mod tests {
         // Over memory limit should fail
         assert!(
             validate_resource_usage(
-                2 * 1024 * 1024 * 1024, // 2GB
-                1000,                   // 1 second
-                1024 * 1024 * 1024,     // 1GB limit
-                5000                    // 5 second limit
+                2 * crate::constants::BYTES_PER_GB as u64, // 2GB
+                1000,                                      // 1 second
+                crate::constants::BYTES_PER_GB as u64,     // 1GB limit
+                5000                                       // 5 second limit
             )
             .is_err()
         );
@@ -93,10 +93,10 @@ mod tests {
         // Within time limit should pass
         assert!(
             validate_resource_usage(
-                512 * 1024 * 1024,  // 512MB
-                3000,               // 3 seconds
-                1024 * 1024 * 1024, // 1GB limit
-                5000                // 5 second limit
+                512 * crate::constants::BYTES_PER_MB as u64, // 512MB
+                3000,                                        // 3 seconds
+                crate::constants::BYTES_PER_GB as u64,       // 1GB limit
+                5000                                         // 5 second limit
             )
             .is_ok()
         );
@@ -104,10 +104,10 @@ mod tests {
         // Over time limit should fail
         assert!(
             validate_resource_usage(
-                512 * 1024 * 1024,  // 512MB
-                6000,               // 6 seconds
-                1024 * 1024 * 1024, // 1GB limit
-                5000                // 5 second limit
+                512 * crate::constants::BYTES_PER_MB as u64, // 512MB
+                6000,                                        // 6 seconds
+                crate::constants::BYTES_PER_GB as u64,       // 1GB limit
+                5000                                         // 5 second limit
             )
             .is_err()
         );

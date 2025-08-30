@@ -11,7 +11,11 @@ pub mod command;
 pub mod file;
 pub mod json;
 pub mod path;
+pub mod path_validator;
 pub mod resource;
+pub mod resource_validator;
+pub mod traits;
+pub mod validator;
 
 // Re-export key types for convenience
 pub use command::validate_command;
@@ -19,6 +23,7 @@ pub use file::validate_file_access;
 pub use json::validate_json_structure;
 pub use path::validate_path_safety;
 pub use resource::validate_resource_usage;
+pub use validator::SecurityValidator;
 
 #[cfg(test)]
 mod tests {

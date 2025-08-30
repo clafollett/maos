@@ -51,6 +51,11 @@ pub mod metrics;
 pub mod path;
 pub mod security;
 
+// Test utilities - available for all tests (unit and integration)
+// Integration tests can't access #[cfg(test)] modules, so we need a different approach
+#[doc(hidden)]
+pub mod test_utils;
+
 // Re-export error types
 pub use error::{
     ConfigError, ErrorContext, ExitCode, FileSystemError, GitError, IntoMaosError, MaosError,

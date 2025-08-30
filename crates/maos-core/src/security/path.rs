@@ -1,24 +1,11 @@
-//! Path safety validation
+//! Path safety validation - Legacy compatibility layer
 //!
-//! Core path validation to prevent traversal attacks and malicious paths
+//! This module now delegates to the unified PathSecurityValidator
+//! to avoid code duplication.
 
-use crate::error::{MaosError, Result, SecurityError};
+use super::path_validator::PathSecurityValidator;
+use crate::Result;
 use std::path::Path;
-
-/// Check if a string matches a Windows drive pattern (e.g., C:, D:/, E:\)
-///
-/// Returns true for patterns like:
-/// - C: (single letter followed by colon)
-/// - D:/ (with forward slash)
-/// - E:\ (with backslash)
-fn is_windows_drive_pattern(path_str: &str) -> bool {
-    path_str.matches(':').count() == 1
-        && path_str.chars().nth(1) == Some(':')
-        && path_str
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_alphabetic())
-}
 
 /// Validate that a path doesn't contain traversal attempts
 ///
@@ -44,41 +31,8 @@ fn is_windows_drive_pattern(path_str: &str) -> bool {
 ///
 /// Returns [`MaosError::Security`] if path traversal patterns are detected.
 pub fn validate_path_safety(path: &Path) -> Result<()> {
-    let path_str = path.to_string_lossy();
-
-    // Check for path traversal patterns
-    if path_str.contains("..") {
-        return Err(MaosError::Security(SecurityError::PathTraversal {
-            path: path_str.to_string(),
-        }));
-    }
-
-    // Check for drive specifier attacks (consistent across all platforms)
-    // This prevents both Windows drive attacks and similar colon-based attacks
-    if path_str.contains(':') {
-        // Check for Windows drive patterns (C:, D:/, etc.) - block these on all platforms for consistency
-        if is_windows_drive_pattern(&path_str) {
-            return Err(MaosError::Security(SecurityError::SuspiciousCommand {
-                command: format!("Windows drive specifier not allowed: {path_str}"),
-            }));
-        }
-        // Also block relative paths with colons (original logic)
-        if !path.is_absolute() {
-            return Err(MaosError::Security(SecurityError::SuspiciousCommand {
-                command: format!("Relative path contains drive specifier: {path_str}"),
-            }));
-        }
-    }
-
-    // Check for UNC path attacks (\\server\share\file format)
-    // UNC paths can be used to access network shares or device paths maliciously
-    if path_str.starts_with("\\\\") || path_str.starts_with("//") {
-        return Err(MaosError::Security(SecurityError::SuspiciousCommand {
-            command: format!("UNC path not allowed: {path_str}"),
-        }));
-    }
-
-    Ok(())
+    // Delegate to the unified path security validator
+    PathSecurityValidator::validate_all_security_aspects(path)
 }
 
 #[cfg(test)]
