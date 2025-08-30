@@ -4,15 +4,24 @@ Provides centralized path resolution and common directory constants.
 """
 
 from pathlib import Path
-import subprocess
+import os
 
 def get_project_root():
     """Get workspace root.
     
-    With CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR enabled,
-    Path.cwd() ALWAYS returns the workspace root.
+    Check MAOS_PROJECT_ROOT_DIR environment variable first. If it is set,
+    use it as the workspace root. Otherwise, use the current working directory.
+    
+    With CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR enabled, Path.cwd() ALWAYS
+    returns the workspace root if called from the hook.
+    
     This is instant (no subprocess calls) and always accurate.
     """
+    project_root = os.getenv("MAOS_PROJECT_ROOT_DIR")
+    
+    if project_root:
+        return Path(project_root)
+    
     # Simple and fast - Claude Code maintains the working directory for us
     return Path.cwd()
 

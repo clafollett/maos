@@ -4,6 +4,7 @@
 //! and file locking across the MAOS system. These structures enable proper
 //! session management that was missing in the Python implementation.
 
+use crate::constants::*;
 use crate::{AgentId, SessionId};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
@@ -161,8 +162,8 @@ pub struct SessionDirectory {
 impl SessionDirectory {
     /// Create new session directory helper
     pub fn new(session_id: &SessionId) -> Result<Self, std::io::Error> {
-        let root = PathBuf::from(".maos")
-            .join("sessions")
+        let root = PathBuf::from(MAOS_ROOT_DIR)
+            .join(SESSIONS_DIR_NAME)
             .join(session_id.as_str());
 
         Ok(Self { root })
@@ -170,22 +171,22 @@ impl SessionDirectory {
 
     /// Get path to session.json
     pub fn session_file_path(&self) -> PathBuf {
-        self.root.join("session.json")
+        self.root.join(SESSION_FILE_NAME)
     }
 
     /// Get path to agents.json
     pub fn agents_file_path(&self) -> PathBuf {
-        self.root.join("agents.json")
+        self.root.join(AGENTS_FILE_NAME)
     }
 
     /// Get path to locks.json
     pub fn locks_file_path(&self) -> PathBuf {
-        self.root.join("locks.json")
+        self.root.join(LOCKS_FILE_NAME)
     }
 
     /// Get path to progress.json
     pub fn progress_file_path(&self) -> PathBuf {
-        self.root.join("progress.json")
+        self.root.join(PROGRESS_FILE_NAME)
     }
 }
 
@@ -305,9 +306,13 @@ mod tests {
         let session_dir = SessionDirectory::new(&session_id).unwrap();
 
         // Should create proper directory structure
-        assert!(session_dir.session_file_path().ends_with("session.json"));
-        assert!(session_dir.agents_file_path().ends_with("agents.json"));
-        assert!(session_dir.locks_file_path().ends_with("locks.json"));
-        assert!(session_dir.progress_file_path().ends_with("progress.json"));
+        assert!(session_dir.session_file_path().ends_with(SESSION_FILE_NAME));
+        assert!(session_dir.agents_file_path().ends_with(AGENTS_FILE_NAME));
+        assert!(session_dir.locks_file_path().ends_with(LOCKS_FILE_NAME));
+        assert!(
+            session_dir
+                .progress_file_path()
+                .ends_with(PROGRESS_FILE_NAME)
+        );
     }
 }
