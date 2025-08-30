@@ -1,6 +1,6 @@
 //! High-performance stdin processor for Claude Code hooks
 
-use crate::{MaosError, Result, config::HookConfig};
+use crate::{MaosError, Result, config::HookConfig, constants::sizes::DEFAULT_BUFFER_SIZE};
 use bytes::BytesMut;
 use serde::de::DeserializeOwned;
 use std::time::Duration;
@@ -40,8 +40,8 @@ impl StdinProcessor {
     /// Create a new processor with hook configuration
     pub fn new(config: HookConfig) -> Self {
         Self {
-            buffer: BytesMut::with_capacity(8192), // 8KB initial capacity
-            read_buffer: vec![0u8; 8192],          // 🔥 EFFICIENCY FIX: Pre-allocated read buffer
+            buffer: BytesMut::with_capacity(DEFAULT_BUFFER_SIZE),
+            read_buffer: vec![0u8; DEFAULT_BUFFER_SIZE],
             config,
         }
     }
