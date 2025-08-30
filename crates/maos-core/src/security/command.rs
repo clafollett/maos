@@ -59,6 +59,25 @@ static DANGEROUS_PATTERNS: Lazy<Vec<CommandPattern>> = Lazy::new(|| {
         //   .*            : any characters (greedy)
         //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', etc.
         //   \s+           : whitespace
+        //   \$\{HOME\}    : ${HOME} environment variable syntax
+        (
+            Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+\$\{HOME\}").unwrap(),
+            "Recursive removal of HOME directory (bracket syntax)",
+        ),
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   -r\s+         : '-r' flag followed by whitespace
+        //   -f\s+         : '-f' flag followed by whitespace (separate flags)
+        //   /             : root directory
+        (
+            Regex::new(r"rm\s+-r\s+-f\s+/").unwrap(),
+            "Recursive force removal with separate flags",
+        ),
+        // Regex breakdown:
+        //   rm\s+         : 'rm' followed by whitespace
+        //   .*            : any characters (greedy)
+        //   -[rf]*r[rf]*  : matches '-r', '-rf', '-fr', etc.
+        //   \s+           : whitespace
         //   \*$           : a single '*' at the end (wildcard)
         (
             Regex::new(r"rm\s+.*-[rf]*r[rf]*\s+\*$").unwrap(),

@@ -28,6 +28,9 @@ tokio = { workspace = true, features = ["io-std", "io-util", "time", "rt"] }
 [target.'cfg(windows)'.dependencies]
 winapi = { version = "0.3", features = ["processthreadsapi", "psapi"] }
 
+[features]
+test-utils = []
+
 [dev-dependencies]
 # Unit test dependencies (fast, no I/O)
 proptest = { workspace = true }

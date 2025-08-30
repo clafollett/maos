@@ -1,6 +1,6 @@
 //! High-performance stdin processor for Claude Code hooks
 
-use crate::{MaosError, Result, config::HookConfig};
+use crate::{MaosError, Result, config::HookConfig, constants::sizes::DEFAULT_BUFFER_SIZE};
 use bytes::BytesMut;
 use serde::de::DeserializeOwned;
 use std::time::Duration;
@@ -40,8 +40,8 @@ impl StdinProcessor {
     /// Create a new processor with hook configuration
     pub fn new(config: HookConfig) -> Self {
         Self {
-            buffer: BytesMut::with_capacity(8192), // 8KB initial capacity
-            read_buffer: vec![0u8; 8192],          // 🔥 EFFICIENCY FIX: Pre-allocated read buffer
+            buffer: BytesMut::with_capacity(DEFAULT_BUFFER_SIZE),
+            read_buffer: vec![0u8; DEFAULT_BUFFER_SIZE],
             config,
         }
     }
@@ -53,7 +53,7 @@ impl StdinProcessor {
 
     /// Get the maximum allowed input size in bytes
     pub fn max_size(&self) -> usize {
-        (self.config.max_input_size_mb * 1024 * 1024) as usize
+        (self.config.max_input_size_mb as usize) * crate::constants::BYTES_PER_MB
     }
 
     /// Get the stdin read timeout in milliseconds
@@ -78,28 +78,12 @@ impl StdinProcessor {
     }
 
     /// Validate that input size is within limits
-    /// 🔥 ENHANCED DoS PROTECTION: Multiple validation layers
+    /// 🔥 ENHANCED DoS PROTECTION: Delegates to unified resource validator
     pub fn validate_size(&self, size: usize) -> Result<()> {
-        let max_size = self.max_size();
-
-        // 🛡️ DoS Protection Layer 1: Hard size limit (10MB default)
-        if size > max_size {
-            return Err(MaosError::InvalidInput {
-                message: "Input exceeds maximum allowed size for security".to_string(),
-            });
-        }
-
-        // 🛡️ DoS Protection Layer 2: Warn on suspicious sizes (>5MB)
-        if size > max_size / 2 {
-            // Log warning for monitoring but allow (could be legitimate large data)
-            tracing::warn!(
-                "Large input detected: {} bytes ({}% of limit)",
-                size,
-                (size * 100) / max_size
-            );
-        }
-
-        Ok(())
+        let validator = crate::security::resource_validator::ResourceValidator::from_hook_config(
+            self.config.max_input_size_mb,
+        );
+        validator.validate_input_size(size)
     }
 
     /// Read and parse JSON from stdin with timeout and security validation
@@ -155,8 +139,8 @@ impl StdinProcessor {
         match (memory_before, memory_after) {
             (Some(before), Some(after)) => {
                 let memory_growth = after.saturating_sub(before);
-                // Warn if parsing consumed excessive memory (>50MB growth)
-                if memory_growth > 50 * 1024 * 1024 {
+                // Warn if parsing consumed excessive memory
+                if memory_growth > crate::constants::MEMORY_WARNING_THRESHOLD {
                     tracing::warn!(
                         "High memory consumption during JSON parsing: {} bytes growth",
                         memory_growth
@@ -210,40 +194,15 @@ impl StdinProcessor {
     }
 
     /// Validate JSON depth to prevent JSON bomb attacks
+    ///
+    /// Delegates to the unified JSON security validator to avoid duplication
     pub fn validate_json_depth_static(input: &[u8], max_depth: u32) -> Result<()> {
-        let mut depth = 0u32;
-        let mut max_seen = 0u32;
-        let mut in_string = false;
-        let mut escape_next = false;
-
-        for &byte in input {
-            if escape_next {
-                escape_next = false;
-                continue;
-            }
-
-            match byte {
-                b'"' if !escape_next => in_string = !in_string,
-                b'\\' if in_string => escape_next = true,
-                b'{' | b'[' if !in_string => {
-                    depth += 1;
-                    max_seen = max_seen.max(depth);
-                    if depth > max_depth {
-                        return Err(MaosError::InvalidInput {
-                            message: format!(
-                                "JSON nesting depth {depth} exceeds maximum {max_depth}"
-                            ),
-                        });
-                    }
-                }
-                b'}' | b']' if !in_string => {
-                    depth = depth.saturating_sub(1);
-                }
-                _ => {}
-            }
-        }
-
-        Ok(())
+        // Use a very large size limit since we're only checking depth here
+        crate::security::json::validate_json_structure(
+            input,
+            max_depth,
+            usize::MAX, // Only depth matters for this function
+        )
     }
 
     /// Get current memory usage for DoS protection monitoring

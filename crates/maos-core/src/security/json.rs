@@ -44,7 +44,7 @@ pub fn validate_json_structure(json_bytes: &[u8], max_depth: u32, max_size: usiz
     let depth = calculate_json_depth(json_bytes)?;
     if depth > max_depth {
         return Err(MaosError::Security(SecurityError::PolicyViolation {
-            policy: format!("JSON depth {depth} exceeds limit {max_depth}"),
+            policy: format!("JSON nesting depth {depth} exceeds maximum {max_depth}"),
         }));
     }
 

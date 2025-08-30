@@ -10,15 +10,19 @@
 pub mod command;
 pub mod file;
 pub mod json;
-pub mod path;
+pub mod path_validator;
 pub mod resource;
+pub mod resource_validator;
+pub mod traits;
+pub mod validator;
 
 // Re-export key types for convenience
 pub use command::validate_command;
 pub use file::validate_file_access;
 pub use json::validate_json_structure;
-pub use path::validate_path_safety;
+pub use path_validator::PathSecurityValidator;
 pub use resource::validate_resource_usage;
+pub use validator::SecurityValidator;
 
 #[cfg(test)]
 mod tests {
@@ -41,7 +45,7 @@ mod tests {
         ];
 
         for path in dangerous_paths {
-            let result = validate_path_safety(Path::new(path));
+            let result = PathSecurityValidator::validate_all_security_aspects(Path::new(path));
             assert!(result.is_err(), "Path traversal not detected: {path}");
         }
 
@@ -54,7 +58,7 @@ mod tests {
         ];
 
         for path in safe_paths {
-            let result = validate_path_safety(Path::new(path));
+            let result = PathSecurityValidator::validate_all_security_aspects(Path::new(path));
             assert!(result.is_ok(), "Safe path rejected: {path}");
         }
     }
@@ -156,7 +160,7 @@ mod tests {
             }
             path.push_str(&suffix);
 
-            let result = validate_path_safety(Path::new(&path));
+            let result = PathSecurityValidator::validate_all_security_aspects(Path::new(&path));
 
             // Path traversal should be detected
             prop_assert!(result.is_err(), "Failed to detect traversal in: {path}");
@@ -226,7 +230,8 @@ mod tests {
         // Test path validation
         let start = Instant::now();
         for _ in 0..10_000 {
-            let _ = validate_path_safety(Path::new("/tmp/test.txt"));
+            let _ =
+                PathSecurityValidator::validate_all_security_aspects(Path::new("/tmp/test.txt"));
         }
         let path_duration = start.elapsed();
         println!("Path validation (10,000 iterations): {path_duration:?}");

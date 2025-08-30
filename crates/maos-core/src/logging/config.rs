@@ -116,7 +116,10 @@ mod tests {
         let config = RollingLogConfig::default();
 
         // Should use constants from constants module
-        assert_eq!(config.max_file_size_bytes, 10 * 1024 * 1024); // 10MB
+        assert_eq!(
+            config.max_file_size_bytes,
+            crate::constants::MAX_LOG_FILE_SIZE
+        );
         assert_eq!(config.max_files_per_session, 10);
         assert!(config.compress_on_roll);
         assert_eq!(config.file_pattern, "session-{session_id}.log");

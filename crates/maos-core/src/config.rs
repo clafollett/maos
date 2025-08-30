@@ -21,19 +21,24 @@ use std::fs::File;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
+use crate::constants::{MAOS_ROOT_DIR, WORKSPACES_DIR_NAME};
 use crate::error::{ConfigError, Result};
 
 /// System-wide configuration settings
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SystemConfig {
+    /// Default project root directory
+    #[serde(default = "default_project_root")]
+    pub project_root: PathBuf,
+
+    /// Default workspace root directory
+    #[serde(default = "default_workspaces_root")]
+    pub workspaces_root: PathBuf,
+
     /// Maximum execution time for any operation (ms)
     #[serde(default = "default_max_execution_time")]
     pub max_execution_time_ms: u64,
-
-    /// Default workspace root directory
-    #[serde(default = "default_workspace_root")]
-    pub workspace_root: PathBuf,
 
     /// Enable performance metrics collection
     #[serde(default = "default_true")]
@@ -399,8 +404,9 @@ impl Default for MaosConfig {
     fn default() -> Self {
         Self {
             system: SystemConfig {
+                project_root: default_project_root(),
+                workspaces_root: default_workspaces_root(),
                 max_execution_time_ms: default_max_execution_time(),
-                workspace_root: default_workspace_root(),
                 enable_metrics: default_true(),
             },
             security: SecurityConfig {
@@ -967,7 +973,7 @@ impl ConfigLoader {
         }
 
         if let Some(val) = env_vars.get("MAOS_SYSTEM_WORKSPACE_ROOT") {
-            config.system.workspace_root = PathBuf::from(val);
+            config.system.workspaces_root = PathBuf::from(val);
         }
 
         // Security overrides
@@ -1011,33 +1017,38 @@ impl ConfigLoader {
 fn default_max_execution_time() -> u64 {
     60_000
 }
-fn default_workspace_root() -> PathBuf {
-    // Use git repository root (like Claude Code hooks) + .maos subdirectory
-    // Equivalent to: $(git rev-parse --show-toplevel 2>/dev/null || pwd)
-    use std::process::Command;
 
-    let git_root = Command::new("git")
-        .args(["rev-parse", "--show-toplevel"])
-        .output()
-        .ok()
-        .and_then(|output| {
-            if output.status.success() {
-                String::from_utf8(output.stdout)
-                    .ok()
-                    .map(|s| PathBuf::from(s.trim()))
-            } else {
-                None
-            }
-        });
+fn default_project_root() -> PathBuf {
+    // Check MAOS_PROJECT_ROOT_DIR environment variable first. If it is set,
+    // use it as the workspace root.
+    let project_root = std::env::var("MAOS_PROJECT_ROOT_DIR").ok();
+    if let Some(project_root) = project_root {
+        return PathBuf::from(project_root);
+    }
 
-    let base_dir =
-        git_root.unwrap_or_else(|| std::env::current_dir().unwrap_or_else(|_| PathBuf::from(".")));
+    // With CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR enabled,
+    // std::env::current_dir() ALWAYS returns the workspace root!
+    // This is instant (no subprocess calls) and always accurate.
+    // First, try to get the actual workspace root from current_dir
+    if let Ok(cwd) = std::env::current_dir() {
+        return cwd;
+    }
 
-    base_dir.join(".maos").join("workspaces")
+    // Fallback (should never happen with Claude Code)
+    PathBuf::from(".")
 }
+
+fn default_workspaces_root() -> PathBuf {
+    let base_dir = default_project_root();
+
+    // Append the .maos/workspaces subdirectory as expected by the system
+    base_dir.join(MAOS_ROOT_DIR).join(WORKSPACES_DIR_NAME)
+}
+
 fn default_true() -> bool {
     true
 }
+
 fn default_allowed_tools() -> Vec<String> {
     vec!["*".to_string()]
 }
@@ -1058,6 +1069,7 @@ fn default_max_json_depth() -> u32 {
 fn default_stdin_read_timeout_ms() -> u64 {
     100 // 100ms per read operation
 }
+
 // TTS configuration defaults
 fn default_tts_enabled() -> bool {
     true
@@ -1188,24 +1200,31 @@ fn default_pyttsx3_rate() -> u32 {
 fn default_pyttsx3_volume() -> f32 {
     0.9
 }
+
 fn default_max_agents() -> u32 {
     20
 }
+
 fn default_timeout_minutes() -> u32 {
     60
 }
+
 fn default_worktree_prefix() -> String {
     "maos-agent".to_string()
 }
+
 fn default_max_worktrees() -> u32 {
     50
 }
+
 fn default_log_level() -> LogLevel {
     LogLevel::Info
 }
+
 fn default_log_format() -> String {
     "json".to_string()
 }
+
 fn default_log_output() -> String {
     "session_file".to_string()
 }
@@ -1226,9 +1245,11 @@ mod tests {
         assert_eq!(cfg.system.max_execution_time_ms, 60_000);
         // Workspace root should be git repository root + .maos/workspaces
         assert!(
-            cfg.system.workspace_root.ends_with(".maos/workspaces"),
+            cfg.system
+                .workspaces_root
+                .ends_with(format!("{MAOS_ROOT_DIR}/{WORKSPACES_DIR_NAME}")),
             "Workspace root should end with .maos/workspaces, got: {:?}",
-            cfg.system.workspace_root
+            cfg.system.workspaces_root
         );
         assert!(cfg.system.enable_metrics);
 
@@ -1295,7 +1316,7 @@ mod tests {
         let cfg = loader.load_with_env(env_vars).unwrap();
 
         assert_eq!(cfg.system.max_execution_time_ms, 5000);
-        assert_eq!(cfg.system.workspace_root, PathBuf::from("/custom/path"));
+        assert_eq!(cfg.system.workspaces_root, PathBuf::from("/custom/path"));
         assert!(!cfg.security.enable_validation);
         // TTS provider should remain default (no env override)
         assert_eq!(cfg.tts.provider, "pyttsx3");
@@ -1529,9 +1550,10 @@ mod tests {
     fn test_config_from_json_string() {
         let json = r#"{
             "system": {
+                "project_root": "/test/project_root",
+                "workspaces_root": "/test/project_root/.maos/workspaces",
                 "max_execution_time_ms": 30000,
-                "workspace_root": "/test/path",
-                "enable_metrics": false
+                "enable_metrics": true
             },
             "security": {
                 "enable_validation": true,
@@ -1585,7 +1607,13 @@ mod tests {
         let loader = ConfigLoader::new();
         let cfg = loader.load_from_str(json).unwrap();
 
+        assert_eq!(cfg.system.project_root, PathBuf::from("/test/project_root"));
+        assert_eq!(
+            cfg.system.workspaces_root,
+            PathBuf::from("/test/project_root/.maos/workspaces")
+        );
         assert_eq!(cfg.system.max_execution_time_ms, 30000);
+        assert!(cfg.system.enable_metrics);
         assert_eq!(cfg.security.allowed_tools, vec!["bash", "python"]);
         assert!(cfg.tts.enabled);
         assert_eq!(cfg.tts.provider, "pyttsx3");
@@ -1624,9 +1652,9 @@ mod tests {
         // Default values should still be present
         // Workspace root should be git repository root + .maos/workspaces
         assert!(
-            cfg.system.workspace_root.ends_with(".maos/workspaces"),
+            cfg.system.workspaces_root.ends_with(".maos/workspaces"),
             "Workspace root should end with .maos/workspaces, got: {:?}",
-            cfg.system.workspace_root
+            cfg.system.workspaces_root
         );
         assert_eq!(cfg.logging.format, "json");
         assert!(cfg.security.enable_validation);
@@ -1662,16 +1690,16 @@ mod tests {
         let mut cfg = MaosConfig::default();
 
         // Test absolute path
-        cfg.system.workspace_root = PathBuf::from("/absolute/path/to/workspace");
-        assert!(cfg.system.workspace_root.is_absolute());
+        cfg.system.workspaces_root = PathBuf::from("/absolute/path/to/workspace");
+        assert!(cfg.system.workspaces_root.is_absolute());
 
         // Test relative path (should be made absolute by implementation)
-        cfg.system.workspace_root = PathBuf::from("relative/path");
+        cfg.system.workspaces_root = PathBuf::from("relative/path");
         // In practice, this would be resolved to absolute
         assert!(cfg.validate().is_ok());
 
         // Test path with special characters
-        cfg.system.workspace_root = PathBuf::from("/path with spaces/workspace");
+        cfg.system.workspaces_root = PathBuf::from("/path with spaces/workspace");
         assert!(cfg.validate().is_ok());
 
         // Test very long path
@@ -1679,7 +1707,7 @@ mod tests {
         for i in 0..100 {
             long_path.push(format!("dir{i}"));
         }
-        cfg.system.workspace_root = long_path;
+        cfg.system.workspaces_root = long_path;
         assert!(cfg.validate().is_ok());
     }
 

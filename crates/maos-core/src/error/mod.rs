@@ -6,6 +6,8 @@
 //! Implemented for issue #39: foundational error types and exit code mapping.
 //! Hook test: automatic cargo fmt and clippy integration.
 
+pub mod utils;
+
 use thiserror::Error;
 
 /// Convenient result alias for MAOS operations.

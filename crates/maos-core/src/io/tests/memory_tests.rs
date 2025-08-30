@@ -13,15 +13,15 @@ async fn test_memory_exhaustion_attack_blocked() {
     // 🚨 CRITICAL: Test that repeated large allocations are blocked
     let config = HookConfig {
         max_input_size_mb: 2, // Small limit for testing
-        max_processing_time_ms: 1000,
-        stdin_read_timeout_ms: 500,
-        max_json_depth: 10,
+        max_processing_time_ms: crate::constants::VALIDATION_TIMEOUT_MS,
+        stdin_read_timeout_ms: crate::constants::STDIN_TIMEOUT_MS,
+        max_json_depth: crate::constants::JSON_DEPTH_TEST,
     };
 
     let processor = StdinProcessor::new(config);
 
     // Attempt to allocate beyond memory limits
-    let attack_size = 5 * 1024 * 1024; // 5MB > 2MB limit
+    let attack_size = 5 * crate::constants::BYTES_PER_MB; // 5MB > 2MB limit
 
     let result = processor.validate_size(attack_size);
     assert!(result.is_err(), "Memory DoS attack should be blocked");
@@ -35,9 +35,9 @@ async fn test_rapid_allocation_attack() {
     // 🔥 Test protection against rapid allocation attacks
     let config = HookConfig {
         max_input_size_mb: 1,
-        max_processing_time_ms: 1000,
-        stdin_read_timeout_ms: 500,
-        max_json_depth: 10,
+        max_processing_time_ms: crate::constants::VALIDATION_TIMEOUT_MS,
+        stdin_read_timeout_ms: crate::constants::STDIN_TIMEOUT_MS,
+        max_json_depth: crate::constants::JSON_DEPTH_TEST,
     };
 
     let processor = Arc::new(StdinProcessor::new(config));
@@ -79,14 +79,22 @@ fn test_memory_dos_protection_logic() {
 
     // Mock scenario: memory growth that should trigger warning
     fn should_warn_about_memory_growth(growth_bytes: usize) -> bool {
-        growth_bytes > 50 * 1024 * 1024 // Our 50MB threshold from processor.rs:159
+        growth_bytes > crate::constants::MEMORY_WARNING_THRESHOLD
     }
 
     // Test our logic with various scenarios
-    assert!(!should_warn_about_memory_growth(1024 * 1024)); // 1MB - OK
-    assert!(!should_warn_about_memory_growth(40 * 1024 * 1024)); // 40MB - OK
-    assert!(should_warn_about_memory_growth(60 * 1024 * 1024)); // 60MB - WARN
-    assert!(should_warn_about_memory_growth(100 * 1024 * 1024)); // 100MB - WARN
+    assert!(!should_warn_about_memory_growth(
+        crate::constants::BYTES_PER_MB
+    )); // 1MB - OK
+    assert!(!should_warn_about_memory_growth(
+        40 * crate::constants::BYTES_PER_MB
+    )); // 40MB - OK
+    assert!(should_warn_about_memory_growth(
+        60 * crate::constants::BYTES_PER_MB
+    )); // 60MB - WARN
+    assert!(should_warn_about_memory_growth(
+        100 * crate::constants::BYTES_PER_MB
+    )); // 100MB - WARN
 }
 
 #[test]
@@ -159,15 +167,15 @@ fn test_memory_dos_error_messages_sanitized() {
     // 🔍 Test that memory DoS error messages don't leak sensitive info
     let config = HookConfig {
         max_input_size_mb: 1, // 1MB limit
-        max_processing_time_ms: 1000,
-        stdin_read_timeout_ms: 500,
-        max_json_depth: 10,
+        max_processing_time_ms: crate::constants::VALIDATION_TIMEOUT_MS,
+        stdin_read_timeout_ms: crate::constants::STDIN_TIMEOUT_MS,
+        max_json_depth: crate::constants::JSON_DEPTH_TEST,
     };
 
     let processor = StdinProcessor::new(config);
 
     // Attempt allocation beyond limit
-    let attack_size = 10 * 1024 * 1024; // 10MB
+    let attack_size = crate::constants::MAX_INPUT_SIZE; // 10MB
     let result = processor.validate_size(attack_size);
 
     assert!(result.is_err());
@@ -188,15 +196,15 @@ fn test_memory_limit_edge_cases() {
     let configs = [
         HookConfig {
             max_input_size_mb: 0, // Zero limit
-            max_processing_time_ms: 1000,
-            stdin_read_timeout_ms: 500,
-            max_json_depth: 10,
+            max_processing_time_ms: crate::constants::VALIDATION_TIMEOUT_MS,
+            stdin_read_timeout_ms: crate::constants::STDIN_TIMEOUT_MS,
+            max_json_depth: crate::constants::JSON_DEPTH_TEST,
         },
         HookConfig {
             max_input_size_mb: 100, // Reasonable high limit
-            max_processing_time_ms: 1000,
-            stdin_read_timeout_ms: 500,
-            max_json_depth: 10,
+            max_processing_time_ms: crate::constants::VALIDATION_TIMEOUT_MS,
+            stdin_read_timeout_ms: crate::constants::STDIN_TIMEOUT_MS,
+            max_json_depth: crate::constants::JSON_DEPTH_TEST,
         },
     ];
 

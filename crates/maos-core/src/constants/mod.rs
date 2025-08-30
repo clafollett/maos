@@ -64,6 +64,13 @@
 //! assert!(!validate_performance(15, 3)); // Too slow
 //! ```
 
+pub mod limits;
+pub mod sizes;
+
+// Re-export commonly used constants at the module level
+pub use limits::*;
+pub use sizes::*;
+
 use std::time::Duration;
 
 // =============================================================================
@@ -140,8 +147,7 @@ pub const METRICS_FILE_NAME: &str = "metrics.json";
 /// Log file name pattern for session logs
 pub const LOG_FILE_PATTERN: &str = "session-{session_id}.log";
 
-/// Maximum size per log file before rotation (10MB)
-pub const MAX_LOG_FILE_SIZE: usize = 10 * 1024 * 1024;
+// MAX_LOG_FILE_SIZE is now defined in sizes::MAX_LOG_FILE_SIZE and re-exported
 
 /// Maximum number of rolled log files to keep per session
 pub const MAX_LOG_FILES_PER_SESSION: usize = 10;
