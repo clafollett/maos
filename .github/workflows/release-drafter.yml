@@ -4,9 +4,6 @@ on:
   push:
     branches:
       - main
-  # Also run when PRs are merged
-  pull_request:
-    types: [opened, reopened, synchronize]
   # Allow manual trigger to update draft
   workflow_dispatch:
 
@@ -20,8 +17,8 @@ jobs:
     steps:
       - name: Update Release Draft
         uses: release-drafter/release-drafter@v5
-        # Only run on main branch pushes (not PRs)
-        if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
+        # Only run on main branch pushes or manual triggers
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         with:
           config-name: release-drafter.yml
         env:

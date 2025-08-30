@@ -25,7 +25,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    # Remove the if condition since it's now manual-only
+    # Removed automatic trigger condition since workflow is now manual-only
     steps:
       - uses: actions/checkout@v4
         with:
@@ -70,7 +70,7 @@ jobs:
       - name: Publish Draft Release
         run: |
           # Find and publish the draft release
-          DRAFT_RELEASE=$(gh release list --draft --limit 1 --json tagName -q '.[0].tagName')
+          DRAFT_RELEASE=$(gh release list --draft --limit 1 --json tagName -q 'if length > 0 then .[0].tagName else empty end')
           
           if [ -n "$DRAFT_RELEASE" ]; then
             echo "Publishing draft release: $DRAFT_RELEASE"
