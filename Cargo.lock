@@ -713,7 +713,7 @@ checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "maos"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "assert_cmd",
  "async-trait",
@@ -735,7 +735,7 @@ dependencies = [
 
 [[package]]
 name = "maos-core"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
  "anyhow",
  "bytes",
